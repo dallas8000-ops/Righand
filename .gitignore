@@ -1,0 +1,87 @@
+# Git ignore file for RigHand AI
+
+# Dependencies
+node_modules/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Build outputs
+frontend/build/
+backend/dist/
+backend/build/
+
+# Logs
+npm-debug.log*
+npm-err.log*
+yarn-debug.log*
+yarn-err.log*
+*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+righand.db
+
+# Temp files
+*.tmp
+*.temp
+.cache/
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/settings.json
+.vscode/launch.json
+
+# Docker
+docker-compose.override.yml
+
+# Sensitive data
+*.key
+*.pem
+*.p12
+secrets.json
+credentials.json
+
+# Optional
+.env.test
+.env.development
+.env.staging
+
+# Package manager lock files (optional, uncomment if needed)
+# package-lock.json
+# yarn.lock
+# Pipfile.lock

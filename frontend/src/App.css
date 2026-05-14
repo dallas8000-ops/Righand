@@ -1,0 +1,36 @@
+.App {
+  width: 100%;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.loader {
+  text-align: center;
+  color: white;
+  animation: fadeIn 0.5s;
+}
+
+.loader p:first-child {
+  font-size: 36px;
+  margin-bottom: 20px;
+}
+
+.loader p:last-child {
+  font-size: 18px;
+  opacity: 0.9;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
