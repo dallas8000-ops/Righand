@@ -42,6 +42,7 @@ const getCategoryLabel = (value) => {
 
 const Dashboard = ({ user, onLogout }) => {
   const speechRecognitionRef = useRef(null);
+  const toastTimerRef = useRef(null);
   const [expenses, setExpenses] = useState([]);
   const [profit, setProfit] = useState({ totalIncome: 0, totalExpenses: 0, netProfit: 0 });
   const [loading, setLoading] = useState(true);
@@ -55,10 +56,13 @@ const Dashboard = ({ user, onLogout }) => {
   });
   const [syncStatus, setSyncStatus] = useState('synced');
   const [filter, setFilter] = useState({ category: '', type: '' });
+  const [searchText, setSearchText] = useState('');
+  const [sortBy, setSortBy] = useState('date_desc');
   const [customCategoryInput, setCustomCategoryInput] = useState('');
   const [speechSupported, setSpeechSupported] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceHint, setVoiceHint] = useState('');
+  const [toast, setToast] = useState({ message: '', type: '' });
   const [customCategories, setCustomCategories] = useState(() => {
     try {
       const saved = localStorage.getItem('customCategories');
@@ -75,6 +79,12 @@ const Dashboard = ({ user, onLogout }) => {
     ...customCategories,
     ...categoryValuesFromExpenses
   ]));
+  const pendingCount = expenses.filter(expense => expense.offline || expense.synced === false).length;
+  const monthEntryCount = expenses.filter(expense => {
+    const entryDate = new Date(expense.date);
+    const now = new Date();
+    return entryDate.getMonth() === now.getMonth() && entryDate.getFullYear() === now.getFullYear();
+  }).length;
 
   // Load expenses on mount
   useEffect(() => {
@@ -91,6 +101,14 @@ const Dashboard = ({ user, onLogout }) => {
   useEffect(() => {
     localStorage.setItem('customCategories', JSON.stringify(customCategories));
   }, [customCategories]);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -148,6 +166,16 @@ const Dashboard = ({ user, onLogout }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => {
+      setToast({ message: '', type: '' });
+    }, 2600);
   };
 
   const calculateProfit = async () => {
@@ -213,12 +241,15 @@ const Dashboard = ({ user, onLogout }) => {
 
       if (result.offline) {
         setSyncStatus('pending');
+        showToast('Saved offline. Will sync when internet returns.', 'warning');
       } else {
         setSyncStatus('synced');
+        showToast('Entry saved successfully.', 'success');
       }
     } catch (error) {
       alert('Error adding expense: ' + error.message);
       setSyncStatus('error');
+      showToast('Failed to save entry.', 'error');
     }
   };
 
@@ -230,8 +261,10 @@ const Dashboard = ({ user, onLogout }) => {
       await ExpenseAPI.deleteExpense(expenseId, userId);
       setExpenses(expenses.filter(e => e.id !== expenseId));
       setSyncStatus('synced');
+      showToast('Entry deleted.', 'success');
     } catch (error) {
       alert('Error deleting expense: ' + error.message);
+      showToast('Unable to delete entry.', 'error');
     }
   };
 
@@ -263,6 +296,7 @@ const Dashboard = ({ user, onLogout }) => {
     setCustomCategories(prev => [...prev, normalizedCategory]);
     setFormData(prev => ({ ...prev, category: normalizedCategory }));
     setCustomCategoryInput('');
+    showToast(`Category "${getCategoryLabel(normalizedCategory)}" added.`, 'success');
   };
 
   const applyVoiceCommand = (spokenText) => {
@@ -307,14 +341,30 @@ const Dashboard = ({ user, onLogout }) => {
     setVoiceHint(`Captured: "${spokenText}"`);
   };
 
-  const handleVoiceCapture = () => {
+  const startVoiceCapture = () => {
     if (!speechRecognitionRef.current) {
       setVoiceHint('Voice recognition is not supported in this browser.');
       return;
     }
 
+    if (isListening) {
+      return;
+    }
+
     setShowForm(true);
-    speechRecognitionRef.current.start();
+    try {
+      speechRecognitionRef.current.start();
+    } catch (error) {
+      setVoiceHint('Microphone is already active. Release and try again.');
+    }
+  };
+
+  const stopVoiceCapture = () => {
+    if (!speechRecognitionRef.current || !isListening) {
+      return;
+    }
+
+    speechRecognitionRef.current.stop();
   };
 
   const applyUsualTemplate = (template) => {
@@ -330,7 +380,19 @@ const Dashboard = ({ user, onLogout }) => {
   const filteredExpenses = expenses.filter(e => {
     if (filter.category && e.category !== filter.category) return false;
     if (filter.type && e.type !== filter.type) return false;
+    if (searchText) {
+      const query = searchText.toLowerCase();
+      const haystack = `${e.description} ${e.category} ${e.type}`.toLowerCase();
+      if (!haystack.includes(query)) return false;
+    }
     return true;
+  });
+
+  const sortedExpenses = [...filteredExpenses].sort((a, b) => {
+    if (sortBy === 'date_asc') return new Date(a.date) - new Date(b.date);
+    if (sortBy === 'amount_desc') return (Number(b.amount) || 0) - (Number(a.amount) || 0);
+    if (sortBy === 'amount_asc') return (Number(a.amount) || 0) - (Number(b.amount) || 0);
+    return new Date(b.date) - new Date(a.date);
   });
 
   const profitStatus = profit.netProfit >= 0 ? 'positive' : 'negative';
@@ -355,6 +417,12 @@ const Dashboard = ({ user, onLogout }) => {
       </header>
 
       <main className="dashboard-main">
+        {toast.message && (
+          <div className={`toast-banner ${toast.type}`} role="status" aria-live="polite">
+            {toast.message}
+          </div>
+        )}
+
         <section className="profit-summary">
           <div className="profit-card income">
             <h3>Monthly Income</h3>
@@ -367,6 +435,21 @@ const Dashboard = ({ user, onLogout }) => {
           <div className={`profit-card net-profit ${profitStatus}`}>
             <h3>Net Profit</h3>
             <p className="amount">${profit.netProfit.toFixed(2)}</p>
+          </div>
+        </section>
+
+        <section className="insight-strip">
+          <div className="insight-pill">
+            <span className="insight-label">Entries This Month</span>
+            <strong>{monthEntryCount}</strong>
+          </div>
+          <div className="insight-pill">
+            <span className="insight-label">Pending Sync</span>
+            <strong>{pendingCount}</strong>
+          </div>
+          <div className="insight-pill">
+            <span className="insight-label">Current Mode</span>
+            <strong>{syncStatus === 'offline' ? 'Offline' : 'Online'}</strong>
           </div>
         </section>
 
@@ -416,13 +499,21 @@ const Dashboard = ({ user, onLogout }) => {
                   />
                   {speechSupported && (
                     <div className="voice-controls">
+                      <div className={`voice-live-indicator ${isListening ? 'active' : ''}`}>
+                        <span className="voice-live-dot" />
+                        <span>{isListening ? 'Live: listening from microphone' : 'Idle: hold button to talk'}</span>
+                      </div>
                       <button
                         type="button"
-                        className={`btn-secondary voice-btn ${isListening ? 'listening' : ''}`}
-                        onClick={handleVoiceCapture}
-                        disabled={isListening}
+                        className={`btn-secondary voice-btn voice-btn-ptt ${isListening ? 'listening' : ''}`}
+                        onMouseDown={startVoiceCapture}
+                        onMouseUp={stopVoiceCapture}
+                        onMouseLeave={stopVoiceCapture}
+                        onTouchStart={startVoiceCapture}
+                        onTouchEnd={stopVoiceCapture}
+                        onTouchCancel={stopVoiceCapture}
                       >
-                        {isListening ? '🎙 Listening...' : '🎤 Voice Entry'}
+                        {isListening ? '🎙 Release To Submit Voice' : '🎤 Hold To Talk'}
                       </button>
                       <small className="form-help">Say: "Fuel expense 125" or "Load income 800". Bluetooth headset mics work automatically.</small>
                       {voiceHint && <small className="voice-hint">{voiceHint}</small>}
@@ -441,6 +532,18 @@ const Dashboard = ({ user, onLogout }) => {
                     min="0"
                     required
                   />
+                  <div className="quick-amounts" role="group" aria-label="Quick amount buttons">
+                    {(formData.type === 'income' ? ['500', '800', '1200'] : ['25', '75', '150']).map(value => (
+                      <button
+                        key={value}
+                        type="button"
+                        className="quick-amount-btn"
+                        onClick={() => setFormData(prev => ({ ...prev, amount: value }))}
+                      >
+                        ${value}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -503,6 +606,13 @@ const Dashboard = ({ user, onLogout }) => {
         <section className="expenses-section">
           <h2>Expense History</h2>
           <div className="filters">
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Search description or category"
+              className="filter-input"
+            />
             <select 
               value={filter.type} 
               onChange={(e) => setFilter({...filter, type: e.target.value})}
@@ -522,12 +632,27 @@ const Dashboard = ({ user, onLogout }) => {
                 <option key={category} value={category}>{getCategoryLabel(category)}</option>
               ))}
             </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="filter-select"
+            >
+              <option value="date_desc">Newest First</option>
+              <option value="date_asc">Oldest First</option>
+              <option value="amount_desc">Amount High-Low</option>
+              <option value="amount_asc">Amount Low-High</option>
+            </select>
           </div>
 
           {loading ? (
             <p className="loading">Loading expenses...</p>
           ) : filteredExpenses.length === 0 ? (
-            <p className="no-data">No expenses recorded yet. Add your first entry!</p>
+            <div className="no-data">
+              <p>No expenses recorded yet. Add your first entry!</p>
+              <button type="button" className="btn-primary" onClick={() => setShowForm(true)}>
+                + Add First Entry
+              </button>
+            </div>
           ) : (
             <table className="expenses-table">
               <thead>
@@ -541,7 +666,7 @@ const Dashboard = ({ user, onLogout }) => {
                 </tr>
               </thead>
               <tbody>
-                {filteredExpenses.map(expense => (
+                {sortedExpenses.map(expense => (
                   <tr key={expense.id} className={expense.offline ? 'offline' : ''}>
                     <td>{new Date(expense.date).toLocaleDateString()}</td>
                     <td>{expense.description}</td>
