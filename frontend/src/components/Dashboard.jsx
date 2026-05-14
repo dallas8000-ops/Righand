@@ -1,7 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { ExpenseAPI, SyncManager } from '../services/api';
-import { ExpenseDB } from '../services/offlineDB';
 import './Dashboard.css';
+
+const DEFAULT_CATEGORIES = [
+  { value: 'fuel', label: 'Fuel' },
+  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'tolls', label: 'Tolls' },
+  { value: 'food', label: 'Food/Hotel' },
+  { value: 'other', label: 'Other' },
+  { value: 'load', label: 'Load/Freight Income' }
+];
+
+const USUAL_EXPENSE_TEMPLATES = [
+  { label: 'Fuel Stop', description: 'Fuel stop', category: 'fuel', type: 'expense' },
+  { label: 'Toll Charge', description: 'Toll charge', category: 'tolls', type: 'expense' },
+  { label: 'Food/Hotel', description: 'Food and hotel', category: 'food', type: 'expense' },
+  { label: 'Maintenance', description: 'Truck maintenance', category: 'maintenance', type: 'expense' },
+  { label: 'Load Income', description: 'Load payment', category: 'load', type: 'income' }
+];
+
+const CATEGORY_LABEL_MAP = DEFAULT_CATEGORIES.reduce((acc, category) => {
+  acc[category.value] = category.label;
+  return acc;
+}, {});
+
+const normalizeCategoryValue = (value) => value
+  .trim()
+  .toLowerCase()
+  .replace(/\s+/g, '-')
+  .replace(/[^a-z0-9-]/g, '');
+
+const getCategoryLabel = (value) => {
+  if (!value) return 'Uncategorized';
+  if (CATEGORY_LABEL_MAP[value]) return CATEGORY_LABEL_MAP[value];
+  return value
+    .split('-')
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 const Dashboard = ({ user, onLogout }) => {
   const [expenses, setExpenses] = useState([]);
@@ -17,8 +54,23 @@ const Dashboard = ({ user, onLogout }) => {
   });
   const [syncStatus, setSyncStatus] = useState('synced');
   const [filter, setFilter] = useState({ category: '', type: '' });
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
+  const [customCategories, setCustomCategories] = useState(() => {
+    try {
+      const saved = localStorage.getItem('customCategories');
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      return [];
+    }
+  });
 
   const userId = localStorage.getItem('userId') || user?.id;
+  const categoryValuesFromExpenses = expenses.map(expense => expense.category).filter(Boolean);
+  const allCategoryValues = Array.from(new Set([
+    ...DEFAULT_CATEGORIES.map(category => category.value),
+    ...customCategories,
+    ...categoryValuesFromExpenses
+  ]));
 
   // Load expenses on mount
   useEffect(() => {
@@ -31,6 +83,10 @@ const Dashboard = ({ user, onLogout }) => {
   useEffect(() => {
     calculateProfit();
   }, [expenses]);
+
+  useEffect(() => {
+    localStorage.setItem('customCategories', JSON.stringify(customCategories));
+  }, [customCategories]);
 
   const loadExpenses = async () => {
     setLoading(true);
@@ -80,7 +136,7 @@ const Dashboard = ({ user, onLogout }) => {
 
   const handleAddExpense = async (e) => {
     e.preventDefault();
-    if (!formData.description || !formData.amount) {
+    if (!formData.description || !formData.amount || !formData.category) {
       alert('Please fill in all fields');
       return;
     }
@@ -134,7 +190,42 @@ const Dashboard = ({ user, onLogout }) => {
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'category' && value === '__custom__') {
+      setFormData(prev => ({ ...prev, category: '' }));
+      return;
+    }
+
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCreateCategory = (e) => {
+    e.preventDefault();
+    const normalizedCategory = normalizeCategoryValue(customCategoryInput);
+
+    if (!normalizedCategory) {
+      alert('Please enter a valid category name.');
+      return;
+    }
+
+    if (allCategoryValues.includes(normalizedCategory)) {
+      setFormData(prev => ({ ...prev, category: normalizedCategory }));
+      setCustomCategoryInput('');
+      return;
+    }
+
+    setCustomCategories(prev => [...prev, normalizedCategory]);
+    setFormData(prev => ({ ...prev, category: normalizedCategory }));
+    setCustomCategoryInput('');
+  };
+
+  const applyUsualTemplate = (template) => {
+    setShowForm(true);
+    setFormData(prev => ({
+      ...prev,
+      description: template.description,
+      category: template.category,
+      type: template.type
+    }));
   };
 
   const filteredExpenses = expenses.filter(e => {
@@ -192,6 +283,23 @@ const Dashboard = ({ user, onLogout }) => {
           </button>
         </section>
 
+        <section className="usual-expenses-section">
+          <h2>Usual Expenses / Income</h2>
+          <p className="usual-expenses-help">Use one-click templates to fill common entries faster.</p>
+          <div className="usual-expenses-grid">
+            {USUAL_EXPENSE_TEMPLATES.map(template => (
+              <button
+                key={template.label}
+                type="button"
+                className="usual-expense-btn"
+                onClick={() => applyUsualTemplate(template)}
+              >
+                {template.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
         {showForm && (
           <section className="expense-form-section">
             <h2>Add Expense/Income</h2>
@@ -234,13 +342,30 @@ const Dashboard = ({ user, onLogout }) => {
                 <div className="form-group">
                   <label>Category</label>
                   <select name="category" value={formData.category} onChange={handleFormChange}>
-                    <option value="fuel">Fuel</option>
-                    <option value="maintenance">Maintenance</option>
-                    <option value="tolls">Tolls</option>
-                    <option value="food">Food/Hotel</option>
-                    <option value="other">Other</option>
-                    <option value="load">Load/Freight Income</option>
+                    <option value="">Select category</option>
+                    {allCategoryValues.map(category => (
+                      <option key={category} value={category}>{getCategoryLabel(category)}</option>
+                    ))}
+                    <option value="__custom__">+ Create New Category</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Create Category</label>
+                  <div className="category-create-group">
+                    <input
+                      type="text"
+                      value={customCategoryInput}
+                      onChange={(e) => setCustomCategoryInput(e.target.value)}
+                      placeholder="e.g., parking, insurance"
+                    />
+                    <button type="button" className="btn-secondary" onClick={handleCreateCategory}>
+                      Add Category
+                    </button>
+                  </div>
+                  <small className="form-help">Creates a reusable category and selects it for this entry.</small>
                 </div>
               </div>
 
@@ -280,12 +405,9 @@ const Dashboard = ({ user, onLogout }) => {
               className="filter-select"
             >
               <option value="">All Categories</option>
-              <option value="fuel">Fuel</option>
-              <option value="maintenance">Maintenance</option>
-              <option value="tolls">Tolls</option>
-              <option value="food">Food/Hotel</option>
-              <option value="load">Load Income</option>
-              <option value="other">Other</option>
+              {allCategoryValues.map(category => (
+                <option key={category} value={category}>{getCategoryLabel(category)}</option>
+              ))}
             </select>
           </div>
 
@@ -310,7 +432,7 @@ const Dashboard = ({ user, onLogout }) => {
                   <tr key={expense.id} className={expense.offline ? 'offline' : ''}>
                     <td>{new Date(expense.date).toLocaleDateString()}</td>
                     <td>{expense.description}</td>
-                    <td><span className="badge">{expense.category}</span></td>
+                    <td><span className="badge">{getCategoryLabel(expense.category)}</span></td>
                     <td>
                       <span className={`type-badge ${expense.type}`}>
                         {expense.type === 'income' ? '↓ Income' : '↑ Expense'}
