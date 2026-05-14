@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ExpenseAPI, SyncManager } from '../services/api';
 import './Dashboard.css';
 
@@ -41,6 +41,7 @@ const getCategoryLabel = (value) => {
 };
 
 const Dashboard = ({ user, onLogout }) => {
+  const speechRecognitionRef = useRef(null);
   const [expenses, setExpenses] = useState([]);
   const [profit, setProfit] = useState({ totalIncome: 0, totalExpenses: 0, netProfit: 0 });
   const [loading, setLoading] = useState(true);
@@ -55,6 +56,9 @@ const Dashboard = ({ user, onLogout }) => {
   const [syncStatus, setSyncStatus] = useState('synced');
   const [filter, setFilter] = useState({ category: '', type: '' });
   const [customCategoryInput, setCustomCategoryInput] = useState('');
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceHint, setVoiceHint] = useState('');
   const [customCategories, setCustomCategories] = useState(() => {
     try {
       const saved = localStorage.getItem('customCategories');
@@ -87,6 +91,49 @@ const Dashboard = ({ user, onLogout }) => {
   useEffect(() => {
     localStorage.setItem('customCategories', JSON.stringify(customCategories));
   }, [customCategories]);
+
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setSpeechSupported(false);
+      return;
+    }
+
+    setSpeechSupported(true);
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setVoiceHint('Listening... speak your entry now.');
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      setTimeout(() => setVoiceHint(''), 1800);
+    };
+
+    recognition.onerror = () => {
+      setVoiceHint('Voice input failed. Please try again.');
+      setIsListening(false);
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript?.trim();
+      if (!transcript) return;
+      applyVoiceCommand(transcript);
+    };
+
+    speechRecognitionRef.current = recognition;
+
+    return () => {
+      if (speechRecognitionRef.current) {
+        speechRecognitionRef.current.stop();
+      }
+    };
+  }, []);
 
   const loadExpenses = async () => {
     setLoading(true);
@@ -218,6 +265,58 @@ const Dashboard = ({ user, onLogout }) => {
     setCustomCategoryInput('');
   };
 
+  const applyVoiceCommand = (spokenText) => {
+    const text = spokenText.toLowerCase();
+    const categoryKeywords = [
+      { keywords: ['fuel', 'diesel', 'gas'], category: 'fuel' },
+      { keywords: ['maintenance', 'repair', 'service'], category: 'maintenance' },
+      { keywords: ['toll', 'tolls'], category: 'tolls' },
+      { keywords: ['food', 'hotel', 'meal', 'lodging'], category: 'food' },
+      { keywords: ['load', 'freight', 'income', 'payment'], category: 'load' }
+    ];
+
+    const amountMatch = text.match(/(\d+(\.\d{1,2})?)/);
+    const parsedAmount = amountMatch ? amountMatch[1] : '';
+
+    let parsedCategory = 'other';
+    for (const rule of categoryKeywords) {
+      if (rule.keywords.some(keyword => text.includes(keyword))) {
+        parsedCategory = rule.category;
+        break;
+      }
+    }
+
+    const parsedType = (text.includes('income') || text.includes('load') || text.includes('payment'))
+      ? 'income'
+      : 'expense';
+
+    const cleanedDescription = spokenText
+      .replace(/\$?\d+(\.\d{1,2})?/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    setShowForm(true);
+    setFormData(prev => ({
+      ...prev,
+      description: cleanedDescription || prev.description,
+      amount: parsedAmount || prev.amount,
+      category: parsedCategory,
+      type: parsedType
+    }));
+
+    setVoiceHint(`Captured: "${spokenText}"`);
+  };
+
+  const handleVoiceCapture = () => {
+    if (!speechRecognitionRef.current) {
+      setVoiceHint('Voice recognition is not supported in this browser.');
+      return;
+    }
+
+    setShowForm(true);
+    speechRecognitionRef.current.start();
+  };
+
   const applyUsualTemplate = (template) => {
     setShowForm(true);
     setFormData(prev => ({
@@ -315,6 +414,20 @@ const Dashboard = ({ user, onLogout }) => {
                     placeholder="e.g., Fuel stop, Maintenance"
                     required
                   />
+                  {speechSupported && (
+                    <div className="voice-controls">
+                      <button
+                        type="button"
+                        className={`btn-secondary voice-btn ${isListening ? 'listening' : ''}`}
+                        onClick={handleVoiceCapture}
+                        disabled={isListening}
+                      >
+                        {isListening ? '🎙 Listening...' : '🎤 Voice Entry'}
+                      </button>
+                      <small className="form-help">Say: "Fuel expense 125" or "Load income 800". Bluetooth headset mics work automatically.</small>
+                      {voiceHint && <small className="voice-hint">{voiceHint}</small>}
+                    </div>
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Amount ($)</label>

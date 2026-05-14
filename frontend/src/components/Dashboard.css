@@ -302,6 +302,27 @@
   color: #666;
 }
 
+.voice-controls {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.voice-btn {
+  align-self: flex-start;
+}
+
+.voice-btn.listening {
+  border-color: #ef4444;
+  background: #fff1f2;
+  color: #b91c1c;
+}
+
+.voice-hint {
+  color: #334155;
+}
+
 .expense-form > .btn-primary {
   align-self: flex-start;
   margin-top: 10px;
