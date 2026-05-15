@@ -17,7 +17,11 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     """Production configuration"""
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///righand.db')
+    _database_url = os.environ.get('DATABASE_URL', 'sqlite:///righand.db')
+    # Render may provide postgres://; SQLAlchemy expects postgresql://
+    if _database_url.startswith('postgres://'):
+        _database_url = _database_url.replace('postgres://', 'postgresql://', 1)
+    SQLALCHEMY_DATABASE_URI = _database_url
 
 class TestingConfig(Config):
     """Testing configuration"""
