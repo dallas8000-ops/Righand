@@ -1,13 +1,31 @@
 .auth-container {
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
+  overflow: hidden;
+}
+
+.auth-truck-bg {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(96vw, 820px);
+  max-height: 65vh;
+  object-fit: contain;
+  object-position: center bottom;
+  opacity: 0.5;
+  pointer-events: none;
+  filter: drop-shadow(0 16px 40px rgba(0, 0, 0, 0.3));
 }
 
 .auth-card {
+  position: relative;
+  z-index: 1;
   background: white;
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);

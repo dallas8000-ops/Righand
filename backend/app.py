@@ -5,7 +5,11 @@ from config import config
 from models import db
 from routes_auth import auth_bp
 from routes_expenses import expenses_bp
+from routes_reports import reports_bp
+from routes_fleet import fleet_bp
+from routes_categories import categories_bp
 import os
+from migrate import run_migrations
 
 def create_app(env=None):
     """Application factory"""
@@ -27,6 +31,9 @@ def create_app(env=None):
     # Register blueprints
     app.register_blueprint(auth_bp)
     app.register_blueprint(expenses_bp)
+    app.register_blueprint(reports_bp)
+    app.register_blueprint(fleet_bp)
+    app.register_blueprint(categories_bp)
     
     # Health check endpoint
     @app.route('/health', methods=['GET'])
@@ -50,6 +57,7 @@ def create_app(env=None):
     # Create tables
     with app.app_context():
         db.create_all()
+        run_migrations(db)
     
     return app
 

@@ -1,405 +1,185 @@
-# 🚚 RigHand AI - Full-Stack Application
+# RigHand AI
 
-> A full-featured expense tracking and profit monitoring system for truck drivers
+RigHand AI is a full-stack expense and profit tracking platform built for truck drivers. It supports online and offline workflows, secure authentication, and production deployment on Render.
 
-[![Status](https://img.shields.io/badge/status-production--ready-brightgreen)]()
-[![License](https://img.shields.io/badge/license-proprietary-blue)]()
+## 1. Product Summary
 
-## 🎯 Overview
+RigHand AI helps drivers record daily costs and load income, then automatically calculate net profit for a selected period.
 
-RigHand AI is a logistics-tech application built for truck drivers to:
-- 📊 Track real-time expenses and income
-- 💰 Calculate accurate net profit
-- 📱 Work offline with automatic sync
-- 🔐 Secure authentication and data management
-- 💡 Make financial decisions on the road
+Primary goals:
+- Fast entry of expenses and income while on the road
+- Offline-first operation with background sync
+- Secure user isolation and token-based authentication
+- Easy cloud deployment for demos and client review
 
-**Milestones:**
-- ✅ **Milestone 1**: Firebase/Firestore foundation, User Auth, Frontend Connection
-- ✅ **Milestone 2**: Offline Persistence, Expense Tracking, UI Polish
+## 2. Live Deployment
 
----
+- Frontend: https://righand-frontend.onrender.com
+- Backend API: https://righand.onrender.com
+- Health endpoint: https://righand.onrender.com/health
 
-## 🚀 Quick Start
+## 3. Core Features
 
-### Prerequisites
-- Node.js 14+ and npm
-- Python 3.8+
-- Git (optional)
+### 3.1 Authentication and Security
+- User registration and login
+- JWT token authentication
+- Password hashing
+- User-level data isolation
 
-### Installation
+### 3.2 Expense and Profit Management
+- Create, update, delete expense or income entries
+- Category-based tracking
+- Date-based profit calculation
+- Dashboard summary cards
 
-1. **Backend Setup** (Terminal 1)
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python app.py
-```
+### 3.3 Offline-First Experience
+- IndexedDB local persistence
+- Sync queue for offline changes
+- Automatic background sync when connection returns
 
-2. **Frontend Setup** (Terminal 2)
-```bash
-cd frontend
-npm install
-npm start
-```
+### 3.4 Driver-Oriented UX
+- Demo mode for quick testing
+- Quick entry templates
+- Search, filter, and sorting
+- Night Drive mode for low-glare visibility
+- Voice input support (browser speech recognition)
 
-3. **Access Application**
-```
-Frontend: http://localhost:3000
-Backend:  http://localhost:5000
-```
+## 4. Architecture
 
-4. **Test with Demo Mode**
-- Click "Demo Mode" button on login
-- Or create account and test features
+RigHand AI uses a two-tier architecture:
+- Frontend: React single-page application
+- Backend: Flask REST API
+- Database: SQLite locally, PostgreSQL in production
 
----
+High-level flow:
+1. Frontend writes instantly to local IndexedDB
+2. Frontend attempts API sync in background
+3. Backend validates JWT and writes to SQL database
+4. Frontend updates local records with sync status
 
-## 📚 Documentation
+## 5. Technology Stack
 
-| Document | Purpose |
-|----------|---------|
-| [SETUP.md](docs/SETUP.md) | Complete setup and configuration guide |
-| [API.md](docs/API.md) | API endpoints and testing examples |
-| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Production deployment & code protection |
-| [TESTING.md](docs/TESTING.md) | Test scenarios and checklist |
+Frontend:
+- React 18
+- Axios
+- Dexie (IndexedDB wrapper)
+- React Router
 
----
+Backend:
+- Flask
+- Flask-JWT-Extended
+- Flask-SQLAlchemy
+- Flask-CORS
+- Gunicorn
 
-## 🏗️ Architecture
+Data:
+- SQLite (development)
+- PostgreSQL (Render production)
 
-### Two-Tier System
+Deployment:
+- Render Web Services
+- GitHub integration
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Frontend (React)                         │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │ - User Auth (Login/Register)                            ││
-│  │ - Expense Dashboard                                      ││
-│  │ - Profit Calculation                                     ││
-│  │ - Offline Support (IndexedDB)                            ││
-│  └─────────────────────────────────────────────────────────┘│
-│                          ↕                                    │
-│                    API Layer (Axios)                          │
-│                          ↕                                    │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │ Backend (Flask Python)                                   ││
-│  │ ┌───────────────────────────────────────────────────┐   ││
-│  │ │ Routes:                                           │   ││
-│  │ │ - /api/auth/* (Login, Register, Verify)          │   ││
-│  │ │ - /api/expenses/* (CRUD operations)              │   ││
-│  │ │ - /api/expenses/profit (Calculations)            │   ││
-│  │ └───────────────────────────────────────────────────┘   ││
-│  │         ↓                                                 ││
-│  │ ┌───────────────────────────────────────────────────┐   ││
-│  │ │ Database (SQLite / PostgreSQL)                   │   ││
-│  │ │ - Users                                           │   ││
-│  │ │ - Expenses                                        │   ││
-│  │ │ - SyncLogs                                        │   ││
-│  │ └───────────────────────────────────────────────────┘   ││
-│  └─────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────┘
-```
+## 6. API Overview
 
-### Offline-First Architecture
+Authentication routes:
+- POST /api/auth/register
+- POST /api/auth/login
+- GET /api/auth/verify
+- POST /api/auth/logout
 
-```
-┌─────────────────────────────────────┐
-│  User Takes Action (Add Expense)    │
-└────────────┬────────────────────────┘
-             │
-             ↓
-┌─────────────────────────────────────┐
-│  Save to Local IndexedDB (Instant)  │
-│  ✓ Works offline immediately        │
-│  ✓ No network required              │
-└────────────┬────────────────────────┘
-             │
-             ↓
-┌─────────────────────────────────────┐
-│  Internet Available?                 │
-└────┬────────────────────────────┬───┘
-     │ YES                        │ NO
-     ↓                           ↓
-┌──────────────────┐   ┌──────────────────┐
-│ Sync with Server │   │ Add to Sync Queue│
-│ Update local rec │   │ Show status      │
-│ Remove from queue│   │ Pending Sync ⧖   │
-└──────────────────┘   └──────────────────┘
-     ↓
-┌─────────────────────────────────────┐
-│  Connection Restored?               │
-└────┬───────────────────────────┬────┘
-     │ YES                       │ NO
-     ↓                          ↓
- AUTO SYNC              Keep in Queue
-```
+Expense routes:
+- POST /api/expenses
+- GET /api/expenses/user/{user_id}
+- PUT /api/expenses/{expense_id}
+- DELETE /api/expenses/{expense_id}
+- GET /api/expenses/profit
 
----
+System routes:
+- GET /health
 
-## 🎨 Features
+## 7. Environment Variables
 
-### ✅ Implemented
+### 7.1 Backend (Render)
+Required:
+- FLASK_ENV=production
+- SECRET_KEY=<your secret>
+- JWT_SECRET_KEY=<your secret>
+- DATABASE_URL=<render internal postgres url>
+- CORS_ORIGINS=https://righand-frontend.onrender.com
+- PYTHON_VERSION=3.11.9
 
-#### Core Features
-- [x] User Registration & Authentication
-- [x] Secure Password Storage (Bcrypt)
-- [x] JWT Token-Based Auth
-- [x] Expense Tracking (CRUD)
-- [x] Income Tracking
-- [x] Profit Calculation
-- [x] Category Management
-- [x] Date Filtering
+### 7.2 Frontend (Render)
+Required:
+- REACT_APP_API_URL=https://righand.onrender.com
 
-#### Offline & Sync
-- [x] Local IndexedDB Storage
-- [x] Automatic Sync Queue
-- [x] Background Sync Manager
-- [x] Offline Mode Detection
-- [x] Conflict Resolution
-- [x] Sync Status Indicators
+## 8. Local Development
 
-#### UI/UX
-- [x] Responsive Design
-- [x] Mobile Optimized
-- [x] Real-time Profit Dashboard
-- [x] Expense Table with Sorting
-- [x] Category Filters
-- [x] Form Validation
-- [x] Error Messages
-- [x] Loading States
-- [x] Demo Mode
+Backend:
+1. Open terminal in backend
+2. Install dependencies: pip install -r requirements.txt
+3. Run API: python app.py
 
-#### Database
-- [x] User Management
-- [x] Expense Persistence
-- [x] Audit Logging
-- [x] Data Validation
+Frontend:
+1. Open terminal in frontend
+2. Install dependencies: npm install
+3. Run app: npm start
 
-### 🔮 Future Enhancements
-- [ ] Voice-activated input (AI integration)
-- [ ] Photo receipts
-- [ ] Multi-device sync
-- [ ] CSV export
-- [ ] Recurring expenses
-- [ ] Budget alerts
-- [ ] Analytics dashboard
-- [ ] Mobile app (React Native)
-- [ ] Cloud backup (Firebase/AWS)
-- [ ] Multi-currency support
+Local URLs:
+- Frontend: http://localhost:3000
+- Backend: http://localhost:5000
 
----
+## 9. Render Deployment Reference
 
-## 🛠️ Technology Stack
+Backend service:
+- Root Directory: backend
+- Build Command: pip install -r requirements.txt
+- Start Command: gunicorn --bind 0.0.0.0:$PORT app:app
 
-### Frontend
-- **React 18** - UI framework
-- **Dexie** - IndexedDB wrapper for offline persistence
-- **Axios** - HTTP client
-- **CSS3** - Responsive styling
+Frontend service:
+- Root Directory: frontend
+- Build Command: npm install && npm run build
+- Start Command: npx serve -s build -l $PORT
 
-### Backend
-- **Flask** - Web framework
-- **SQLAlchemy** - ORM
-- **Flask-JWT-Extended** - JWT authentication
-- **SQLite/PostgreSQL** - Database
+## 10. Project Structure
 
-### DevOps
-- **Docker** - Containerization
-- **Docker Compose** - Container orchestration
-- **Nginx** - Reverse proxy
-- **GitHub Actions** - CI/CD (optional)
-
----
-
-## 📊 API Overview
-
-### Authentication Endpoints
-```
-POST   /api/auth/register     - Create new account
-POST   /api/auth/login        - Login user
-GET    /api/auth/verify       - Verify token
-POST   /api/auth/logout       - Logout user
-```
-
-### Expense Endpoints
-```
-POST   /api/expenses          - Create expense
-GET    /api/expenses/user/:id - Get user expenses
-PUT    /api/expenses/:id      - Update expense
-DELETE /api/expenses/:id      - Delete expense
-GET    /api/expenses/profit   - Calculate profit
-```
-
-See [API.md](docs/API.md) for full documentation.
-
----
-
-## 🧪 Testing
-
-### Quick Test with Demo Mode
-1. Open http://localhost:3000
-2. Click "Demo Mode" button
-3. Add expenses and verify calculations
-4. Test offline mode (DevTools → Network → Offline)
-
-### Full Integration Test
-1. Register new account
-2. Add income and expense entries
-3. Verify profit calculation
-4. Go offline, add more entries
-5. Go online and verify sync
-6. Clear cache and reload (data persists)
-
-See [TESTING.md](docs/TESTING.md) for comprehensive test scenarios.
-
----
-
-## 🔐 Security Features
-
-- ✅ Password hashing (Bcrypt)
-- ✅ JWT token authentication
-- ✅ User isolation (can only view own data)
-- ✅ CORS configuration
-- ✅ Input validation
-- ✅ Error handling (no sensitive data in errors)
-- ✅ Environment variable management
-- ⭕ HTTPS ready (configure in production)
-
----
-
-## 📦 Deployment Options
-
-1. **Local Development** - npm/pip
-2. **Docker Compose** - Single command deployment
-3. **Cloud Platforms** - Heroku, Render, AWS, DigitalOcean
-4. **Compiled Binaries** - PyInstaller + npm build
-5. **Containerized** - Docker images with source protection
-
-See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed options.
-
----
-
-## 🤝 Project Structure
-
-```
 RigHand/
-├── frontend/                    # React application
-│   ├── public/
-│   │   └── index.html
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── AuthForm.jsx
-│   │   │   ├── Dashboard.jsx
-│   │   │   └── *.css
-│   │   ├── services/
-│   │   │   ├── api.js           # API calls & sync
-│   │   │   └── offlineDB.js     # IndexedDB operations
-│   │   ├── App.jsx
-│   │   ├── App.css
-│   │   └── index.jsx
-│   ├── package.json
-│   └── .env.example
-│
-├── backend/                     # Flask API
-│   ├── app.py                   # Main application
-│   ├── models.py                # Database models
-│   ├── config.py                # Configuration
-│   ├── routes_auth.py           # Auth endpoints
-│   ├── routes_expenses.py       # Expense endpoints
-│   ├── requirements.txt
-│   └── .env.example
-│
-├── docs/                        # Documentation
-│   ├── SETUP.md                 # Setup guide
-│   ├── API.md                   # API documentation
-│   ├── DEPLOYMENT.md            # Deployment guide
-│   └── TESTING.md               # Testing guide
-│
-├── docker-compose.yml           # Docker compose file
-├── README.md                    # This file
-└── LICENSE                      # License (if applicable)
-```
+- backend/
+  - app.py
+  - config.py
+  - models.py
+  - routes_auth.py
+  - routes_expenses.py
+  - requirements.txt
+- frontend/
+  - src/
+    - components/
+    - services/
+  - package.json
+- docs/
+- README.md
 
----
+## 11. Verification Checklist
 
-## ⚡ Performance
+After deployment, verify:
+1. Backend health endpoint returns status healthy
+2. Frontend loads login screen
+3. Demo mode opens dashboard
+4. New entry can be created and refreshed
+5. No browser CORS errors
 
-- **Offline Response**: < 50ms (local storage)
-- **API Response**: < 500ms (network dependent)
-- **Page Load**: < 2s (optimized bundle)
-- **Database Query**: < 100ms (SQLite)
-- **Bundle Size**: ~150KB (gzipped)
+## 12. Mobile APK Path (Later)
 
----
+Current deployment is web-first. To convert to mobile later:
+1. Keep backend API as is
+2. Migrate frontend to React Native or wrap with Capacitor
+3. Reuse auth and expense endpoints
+4. Add mobile storage and permissions handling
 
-## 🐛 Troubleshooting
+## 13. License
 
-### Backend won't start
-```bash
-# Check Python version
-python --version  # Should be 3.8+
+Proprietary. All rights reserved.
 
-# Check dependencies
-pip list | grep flask
+## 14. Status
 
-# Reinstall dependencies
-pip install -r requirements.txt --force-reinstall
-```
-
-### Frontend can't connect
-```
-Check:
-1. Backend is running on http://localhost:5000
-2. CORS is enabled (should be by default)
-3. .env.local has correct REACT_APP_API_URL
-4. Firewall isn't blocking port 5000
-```
-
-### Offline mode not working
-```
-Check:
-1. Browser supports IndexedDB
-2. Clear browser cache and cookies
-3. Check DevTools → Application → Storage → IndexedDB
-```
-
-See [SETUP.md](docs/SETUP.md) for more troubleshooting.
-
----
-
-## 📝 License
-
-Proprietary - All Rights Reserved
-
-This application is proprietary software. Unauthorized reproduction, distribution, or modification is prohibited.
-
----
-
-## 📞 Support
-
-For issues or questions:
-1. Check [SETUP.md](docs/SETUP.md)
-2. Review [API.md](docs/API.md)
-3. Check [TESTING.md](docs/TESTING.md)
-4. Contact: [support email]
-
----
-
-## 🎉 Acknowledgments
-
-Built for **RigHand AI** - solving the financial blind spot in the trucking industry.
-
----
-
-## 📈 Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
-
----
-
-**Last Updated**: January 15, 2024  
-**Version**: 1.0.0  
-**Status**: ✅ Production Ready
+Production live on Render.

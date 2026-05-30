@@ -61,9 +61,14 @@ function App() {
   if (loading) {
     return (
       <div className="loading-container">
+        <img
+          src={`${process.env.PUBLIC_URL}/truck-console-bg.png`}
+          alt=""
+          className="loading-truck"
+        />
         <div className="loader">
-          <p>🚚 RigHand AI</p>
-          <p>Loading...</p>
+          <p>RigHand AI</p>
+          <p>Loading your cab console…</p>
         </div>
       </div>
     );

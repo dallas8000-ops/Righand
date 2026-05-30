@@ -6,6 +6,38 @@ import uuid
 
 expenses_bp = Blueprint('expenses', __name__, url_prefix='/api/expenses')
 
+
+def _apply_expense_fields(expense, data):
+    """Apply optional Pro-tier fields from request payload."""
+    optional_float_fields = {
+        'miles': 'miles',
+        'gallons': 'gallons',
+        'odometer': 'odometer',
+        'deadheadMiles': 'deadhead_miles',
+        'deadhead_miles': 'deadhead_miles',
+        'tollsAmount': 'tolls_amount',
+        'tolls_amount': 'tolls_amount',
+        'fuelCostAlloc': 'fuel_cost_alloc',
+        'fuel_cost_alloc': 'fuel_cost_alloc',
+    }
+    for key, attr in optional_float_fields.items():
+        if key in data:
+            value = data.get(key)
+            setattr(expense, attr, float(value) if value not in (None, '') else None)
+
+    if 'receiptUrl' in data or 'receipt_url' in data:
+        expense.receipt_url = data.get('receiptUrl') or data.get('receipt_url')
+    if 'notes' in data:
+        expense.notes = data.get('notes')
+    if 'broker' in data:
+        expense.broker = data.get('broker') or None
+    if 'customer' in data:
+        expense.customer = data.get('customer') or None
+    if 'fuelState' in data or 'fuel_state' in data:
+        state = data.get('fuelState') or data.get('fuel_state')
+        expense.fuel_state = state.upper()[:2] if state else None
+
+
 @expenses_bp.route('', methods=['POST'])
 @jwt_required()
 def create_expense():
@@ -32,6 +64,7 @@ def create_expense():
             notes=data.get('notes'),
             is_synced=True
         )
+        _apply_expense_fields(expense, data)
         
         db.session.add(expense)
         
@@ -115,12 +148,14 @@ def update_expense(expense_id):
             expense.amount = float(data['amount'])
         if 'category' in data:
             expense.category = data['category']
-        if 'type' in data:
-            expense.expense_type = data['type']
+        if 'type' in data or 'expense_type' in data:
+            expense.expense_type = data.get('type') or data.get('expense_type')
         if 'date' in data:
             expense.expense_date = datetime.fromisoformat(data['date']).date()
         if 'notes' in data:
             expense.notes = data['notes']
+
+        _apply_expense_fields(expense, data)
         
         expense.updated_at = datetime.utcnow()
         

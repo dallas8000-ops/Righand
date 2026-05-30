@@ -1,6 +1,5 @@
 import Dexie from 'dexie';
 
-// Initialize local database for offline persistence
 export const db = new Dexie('RigHandDB');
 
 db.version(1).stores({
@@ -9,7 +8,12 @@ db.version(1).stores({
   syncQueue: '++id, userId, timestamp, synced'
 });
 
-// Expenses table operations
+db.version(2).stores({
+  expenses: '++id, userId, date, category, serverId',
+  users: '++id, email, userId',
+  syncQueue: '++id, userId, timestamp, synced'
+});
+
 export const ExpenseDB = {
   async addExpense(expense) {
     return await db.expenses.add({
@@ -36,14 +40,27 @@ export const ExpenseDB = {
   },
 
   async updateExpense(id, updates) {
-    return await db.expenses.update(id, {
+    const patch = {
       ...updates,
-      synced: false,
+      synced: updates.synced ?? false,
       updatedAt: new Date().toISOString()
-    });
+    };
+    const numericId = Number.isInteger(id) ? id : null;
+    if (numericId) {
+      return await db.expenses.update(numericId, patch);
+    }
+    const all = await db.expenses.toArray();
+    const match = all.find(e => e.serverId === id || String(e.id) === String(id));
+    if (!match) return 0;
+    return await db.expenses.update(match.id, patch);
   },
 
   async deleteExpense(id) {
+    const all = await db.expenses.toArray();
+    const match = all.find(e => e.serverId === id || String(e.id) === String(id) || e.id === id);
+    if (match) {
+      return await db.expenses.delete(match.id);
+    }
     return await db.expenses.delete(id);
   },
 
@@ -52,7 +69,6 @@ export const ExpenseDB = {
   }
 };
 
-// Sync queue operations
 export const SyncQueueDB = {
   async addToQueue(userId, action, data) {
     return await db.syncQueue.add({
@@ -84,7 +100,6 @@ export const SyncQueueDB = {
   }
 };
 
-// User session management
 export const UserDB = {
   async saveUserSession(userId, email, userData) {
     return await db.users.put({

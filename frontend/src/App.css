@@ -3,34 +3,56 @@
 }
 
 .loading-container {
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  overflow: hidden;
+}
+
+.loading-truck {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(96vw, 880px);
+  max-height: 70vh;
+  object-fit: contain;
+  object-position: center bottom;
+  opacity: 0.55;
+  pointer-events: none;
+  filter: drop-shadow(0 20px 56px rgba(0, 0, 0, 0.35));
+  animation: loadingTruckFloat 6s ease-in-out infinite;
+}
+
+@keyframes loadingTruckFloat {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-10px); }
 }
 
 .loader {
+  position: relative;
+  z-index: 1;
   text-align: center;
   color: white;
   animation: fadeIn 0.5s;
 }
 
 .loader p:first-child {
-  font-size: 36px;
+  font-size: clamp(1.75rem, 6vw, 2.25rem);
   margin-bottom: 20px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .loader p:last-child {
-  font-size: 18px;
+  font-size: clamp(1rem, 3vw, 1.125rem);
   opacity: 0.9;
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

@@ -75,6 +75,11 @@ const AuthForm = ({ onAuthSuccess, isLogin = true }) => {
 
   return (
     <div className="auth-container">
+      <img
+        src={`${process.env.PUBLIC_URL}/truck-console-bg.png`}
+        alt=""
+        className="auth-truck-bg"
+      />
       <div className="auth-card">
         <h1>🚚 RigHand AI</h1>
         <h2>{isLogin ? 'Driver Login' : 'Register'}</h2>

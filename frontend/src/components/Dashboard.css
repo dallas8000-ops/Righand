@@ -1,15 +1,239 @@
+/* --- Night Drive Mode --- */
+.night-drive,
+body.night-drive {
+  background: #181c23 !important;
+  color: #e0e7ef !important;
+}
+
+.night-drive .dashboard-header,
+body.night-drive .dashboard-header {
+  background: linear-gradient(135deg, #232946 0%, #181c23 100%) !important;
+  color: #e0e7ef !important;
+}
+
+.night-drive .profit-card,
+.night-drive .insight-pill,
+.night-drive .expense-form-section,
+.night-drive .expenses-section,
+.night-drive .usual-expenses-section {
+  background: #232946 !important;
+  color: #e0e7ef !important;
+  border-color: #2d334a !important;
+}
+
+.night-drive .btn-primary,
+.night-drive .btn-secondary,
+.night-drive .usual-expense-btn,
+.night-drive .quick-amount-btn {
+  background: #232946 !important;
+  color: #e0e7ef !important;
+  border-color: #3b4252 !important;
+}
+
+.night-drive .btn-primary:hover,
+.night-drive .btn-secondary:hover,
+.night-drive .usual-expense-btn:hover,
+.night-drive .quick-amount-btn:hover {
+  background: #181c23 !important;
+  color: #facc15 !important;
+  border-color: #facc15 !important;
+}
+
+.night-drive .expenses-table th,
+.night-drive .expenses-table td {
+  background: #232946 !important;
+  color: #e0e7ef !important;
+}
+
+.night-drive .badge {
+  background: #2d334a !important;
+  color: #facc15 !important;
+}
+
+.night-drive .type-badge.income {
+  background: rgba(34,197,94,0.18) !important;
+  color: #a3e635 !important;
+}
+.night-drive .type-badge.expense {
+  background: rgba(251,191,36,0.18) !important;
+  color: #facc15 !important;
+}
+
+.night-drive .sync-status {
+  background: rgba(250, 204, 21, 0.12) !important;
+  color: #facc15 !important;
+}
+
+.night-drive .toast-banner.success {
+  background: #1e293b !important;
+  border-color: #a3e635 !important;
+  color: #a3e635 !important;
+}
+.night-drive .toast-banner.warning {
+  background: #1e293b !important;
+  border-color: #facc15 !important;
+  color: #facc15 !important;
+}
+.night-drive .toast-banner.error {
+  background: #1e293b !important;
+  border-color: #f87171 !important;
+  color: #f87171 !important;
+}
+
+.night-drive .filter-input,
+.night-drive .filter-select {
+  background: #232946 !important;
+  color: #e0e7ef !important;
+  border-color: #2d334a !important;
+}
+
+.night-drive .filter-input:focus,
+.night-drive .filter-select:focus {
+  border-color: #facc15 !important;
+}
+
+.night-drive .voice-live-indicator.active {
+  border-color: #facc15 !important;
+  background: #232946 !important;
+  color: #facc15 !important;
+}
+
+/* --- Night Drive Toggle --- */
+.night-toggle-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.night-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+}
+.night-toggle-label input[type="checkbox"] {
+  display: none;
+}
+.night-toggle-slider {
+  width: 38px;
+  height: 22px;
+  background: #cbd5e1;
+  border-radius: 12px;
+  position: relative;
+  transition: background 0.2s;
+}
+.night-toggle-label input[type="checkbox"]:checked + .night-toggle-slider {
+  background: #232946;
+}
+.night-toggle-slider::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: left 0.2s, background 0.2s;
+}
+.night-toggle-label input[type="checkbox"]:checked + .night-toggle-slider::after {
+  left: 19px;
+  background: #facc15;
+}
+.night-toggle-text {
+  margin-left: 2px;
+  color: #64748b;
+}
+.night-drive .night-toggle-text {
+  color: #facc15;
+}
 .dashboard {
+  position: relative;
   min-height: 100vh;
-  background: #f5f7fa;
+  background: linear-gradient(160deg, #eef2ff 0%, #f5f7fa 38%, #e2e8f0 100%);
+  overflow-x: hidden;
+}
+
+/* --- Console screensaver truck imprint --- */
+.console-screensaver {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.console-truck-art {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(100vw, 920px);
+  height: auto;
+  max-height: 72vh;
+  object-fit: contain;
+  object-position: center bottom;
+  opacity: 0.36;
+  filter: drop-shadow(0 16px 48px rgba(15, 23, 42, 0.35));
+  animation: truckScreensaver 18s ease-in-out infinite;
+}
+
+.console-screensaver::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(238, 242, 255, 0.55) 0%,
+    rgba(245, 247, 250, 0.15) 35%,
+    rgba(245, 247, 250, 0.05) 60%,
+    rgba(30, 41, 59, 0.08) 100%
+  );
+  pointer-events: none;
+}
+
+.console-screensaver-glow {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  transform: translateX(-50%);
+  width: min(90vw, 720px);
+  height: 180px;
+  background: radial-gradient(ellipse, rgba(102, 126, 234, 0.28) 0%, transparent 70%);
+  animation: glowPulse 8s ease-in-out infinite;
+}
+
+@keyframes truckScreensaver {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0) scale(1);
+    opacity: 0.32;
+  }
+  50% {
+    transform: translateX(-50%) translateY(-10px) scale(1.02);
+    opacity: 0.42;
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
 }
 
 .dashboard-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.97) 0%, rgba(118, 75, 162, 0.97) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   color: white;
-  padding: 30px 20px;
+  padding: 16px 16px 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding-top: max(16px, env(safe-area-inset-top));
 }
 
+.header-top,
 .header-content {
   max-width: 1200px;
   margin: 0 auto;
@@ -17,26 +241,115 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: 12px;
+}
+
+.header-brand h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
+  line-height: 1.2;
 }
 
 .dashboard-header h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .sync-status {
-  font-size: 12px;
-  padding: 6px 12px;
+  font-size: clamp(0.8rem, 2.5vw, 0.875rem);
+  padding: 8px 12px;
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  border-radius: 6px;
   font-weight: 600;
+}
+
+.btn-logout {
+  padding: 10px 16px;
+  font-size: clamp(0.875rem, 2.5vw, 1rem);
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+  min-height: 44px;
+}
+
+.btn-logout:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.user-info {
+  margin: 6px 0 0;
+  font-size: clamp(0.875rem, 2.5vw, 1rem);
+  opacity: 0.9;
+}
+
+/* --- Header navigation --- */
+.header-nav {
+  max-width: 1200px;
+  margin: 12px auto 0;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 0 0 12px;
+}
+
+.header-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.header-nav-item {
+  flex: 1 0 auto;
+  min-width: 72px;
+  min-height: 52px;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: clamp(0.9rem, 2.8vw, 1rem);
+  font-weight: 600;
+  transition: background 0.2s, color 0.2s;
+  touch-action: manipulation;
+}
+
+.header-nav-item:hover {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.header-nav-item.active {
+  background: #fff;
+  color: #667eea;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.header-nav-icon {
+  font-size: clamp(1.25rem, 4vw, 1.5rem);
+  line-height: 1;
+}
+
+.header-nav-label {
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .sync-status.synced {
@@ -52,34 +365,12 @@
   background: rgba(244, 67, 54, 0.3);
 }
 
-.btn-logout {
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: 1px solid white;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.btn-logout:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.user-info {
-  margin: 10px 0 0 0;
-  font-size: 14px;
-  opacity: 0.9;
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
 .dashboard-main {
+  position: relative;
+  z-index: 1;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 30px 20px;
+  padding: 20px 16px 30px;
 }
 
 .toast-banner {
@@ -135,25 +426,29 @@
 
 .insight-label {
   font-size: 12px;
-  color: #64748b;
+  color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  font-weight: 600;
 }
 
 .profit-card {
-  background: white;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.9);
   border-left: 4px solid #667eea;
 }
 
 .profit-card h3 {
   margin: 0 0 10px 0;
   font-size: 14px;
-  color: #666;
+  color: #334155;
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .profit-card .amount {
@@ -207,10 +502,8 @@
 }
 
 .usual-expenses-section {
-  background: white;
   padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
   margin-bottom: 30px;
 }
 
@@ -281,11 +574,23 @@
   color: white;
 }
 
+.expense-form-section,
+.expenses-section,
+.usual-expenses-section,
+.reports-section,
+.hos-section,
+.receipt-gallery,
+.fleet-dashboard {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.07);
+}
+
 .expense-form-section {
-  background: white;
   padding: 25px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
   margin-bottom: 30px;
 }
 
@@ -376,11 +681,17 @@
   border-color: #667eea;
 }
 
+.voice-btn-tap {
+  align-self: flex-start;
+  font-size: 13px;
+  padding: 8px 14px;
+}
+
 .voice-controls {
   margin-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .voice-btn {
@@ -453,10 +764,8 @@
 }
 
 .expenses-section {
-  background: white;
   padding: 25px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
 }
 
 .expenses-section h2 {
@@ -598,9 +907,54 @@
 }
 
 @media (max-width: 768px) {
-  .header-content {
+  .header-top {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+  }
+
+  .header-actions {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .header-nav {
+    gap: 8px;
+    padding-bottom: 14px;
+  }
+
+  .header-nav-item {
+    min-width: 80px;
+    min-height: 56px;
+    font-size: 1rem;
+    padding: 12px 16px;
+  }
+
+  .header-nav-icon {
+    font-size: 1.4rem;
+  }
+
+  .hero-truck-imprint {
+    width: 100%;
+    opacity: 1;
+  }
+
+  .hero-with-truck::before {
+    background: linear-gradient(
+      180deg,
+      rgba(15, 23, 42, 0.88) 0%,
+      rgba(15, 23, 42, 0.55) 55%,
+      rgba(15, 23, 42, 0.25) 100%
+    );
+  }
+
+  .hero-metric-content {
+    max-width: 100%;
+  }
+
+  .console-truck-art {
+    width: 120vw;
+    max-height: 55vh;
+    opacity: 0.3;
   }
 
   .profit-summary {
@@ -632,7 +986,11 @@
   }
 
   .dashboard-header h1 {
-    font-size: 22px;
+    font-size: 1.4rem;
+  }
+
+  .dashboard-main {
+    padding: 16px 12px 24px;
   }
 
   .expense-form {
@@ -640,11 +998,1180 @@
   }
 
   .expenses-table {
-    font-size: 12px;
+    display: none;
+  }
+}
+
+/* --- Pro tier layout --- */
+@media (min-width: 768px) {
+  .header-nav {
+    gap: 10px;
+    overflow-x: visible;
   }
 
-  .expenses-table th,
-  .expenses-table td {
-    padding: 8px;
+  .header-nav-item {
+    flex: 1;
+    min-width: 0;
+    min-height: 58px;
+    font-size: 1.05rem;
+    padding: 12px 18px;
   }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-header {
+    padding: 20px 24px 0;
+  }
+
+  .header-nav-item {
+    min-height: 60px;
+    font-size: 1.1rem;
+  }
+
+  .header-nav-icon {
+    font-size: 1.5rem;
+  }
+}
+
+.hero-metric {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1e293b 0%, #334155 55%, #475569 100%);
+  color: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hero-with-truck {
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+}
+
+.hero-with-truck::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(15, 23, 42, 0.96) 0%,
+    rgba(15, 23, 42, 0.85) 50%,
+    rgba(15, 23, 42, 0.45) 100%
+  );
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.hero-truck-imprint {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 58%;
+  opacity: 1;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-truck-imprint img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center right;
+  filter: saturate(1.05) contrast(1.05);
+}
+
+.hero-metric-content {
+  position: relative;
+  z-index: 2;
+  max-width: 58%;
+}
+
+.hero-label {
+  margin: 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #e2e8f0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  font-weight: 600;
+}
+
+.hero-value {
+  margin: 8px 0;
+  font-size: 42px;
+  font-weight: 800;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.hero-value.positive { color: #86efac; }
+.hero-value.negative { color: #fca5a5; }
+
+.hero-opening {
+  margin: 0;
+  font-size: 13px;
+  color: #cbd5e1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.hero-sub {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.metrics-grid.compact {
+  margin-top: 20px;
+}
+
+.metric-card {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+}
+
+.metric-card.highlight {
+  border-color: #667eea;
+  background: #f8faff;
+}
+
+.metric-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #64748b;
+}
+
+.feature-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.feature-banner p {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+.night-drive-banner {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.fleet-banner {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.expense-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.expense-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+}
+
+.expense-card.offline {
+  opacity: 0.75;
+}
+
+.expense-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.expense-card-top h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.expense-card-meta {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.expense-card-amount {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.expense-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.receipt-badge {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.expense-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-secondary.small {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fuel-calc-preview p,
+.load-calc-preview p {
+  margin: 8px 0 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.receipt-attached {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #166534;
+  font-weight: 600;
+}
+
+.reports-section,
+.hos-section {
+  padding: 24px;
+  border-radius: 16px;
+}
+
+.section-help {
+  color: #475569;
+  font-size: 13px;
+  margin-top: 0;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.hos-clocks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.hos-current {
+  font-size: 15px;
+}
+
+.hos-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.hos-buttons .btn-secondary.active {
+  background: #667eea;
+  color: #fff;
+  border-color: #667eea;
+}
+
+.night-toggle-label.compact {
+  margin-bottom: 0;
+}
+
+.night-drive .console-screensaver::after {
+  background: linear-gradient(
+    180deg,
+    rgba(15, 20, 25, 0.7) 0%,
+    rgba(24, 28, 35, 0.25) 40%,
+    rgba(24, 28, 35, 0.1) 100%
+  );
+}
+
+.night-drive .console-truck-art {
+  opacity: 0.28;
+}
+
+.night-drive.dashboard,
+body.night-drive .dashboard {
+  background: linear-gradient(160deg, #0f1419 0%, #181c23 45%, #0f172a 100%) !important;
+}
+
+.theme-dark.dashboard {
+  background: linear-gradient(160deg, #0b1220 0%, #0f172a 50%, #1e293b 100%);
+}
+
+.theme-dark .console-truck-art {
+  opacity: 0.3;
+}
+
+.theme-dark .console-screensaver::after {
+  background: linear-gradient(
+    180deg,
+    rgba(11, 18, 32, 0.75) 0%,
+    rgba(15, 23, 42, 0.2) 45%,
+    transparent 100%
+  );
+}
+
+.night-drive .hero-metric {
+  background: linear-gradient(135deg, #232946 0%, #181c23 100%);
+}
+
+.night-drive .metric-card,
+.night-drive .expense-card,
+.night-drive .reports-section,
+.night-drive .hos-section {
+  background: #232946 !important;
+  border-color: #2d334a !important;
+  color: #e0e7ef !important;
+}
+
+.night-drive .header-nav-item {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.night-drive .header-nav-item.active {
+  background: #facc15;
+  color: #181c23;
+}
+
+.night-drive .fleet-banner {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+body.theme-dark,
+.dashboard.theme-dark {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.theme-dark .dashboard-header {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+}
+
+.theme-dark .profit-card,
+.theme-dark .metric-card,
+.theme-dark .expense-form-section,
+.theme-dark .expenses-section,
+.theme-dark .usual-expenses-section,
+.theme-dark .reports-section,
+.theme-dark .hos-section,
+.theme-dark .expense-card,
+.theme-dark .insight-pill,
+.theme-dark .weekly-chart-section,
+.theme-dark .receipt-gallery,
+.theme-dark .fleet-dashboard {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+.theme-dark .form-group input,
+.theme-dark .form-group select,
+.theme-dark .filter-input,
+.theme-dark .filter-select {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+
+.theme-dark .header-nav-item {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.theme-dark .header-nav-item.active {
+  background: #818cf8;
+  color: #fff;
+}
+
+.weekly-chart-section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.weekly-chart-section h3 {
+  margin: 0 0 16px;
+  font-size: 16px;
+}
+
+.weekly-chart {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  height: 140px;
+}
+
+.weekly-chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.weekly-bars {
+  flex: 1;
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  width: 100%;
+}
+
+.weekly-bar {
+  flex: 1;
+  min-height: 4px;
+  border-radius: 4px 4px 0 0;
+}
+
+.income-bar { background: #22c55e; }
+.expense-bar { background: #f97316; }
+
+.weekly-net {
+  font-size: 10px;
+  font-weight: 700;
+  margin: 4px 0 2px;
+}
+
+.weekly-net.positive { color: #16a34a; }
+.weekly-net.negative { color: #dc2626; }
+
+.weekly-label {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.weekly-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.legend-dot.income { background: #22c55e; }
+.legend-dot.expense { background: #f97316; }
+
+.theme-switcher {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.theme-btn {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.theme-btn.active {
+  background: #667eea;
+  color: #fff;
+  border-color: #667eea;
+}
+
+.theme-banner,
+.notify-banner {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.log-subnav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.log-subnav-btn {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.log-subnav-btn.active {
+  background: #667eea;
+  color: #fff;
+  border-color: #667eea;
+}
+
+.receipt-gallery {
+  background: #fff;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.receipt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.receipt-thumb {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  background: #f8fafc;
+}
+
+.receipt-thumb img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  display: block;
+}
+
+.receipt-thumb-meta {
+  display: block;
+  font-size: 10px;
+  padding: 6px;
+  color: #64748b;
+}
+
+.receipt-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.receipt-modal-content {
+  background: #fff;
+  border-radius: 12px;
+  max-width: 480px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.receipt-modal-content img {
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+}
+
+.receipt-modal-info {
+  padding: 16px;
+}
+
+.receipt-modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.report-block {
+  margin: 24px 0;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.report-block h3 {
+  margin: 0 0 12px;
+}
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+.report-table th,
+.report-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.report-table th {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.report-quarter-picker {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.report-quarter-picker label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.report-quarter-picker select {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.section-help.warn {
+  color: #b45309;
+}
+
+.fleet-dashboard {
+  background: #fff;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.fleet-driver-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.fleet-driver-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.fleet-driver-card h3 {
+  margin: 0 0 4px;
+}
+
+.fleet-driver-email {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0 0 12px;
+}
+
+.fleet-driver-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  font-size: 12px;
+}
+
+.fleet-driver-metrics span {
+  display: block;
+  color: #64748b;
+}
+
+.fleet-upgrade-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.fleet-upgrade-card ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.error-text {
+  color: #dc2626;
+}
+
+.night-drive .weekly-chart-section,
+.night-drive .receipt-gallery,
+.night-drive .fleet-dashboard,
+.night-drive .log-subnav-btn {
+  background: #232946 !important;
+  border-color: #2d334a !important;
+  color: #e0e7ef !important;
+}
+
+.night-drive .log-subnav-btn.active {
+  background: #667eea !important;
+}
+
+/* Quick actions + income/expense entry */
+.quick-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.quick-actions .btn-primary,
+.quick-actions .btn-secondary {
+  flex: 1;
+  min-width: 140px;
+  font-size: 15px;
+  padding: 12px 16px;
+}
+
+.profit-card.clickable {
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.profit-card.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.card-action-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.entry-type-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  color: #475569;
+  cursor: pointer;
+}
+
+.toggle-btn.active {
+  border-color: #667eea;
+  background: #667eea;
+  color: #fff;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: #667eea;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.compact-banner {
+  padding: 12px 16px;
+}
+
+.compact-banner p {
+  display: none;
+}
+
+/* Admin panel */
+.admin-panel {
+  padding: 0 0 24px;
+}
+
+.admin-panel h2 {
+  margin: 0 0 20px;
+}
+
+.admin-block {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.admin-block h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #1e293b;
+}
+
+.admin-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.admin-hint.warn {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.admin-empty {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.admin-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 16px;
+  color: #1e293b;
+  background: #fff;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  margin-top: 8px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  color: #1e293b;
+}
+
+.admin-table th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #475569;
+  font-weight: 700;
+}
+
+.admin-table-actions {
+  white-space: nowrap;
+  display: flex;
+  gap: 6px;
+}
+
+.type-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.type-pill.income {
+  background: rgba(34, 197, 94, 0.15);
+  color: #15803d;
+}
+
+.type-pill.expense {
+  background: rgba(251, 146, 60, 0.15);
+  color: #c2410c;
+}
+
+.night-drive .admin-block,
+.theme-dark .admin-block {
+  background: #232946;
+  border-color: #2d334a;
+  color: #e0e7ef;
+}
+
+.night-drive .admin-block h3,
+.theme-dark .admin-block h3,
+.night-drive .admin-table th,
+.night-drive .admin-table td,
+.theme-dark .admin-table th,
+.theme-dark .admin-table td {
+  color: #e0e7ef;
+}
+
+.night-drive .admin-hint,
+.theme-dark .admin-hint {
+  color: #94a3b8;
+}
+
+.night-drive .admin-input,
+.theme-dark .admin-input {
+  background: #181c23;
+  border-color: #3b4252;
+  color: #e0e7ef;
+}
+
+.night-drive .toggle-btn,
+.theme-dark .toggle-btn {
+  background: #232946;
+  border-color: #3b4252;
+  color: #e0e7ef;
+}
+
+.night-drive .card-action-hint,
+.theme-dark .card-action-hint {
+  color: #94a3b8;
+}
+
+.night-drive .profit-card h3,
+.theme-dark .profit-card h3 {
+  color: #cbd5e1;
+}
+
+/* Trip mileage tracker */
+.trip-tracker {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.trip-tracker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.trip-tracker h2 {
+  margin: 0;
+  font-size: 16px;
+  color: #1e293b;
+}
+
+.trip-status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.trip-status-badge.active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #15803d;
+}
+
+.trip-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.trip-field span,
+.trip-odometer-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+}
+
+.trip-input {
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  background: #fff;
+}
+
+.trip-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.trip-start-btn {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+}
+
+.trip-odometer-display {
+  margin-bottom: 12px;
+}
+
+.trip-odometer-block {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.trip-odometer-block.start {
+  border-left: 4px solid #667eea;
+}
+
+.trip-odometer-block strong {
+  display: block;
+  font-size: 28px;
+  color: #1e293b;
+  line-height: 1.2;
+}
+
+.trip-odometer-block small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.trip-preview,
+.trip-total {
+  margin: 0 0 12px;
+  font-size: 15px;
+  color: #334155;
+}
+
+.trip-total strong,
+.trip-preview strong {
+  color: #15803d;
+  font-size: 20px;
+}
+
+.trip-odometer-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.trip-odometer-row strong {
+  display: block;
+  font-size: 22px;
+  color: #1e293b;
+}
+
+.trip-arrow {
+  color: #94a3b8;
+  font-size: 20px;
+}
+
+.trip-completed-label {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.trip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.trip-actions .btn-primary,
+.trip-actions .btn-secondary {
+  flex: 1;
+  min-width: 120px;
+}
+
+.trip-error {
+  margin: 10px 0 0;
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.night-drive .trip-tracker,
+.theme-dark .trip-tracker {
+  background: #232946;
+  border-color: #2d334a;
+}
+
+.night-drive .trip-tracker h2,
+.theme-dark .trip-tracker h2,
+.night-drive .trip-odometer-block strong,
+.theme-dark .trip-odometer-block strong,
+.night-drive .trip-odometer-row strong,
+.theme-dark .trip-odometer-row strong {
+  color: #e0e7ef;
+}
+
+.night-drive .trip-odometer-block,
+.theme-dark .trip-odometer-block {
+  background: #181c23;
+  border-color: #3b4252;
+}
+
+.night-drive .trip-input,
+.theme-dark .trip-input {
+  background: #181c23;
+  border-color: #3b4252;
+  color: #e0e7ef;
 }

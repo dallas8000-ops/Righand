@@ -40,11 +40,29 @@ class Expense(db.Model):
     expense_type = db.Column(db.String(20), nullable=False, default='expense')  # expense or income
     expense_date = db.Column(db.Date, nullable=False, index=True)
     notes = db.Column(db.Text)
+    miles = db.Column(db.Float)
+    gallons = db.Column(db.Float)
+    odometer = db.Column(db.Float)
+    deadhead_miles = db.Column(db.Float)
+    tolls_amount = db.Column(db.Float)
+    fuel_cost_alloc = db.Column(db.Float)
+    receipt_url = db.Column(db.Text)
+    broker = db.Column(db.String(120))
+    customer = db.Column(db.String(120))
+    fuel_state = db.Column(db.String(2))
     is_synced = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def to_dict(self):
+        load_profit = None
+        load_profit_per_mile = None
+        if self.expense_type == 'income' and self.category == 'load':
+            deductions = (self.fuel_cost_alloc or 0) + (self.tolls_amount or 0)
+            load_profit = self.amount - deductions
+            if self.miles and self.miles > 0:
+                load_profit_per_mile = load_profit / self.miles
+
         return {
             'id': self.id,
             'userId': self.user_id,
@@ -54,10 +72,95 @@ class Expense(db.Model):
             'type': self.expense_type,
             'date': self.expense_date.isoformat(),
             'notes': self.notes,
+            'miles': self.miles,
+            'gallons': self.gallons,
+            'odometer': self.odometer,
+            'deadheadMiles': self.deadhead_miles,
+            'tollsAmount': self.tolls_amount,
+            'fuelCostAlloc': self.fuel_cost_alloc,
+            'receiptUrl': self.receipt_url,
+            'broker': self.broker,
+            'customer': self.customer,
+            'fuelState': self.fuel_state,
+            'loadProfit': load_profit,
+            'loadProfitPerMile': load_profit_per_mile,
             'synced': self.is_synced,
             'createdAt': self.created_at.isoformat(),
             'updatedAt': self.updated_at.isoformat()
         }
+
+
+class UserCategory(db.Model):
+    """Per-user custom expense/income categories"""
+    __tablename__ = 'user_categories'
+
+    id = db.Column(db.String(50), primary_key=True)
+    user_id = db.Column(db.String(50), db.ForeignKey('users.id'), nullable=False, index=True)
+    value = db.Column(db.String(50), nullable=False)
+    label = db.Column(db.String(80), nullable=False)
+    entry_type = db.Column(db.String(20), default='expense')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'userId': self.user_id,
+            'value': self.value,
+            'label': self.label,
+            'entryType': self.entry_type,
+            'createdAt': self.created_at.isoformat()
+        }
+
+
+class Tenant(db.Model):
+    """Fleet carrier / organization (Tier B)"""
+    __tablename__ = 'tenants'
+
+    id = db.Column(db.String(50), primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    dot_number = db.Column(db.String(20))
+    owner_user_id = db.Column(db.String(50), db.ForeignKey('users.id'), nullable=False)
+    max_drivers = db.Column(db.Integer, default=5)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    memberships = db.relationship('FleetMembership', backref='tenant', lazy=True)
+
+
+class FleetMembership(db.Model):
+    """Links users to a fleet with a role"""
+    __tablename__ = 'fleet_memberships'
+
+    id = db.Column(db.String(50), primary_key=True)
+    tenant_id = db.Column(db.String(50), db.ForeignKey('tenants.id'), nullable=False, index=True)
+    user_id = db.Column(db.String(50), db.ForeignKey('users.id'), nullable=False, index=True)
+    role = db.Column(db.String(20), nullable=False, default='driver')  # owner, dispatcher, driver
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class DutyLog(db.Model):
+    """HOS lite duty status events (Tier B)"""
+    __tablename__ = 'duty_logs'
+
+    id = db.Column(db.String(50), primary_key=True)
+    user_id = db.Column(db.String(50), db.ForeignKey('users.id'), nullable=False, index=True)
+    status = db.Column(db.String(30), nullable=False)  # OFF_DUTY, SLEEPER, DRIVING, ON_DUTY
+    started_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    ended_at = db.Column(db.DateTime)
+    notes = db.Column(db.Text)
+
+
+class VehicleLocation(db.Model):
+    """Latest GPS ping per user (Tier B live map)"""
+    __tablename__ = 'vehicle_locations'
+
+    id = db.Column(db.String(50), primary_key=True)
+    user_id = db.Column(db.String(50), db.ForeignKey('users.id'), nullable=False, unique=True, index=True)
+    tenant_id = db.Column(db.String(50), db.ForeignKey('tenants.id'), index=True)
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    speed = db.Column(db.Float, default=0)
+    heading = db.Column(db.Float)
+    recorded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class SyncLog(db.Model):
     """Track sync operations for audit"""
