@@ -48,14 +48,24 @@ Primary goals:
 
 ### 3.3 Trip Mileage Tracker
 
-On the Home screen, drivers can:
-1. Enter **beginning odometer** and tap **Start Trip**
-2. See start miles and start time while driving (persists across refresh)
-3. Enter **end odometer** and tap **End Trip** to see total miles
-4. Tap **Log Miles** to pre-fill a load income entry with the trip total
-5. Start the next trip with the last end reading pre-filled
+Three modes on the Home screen:
 
-Trip history is stored locally (last 30 trips).
+| Mode | Platform | Description |
+|------|----------|-------------|
+| **Manual** | Web + Android | Beginning/end odometer, total on End Trip |
+| **GPS** | Web + Android | Live mile accumulation from device GPS, speed display |
+| **OBD** | Android app only | ELM327 BLE dongle — speed, RPM, fuel %, odometer (when supported) |
+
+Manual flow:
+1. Enter **beginning odometer** → **Start Trip**
+2. Enter **end odometer** → **End Trip** → total miles
+3. **Log Miles** pre-fills a load income entry
+
+GPS flow: **Start GPS Trip** → live miles while driving → **End Trip** → total + duration.
+
+OBD flow: **Connect OBD + Start** → vehicle gauges + GPS backup → **End Trip** (prefers OBD odometer when available).
+
+Trip history is stored locally (last 30 trips). See `docs/capacitor-setup.md` for Android build instructions.
 
 ### 3.4 Admin Panel
 
@@ -295,7 +305,20 @@ After deployment, verify:
 7. Reports tab loads quarterly tax and IFTA data
 8. No browser CORS errors
 
-## 12. Mobile APK Path (Later)
+## 12. Mobile Android App (Capacitor)
+
+The frontend includes Capacitor for building an Android APK/AAB with GPS and OBD-II support.
+
+```bash
+cd frontend
+npm install
+npm run cap:sync    # build + sync to android/
+npm run cap:android # open Android Studio
+```
+
+Full setup (permissions, Play Store AAB): see **`docs/capacitor-setup.md`**.
+
+## 13. Mobile APK Path (Later — React Native)
 
 Current deployment is web-first. To convert to mobile later:
 1. Keep backend API as is
@@ -303,10 +326,10 @@ Current deployment is web-first. To convert to mobile later:
 3. Reuse auth and expense endpoints
 4. Add mobile storage and permissions handling
 
-## 13. License
+## 14. License
 
 Proprietary. All rights reserved.
 
-## 14. Status
+## 15. Status
 
 Production live on Render. Latest features include admin editing, trip mileage tracking, tabbed dashboard, reports (PDF/CSV/Schedule C/IFTA), HOS clocks, fleet view, themes, and voice entry.

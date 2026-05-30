@@ -4,6 +4,10 @@
   "description": "RigHand AI - Truck Driver Expense Tracking Frontend",
   "private": true,
   "dependencies": {
+    "@capacitor-community/bluetooth-le": "^6.0.0",
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/geolocation": "^6.0.0",
     "axios": "^1.6.0",
     "clsx": "^2.1.1",
     "dexie": "^3.2.4",
@@ -16,7 +20,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:android": "npx cap open android"
   },
   "eslintConfig": {
     "extends": [
@@ -36,6 +42,7 @@
     ]
   },
   "devDependencies": {
+    "@capacitor/cli": "^6.0.0",
     "react-scripts": "5.0.1"
   }
 }

@@ -2175,3 +2175,123 @@ body.theme-dark,
   border-color: #3b4252;
   color: #e0e7ef;
 }
+
+.trip-mode-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.trip-mode-tab {
+  flex: 1;
+  padding: 10px 8px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+.trip-mode-tab.active {
+  border-color: #667eea;
+  background: #667eea;
+  color: #fff;
+}
+
+.trip-mode-tab:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.trip-live-stat {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.trip-live-miles {
+  display: block;
+  font-size: 32px;
+  color: #15803d;
+}
+
+.trip-live-speed {
+  display: block;
+  font-size: 24px;
+  color: #1e293b;
+}
+
+.trip-end-btn {
+  width: 100%;
+}
+
+.trip-result-miles strong {
+  font-size: 28px;
+  color: #15803d;
+}
+
+.trip-duration {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.obd-status-row {
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #334155;
+}
+
+.obd-device-name {
+  color: #64748b;
+}
+
+.obd-gauges {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.obd-gauge {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.obd-gauge strong {
+  display: block;
+  font-size: 18px;
+  color: #1e293b;
+  margin-top: 4px;
+}
+
+.night-drive .trip-mode-tab,
+.theme-dark .trip-mode-tab {
+  background: #181c23;
+  border-color: #3b4252;
+  color: #cbd5e1;
+}
+
+.night-drive .trip-mode-tab.active,
+.theme-dark .trip-mode-tab.active {
+  background: #667eea;
+  color: #fff;
+}
+
+.night-drive .obd-gauge,
+.theme-dark .obd-gauge {
+  background: #181c23;
+  border-color: #3b4252;
+}
+
+.night-drive .obd-gauge strong,
+.theme-dark .obd-gauge strong,
+.night-drive .trip-live-speed,
+.theme-dark .trip-live-speed {
+  color: #e0e7ef;
+}
