@@ -9,16 +9,20 @@ RigHand AI helps drivers record daily costs and load income, track trip miles, a
 Primary goals:
 - Fast entry of expenses and income while on the road
 - Offline-first operation with background sync
-- Trip odometer tracking (start miles → end miles → total)
+- Trip tracking: manual odometer, live GPS, or OBD-II dongle (Android)
 - Admin tools to edit all data and set starting income
 - Tax-ready exports (Schedule C, IFTA, PDF, CSV)
+- Native Android app via Capacitor (web + tablet/phone)
 - Secure user isolation and token-based authentication
 
 ## 2. Live Deployment
 
-- Frontend: https://righand-frontend.onrender.com
-- Backend API: https://righand.onrender.com
-- Health endpoint: https://righand.onrender.com/health
+| Service | URL |
+|---------|-----|
+| Web app | https://righand-frontend.onrender.com |
+| Backend API | https://righand.onrender.com |
+| Health check | https://righand.onrender.com/health |
+| Android app | Built locally — see [Section 12](#12-android-app-capacitor) |
 
 ## 3. Features
 
@@ -65,7 +69,11 @@ GPS flow: **Start GPS Trip** → live miles while driving → **End Trip** → t
 
 OBD flow: **Connect OBD + Start** → vehicle gauges + GPS backup → **End Trip** (prefers OBD odometer when available).
 
-Trip history is stored locally (last 30 trips). See `docs/capacitor-setup.md` for Android build instructions.
+Trip history is stored locally (last 30 trips).
+
+**Android permissions required:** Location (GPS), Bluetooth / Nearby devices (OBD). Grant when prompted on first use.
+
+See [Section 12](#12-android-app-capacitor) for building and installing the Android app.
 
 ### 3.4 Admin Panel
 
@@ -142,11 +150,16 @@ Local-only settings (starting income, active trip, trip history) use browser `lo
 
 ## 5. Technology Stack
 
-**Frontend:**
+**Frontend / Web:**
 - React 18
 - Axios
 - Dexie (IndexedDB)
 - clsx
+
+**Mobile (Capacitor 6):**
+- `@capacitor/core`, `@capacitor/android`
+- `@capacitor/geolocation` — live GPS trip miles
+- `@capacitor-community/bluetooth-le` — ELM327 OBD-II dongles
 
 **Backend:**
 - Flask
@@ -274,7 +287,12 @@ RigHand/
 │   ├── routes_reports.py
 │   ├── routes_fleet.py
 │   └── requirements.txt
+├── docs/
+│   └── capacitor-setup.md
 ├── frontend/
+│   ├── android/                  # Capacitor Android project (generated)
+│   ├── capacitor.config.json
+│   ├── releases/                 # Built APK copies (local)
 │   ├── public/
 │   │   └── truck-console-bg.png
 │   └── src/
@@ -288,8 +306,14 @@ RigHand/
 │       │       ├── FleetDashboard.jsx
 │       │       └── ThemeSwitcher.jsx
 │       ├── hooks/
+│       │   ├── useGpsTrip.js
+│       │   ├── useObd.js
+│       │   ├── useTheme.js
+│       │   └── useNotifications.js
 │       ├── services/
 │       └── utils/
+│           ├── tripTracker.js
+│           └── driverSettings.js
 └── README.md
 ```
 
@@ -301,35 +325,94 @@ After deployment, verify:
 3. Demo mode opens dashboard
 4. **+ Add Income** creates and saves a load payment
 5. **Admin** tab shows entries and allows edit/delete
-6. **Trip Miles** — start trip, end trip, total displays correctly
+6. **Trip Miles** — Manual, GPS, and OBD modes work (Android for OBD)
 7. Reports tab loads quarterly tax and IFTA data
 8. No browser CORS errors
 
-## 12. Mobile Android App (Capacitor)
+**Android app checklist:**
+1. App installs and opens on device/tablet
+2. Demo login works offline
+3. GPS trip accumulates miles (location permission granted)
+4. OBD connects to ELM327 dongle (Bluetooth permission granted)
+5. Live account syncs with `https://righand.onrender.com`
 
-The frontend includes Capacitor for building an Android APK/AAB with GPS and OBD-II support.
+## 12. Android App (Capacitor)
+
+The Android app wraps the same React UI with native GPS and Bluetooth for trip tracking.
+
+**App ID:** `com.righand.app`  
+**Plugins:** Geolocation, Bluetooth LE (OBD-II)
+
+### First-time setup
 
 ```bash
 cd frontend
 npm install
-npm run cap:sync    # build + sync to android/
-npm run cap:android # open Android Studio
+npm run build
+npx cap add android          # first time only
+npx cap sync
 ```
 
-Full setup (permissions, Play Store AAB): see **`docs/capacitor-setup.md`**.
+Android SDK and Java 17 are required. Permissions (GPS, Bluetooth) are in `android/app/src/main/AndroidManifest.xml`. Full details: **`docs/capacitor-setup.md`**.
 
-## 13. Mobile APK Path (Later — React Native)
+### Build debug APK (production API)
 
-Current deployment is web-first. To convert to mobile later:
-1. Keep backend API as is
-2. Migrate frontend to React Native or wrap with Capacitor
-3. Reuse auth and expense endpoints
-4. Add mobile storage and permissions handling
+```bash
+cd frontend
+set REACT_APP_API_URL=https://righand.onrender.com/api   # Windows CMD
+# export REACT_APP_API_URL=https://righand.onrender.com/api  # macOS/Linux
 
-## 14. License
+npm run build
+npx cap sync android
+cd android
+gradlew.bat assembleDebug    # Windows
+# ./gradlew assembleDebug    # macOS/Linux
+```
+
+**Output APK:**
+- `frontend/android/app/build/outputs/apk/debug/app-debug.apk`
+- Copy to `frontend/releases/RigHand-AI-debug.apk` (optional)
+
+### Install on USB-connected tablet or phone
+
+1. Enable **Developer options** and **USB debugging** on the device
+2. Connect via USB (USB-C or other)
+3. Verify device is detected:
+
+```bash
+adb devices
+```
+
+4. Install (or reinstall) the APK:
+
+```bash
+adb install -r frontend/android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+5. Launch the app:
+
+```bash
+adb shell am start -n com.righand.app/.MainActivity
+```
+
+Or sideload the APK file directly on the device without a PC.
+
+### npm shortcuts
+
+```bash
+npm run cap:sync      # build React + sync to android/
+npm run cap:android   # open Android Studio
+```
+
+### Play Store release
+
+In Android Studio: **Build → Generate Signed Bundle / APK → Android App Bundle (AAB)**.  
+Output: `android/app/release/app-release.aab`
+
+## 13. License
 
 Proprietary. All rights reserved.
 
-## 15. Status
+## 14. Status
 
-Production live on Render. Latest features include admin editing, trip mileage tracking, tabbed dashboard, reports (PDF/CSV/Schedule C/IFTA), HOS clocks, fleet view, themes, and voice entry.
+Production web app live on Render. Android debug APK builds locally with Capacitor. Latest features: admin editing, trip tracking (Manual / GPS / OBD), tabbed dashboard, reports (PDF/CSV/Schedule C/IFTA), HOS clocks, fleet view, themes, and voice entry.
