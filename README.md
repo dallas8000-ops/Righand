@@ -333,7 +333,7 @@ Required:
 - `SECRET_KEY=<your secret>`
 - `JWT_SECRET_KEY=<your secret>`
 - `DATABASE_URL=<render internal postgres url>`
-- `CORS_ORIGINS=https://righand-frontend.onrender.com,http://localhost:3000,http://localhost:3001`
+- `CORS_ORIGINS=https://righand-frontend.onrender.com,http://localhost:3000,http://localhost:3001,https://localhost`
 - `PYTHON_VERSION=3.11.9`
 
 Optional (subscriptions + purchase tracking):

@@ -26,6 +26,11 @@ def create_app(env=None):
     db.init_app(app)
     cors_origins = os.environ.get('CORS_ORIGINS', '*')
     cors_origins = [origin.strip() for origin in cors_origins.split(',') if origin.strip()]
+    # Capacitor Android/iOS WebView origin (required for native app API calls)
+    if cors_origins != ['*']:
+        for origin in ('https://localhost', 'capacitor://localhost', 'http://localhost'):
+            if origin not in cors_origins:
+                cors_origins.append(origin)
     CORS(app, resources={r"/*": {"origins": cors_origins}})
     jwt = JWTManager(app)
     

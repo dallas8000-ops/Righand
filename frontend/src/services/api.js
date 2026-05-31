@@ -1,14 +1,19 @@
 import axios from 'axios';
+import { Capacitor } from '@capacitor/core';
 import { ExpenseDB, SyncQueueDB } from './offlineDB';
 
-const rawApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const PRODUCTION_API = 'https://righand.onrender.com/api';
+const defaultApiUrl = Capacitor.isNativePlatform()
+  ? PRODUCTION_API
+  : 'http://localhost:5000/api';
+const rawApiUrl = process.env.REACT_APP_API_URL || defaultApiUrl;
 const API_BASE_URL = rawApiUrl.endsWith('/api')
   ? rawApiUrl
   : `${rawApiUrl.replace(/\/$/, '')}/api`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000,
+  timeout: Capacitor.isNativePlatform() ? 45000 : 15000,
 });
 
 export const setAuthToken = (token) => {
