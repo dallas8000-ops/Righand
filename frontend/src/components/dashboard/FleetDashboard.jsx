@@ -1,28 +1,59 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { FleetAPI } from '../../services/api';
+import { useFleetLocation } from '../../hooks/useFleetLocation';
+import UpgradeGate from './UpgradeGate';
 
 const formatMoney = (v) => `$${Number(v || 0).toFixed(2)}`;
 
-const FleetDashboard = ({ fleetStatus, isDemo }) => {
+const formatTime = (iso) => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+};
+
+const mapsUrl = (lat, lng) =>
+  `https://www.google.com/maps?q=${lat},${lng}`;
+
+const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked }) => {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (!fleetStatus?.hasFleet || isDemo) return;
+  const isDispatcher = fleetStatus?.role === 'owner' || fleetStatus?.role === 'dispatcher';
+  const canShareGps = fleetStatus?.role === 'driver' || fleetStatus?.role === 'owner';
+  const fleetEnabled = fleetStatus?.hasFleet && !isDemo;
+
+  const gps = useFleetLocation(userId, fleetEnabled && canShareGps);
+
+  const loadDrivers = useCallback(() => {
+    if (!fleetEnabled || !isDispatcher) return;
     setLoading(true);
+    setError('');
     FleetAPI.getDriverSummaries()
       .then(data => setDrivers(data.drivers || []))
       .catch(() => setError('Could not load fleet data.'))
       .finally(() => setLoading(false));
-  }, [fleetStatus, isDemo]);
+  }, [fleetEnabled, isDispatcher]);
+
+  useEffect(() => {
+    loadDrivers();
+  }, [loadDrivers]);
+
+  const handleToggleGps = async () => {
+    if (gps.sharing) {
+      gps.stopSharing();
+    } else {
+      await gps.startSharing();
+    }
+  };
 
   if (!fleetStatus?.hasFleet) {
     return (
-      <section className="fleet-dashboard upgrade">
-        <h2>Fleet</h2>
-        <p className="admin-hint">Fleet Lite adds multi-driver P&amp;L and live GPS. Contact support to enable.</p>
-      </section>
+      <UpgradeGate tier="fleet" subscription={subscription} onUnlocked={onUnlocked}>
+        <section className="fleet-dashboard upgrade">
+          <h2>Fleet</h2>
+          <p className="admin-hint">Fleet unlocked — refresh if this message persists.</p>
+        </section>
+      </UpgradeGate>
     );
   }
 
@@ -30,43 +61,97 @@ const FleetDashboard = ({ fleetStatus, isDemo }) => {
     return (
       <section className="fleet-dashboard">
         <h2>Fleet</h2>
-        <p className="admin-hint">Not available in demo mode.</p>
+        <p className="admin-hint">Not available in demo mode. Log in with a fleet-enabled account.</p>
       </section>
     );
   }
 
   return (
     <section className="fleet-dashboard">
-      <h2>Fleet</h2>
-      <p className="admin-hint">
-        {fleetStatus.tenant?.name} · {fleetStatus.tenant?.driverCount}/{fleetStatus.tenant?.maxDrivers} drivers
-      </p>
+      <div className="fleet-dashboard-header">
+        <div>
+          <h2>Fleet</h2>
+          <p className="admin-hint">
+            {fleetStatus.tenant?.name} · {fleetStatus.tenant?.driverCount}/{fleetStatus.tenant?.maxDrivers} drivers
+            {fleetStatus.role && ` · Your role: ${fleetStatus.role}`}
+          </p>
+        </div>
+        {isDispatcher && (
+          <button type="button" className="btn-secondary" onClick={loadDrivers}>Refresh</button>
+        )}
+      </div>
 
-      {loading && <p>Loading drivers...</p>}
-      {error && <p className="error-text">{error}</p>}
-
-      {!loading && drivers.length === 0 && (
-        <p className="admin-hint">No drivers linked yet.</p>
+      {canShareGps && (
+        <div className="fleet-gps-panel">
+          <h3>Share location with dispatcher</h3>
+          <p className="admin-hint">
+            Sends GPS to your fleet every 3 minutes while enabled.
+            {gps.isNative ? ' Works in the Android app.' : ' Best on the Android app.'}
+          </p>
+          <div className="fleet-gps-status">
+            <span className={`fleet-gps-dot ${gps.sharing ? 'active' : ''}`} />
+            <strong>{gps.sharing ? 'Sharing active' : 'Not sharing'}</strong>
+          </div>
+          {gps.lastPing && (
+            <p className="fleet-gps-last">
+              Last ping: {formatTime(gps.lastPing.at)} · {gps.lastPing.lat.toFixed(4)}, {gps.lastPing.lng.toFixed(4)}
+              {gps.lastPing.speed > 0 && ` · ${gps.lastPing.speed} mph`}
+            </p>
+          )}
+          {gps.error && <p className="trip-error">{gps.error}</p>}
+          <div className="trip-actions">
+            <button type="button" className="btn-primary" onClick={handleToggleGps}>
+              {gps.sharing ? 'Stop sharing' : 'Start sharing'}
+            </button>
+            <button type="button" className="btn-secondary" onClick={gps.pingNow}>Ping now</button>
+          </div>
+        </div>
       )}
 
-      <div className="fleet-driver-grid">
-        {drivers.map(driver => (
-          <article key={driver.driverId} className="fleet-driver-card">
-            <h3>{driver.name}</h3>
-            <p className="fleet-driver-email">{driver.email}</p>
-            <div className="fleet-driver-metrics">
-              <div><span>Income</span><strong className="income-amount">{formatMoney(driver.totalIncome)}</strong></div>
-              <div><span>Expenses</span><strong className="expense-amount">{formatMoney(driver.totalExpenses)}</strong></div>
-              <div><span>Net</span><strong className={driver.netProfit >= 0 ? 'income-amount' : 'expense-amount'}>{formatMoney(driver.netProfit)}</strong></div>
-            </div>
-            {driver.lastLocation && (
-              <p className="fleet-location">
-                Last ping: {driver.lastLocation.lat.toFixed(4)}, {driver.lastLocation.lng.toFixed(4)}
-              </p>
-            )}
-          </article>
-        ))}
-      </div>
+      {isDispatcher && (
+        <>
+          {loading && <p>Loading drivers...</p>}
+          {error && <p className="error-text">{error}</p>}
+
+          {!loading && drivers.length === 0 && (
+            <p className="admin-hint">No drivers linked yet. Add drivers with setup_fleet.py.</p>
+          )}
+
+          <div className="fleet-driver-grid">
+            {drivers.map(driver => (
+              <article key={driver.driverId} className="fleet-driver-card">
+                <h3>{driver.name}</h3>
+                <p className="fleet-driver-email">{driver.email}</p>
+                <div className="fleet-driver-metrics">
+                  <div><span>Income</span><strong className="income-amount">{formatMoney(driver.totalIncome)}</strong></div>
+                  <div><span>Expenses</span><strong className="expense-amount">{formatMoney(driver.totalExpenses)}</strong></div>
+                  <div><span>Net</span><strong className={driver.netProfit >= 0 ? 'income-amount' : 'expense-amount'}>{formatMoney(driver.netProfit)}</strong></div>
+                </div>
+                {driver.lastLocation ? (
+                  <div className="fleet-location-block">
+                    <p className="fleet-location">
+                      {driver.lastLocation.lat.toFixed(4)}, {driver.lastLocation.lng.toFixed(4)}
+                    </p>
+                    <p className="fleet-location-time">
+                      Updated {formatTime(driver.lastLocation.recordedAt)}
+                    </p>
+                    <a
+                      className="fleet-map-link"
+                      href={mapsUrl(driver.lastLocation.lat, driver.lastLocation.lng)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open in Maps
+                    </a>
+                  </div>
+                ) : (
+                  <p className="admin-hint">No GPS ping yet — driver must enable sharing in Fleet tab.</p>
+                )}
+              </article>
+            ))}
+          </div>
+        </>
+      )}
     </section>
   );
 };

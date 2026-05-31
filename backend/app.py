@@ -8,6 +8,7 @@ from routes_expenses import expenses_bp
 from routes_reports import reports_bp
 from routes_fleet import fleet_bp
 from routes_categories import categories_bp
+from routes_subscriptions import subscriptions_bp
 import os
 from migrate import run_migrations
 
@@ -34,6 +35,7 @@ def create_app(env=None):
     app.register_blueprint(reports_bp)
     app.register_blueprint(fleet_bp)
     app.register_blueprint(categories_bp)
+    app.register_blueprint(subscriptions_bp)
     
     # Health check endpoint
     @app.route('/health', methods=['GET'])

@@ -28,3 +28,12 @@ def run_migrations(db):
                     text(f'ALTER TABLE expenses ADD COLUMN {column} {col_type}')
                 )
         db.session.commit()
+
+    # Replace legacy subscriptions schema (plan/status) with tier-based model
+    if 'subscriptions' in tables:
+        sub_cols = {c['name'] for c in inspector.get_columns('subscriptions')}
+        if 'tier' not in sub_cols:
+            if 'purchase_events' in tables:
+                db.session.execute(text('DROP TABLE purchase_events'))
+            db.session.execute(text('DROP TABLE subscriptions'))
+            db.session.commit()

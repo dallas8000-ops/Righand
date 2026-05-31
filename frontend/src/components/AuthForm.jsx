@@ -66,7 +66,8 @@ const AuthForm = ({ onAuthSuccess, isLogin = true }) => {
         onAuthSuccess(response.user);
       }
     } catch (err) {
-      setError(err.message || 'Authentication failed. Check your credentials.');
+      const msg = err?.error || err?.message || 'Authentication failed. Check your credentials.';
+      setError(msg);
       console.error('Auth error:', err);
     } finally {
       setLoading(false);

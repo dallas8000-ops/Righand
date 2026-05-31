@@ -1,7 +1,11 @@
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timezone
 
 db = SQLAlchemy()
+
+
+def _utcnow():
+    return datetime.now(timezone.utc)
 
 class User(db.Model):
     """User model for truck drivers"""
@@ -161,6 +165,76 @@ class VehicleLocation(db.Model):
     speed = db.Column(db.Float, default=0)
     heading = db.Column(db.Float)
     recorded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Subscription(db.Model):
+    """One row per user — current tier, pricing phase, and milestones."""
+    __tablename__ = 'subscriptions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(50), db.ForeignKey('users.id'), unique=True, nullable=False)
+
+    subscriber_id = db.Column(db.String(20), unique=True, nullable=False)
+
+    tier = db.Column(db.String(20), default='free')  # free | pro | fleet
+    started_at = db.Column(db.DateTime(timezone=True), default=_utcnow)
+    pro_started_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    free_updates_used = db.Column(db.Integer, default=0)
+    milestone_notified = db.Column(db.Boolean, default=False)
+
+    events = db.relationship('PurchaseEvent', backref='subscription', lazy=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'userId': self.user_id,
+            'subscriberId': self.subscriber_id,
+            'tier': self.tier,
+            'active': self.tier in ('pro', 'fleet'),
+            'startedAt': self.started_at.isoformat() if self.started_at else None,
+            'proStartedAt': self.pro_started_at.isoformat() if self.pro_started_at else None,
+            'freeUpdatesUsed': self.free_updates_used,
+            'milestoneNotified': self.milestone_notified,
+        }
+
+    def __repr__(self):
+        return f'<Subscription {self.subscriber_id} tier={self.tier}>'
+
+
+class PurchaseEvent(db.Model):
+    """Append-only log of every purchase, upgrade, and cancellation."""
+    __tablename__ = 'purchase_events'
+
+    id = db.Column(db.Integer, primary_key=True)
+    subscription_id = db.Column(db.Integer, db.ForeignKey('subscriptions.id'), nullable=False)
+    subscriber_id = db.Column(db.String(20), nullable=False)
+
+    event_type = db.Column(db.String(30), nullable=False)  # purchase | upgrade | downgrade | cancel | renew
+    tier = db.Column(db.String(20), nullable=False)
+    amount = db.Column(db.Float, default=0.0)
+
+    google_order_id = db.Column(db.String(100), nullable=True)
+    google_product_id = db.Column(db.String(100), nullable=True)
+
+    occurred_at = db.Column(db.DateTime(timezone=True), default=_utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'subscriptionId': self.subscription_id,
+            'subscriberId': self.subscriber_id,
+            'eventType': self.event_type,
+            'tier': self.tier,
+            'amount': self.amount,
+            'googleOrderId': self.google_order_id,
+            'googleProductId': self.google_product_id,
+            'occurredAt': self.occurred_at.isoformat() if self.occurred_at else None,
+        }
+
+    def __repr__(self):
+        return f'<PurchaseEvent {self.subscriber_id} {self.event_type} ${self.amount}>'
+
 
 class SyncLog(db.Model):
     """Track sync operations for audit"""

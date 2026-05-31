@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RigHand — Purchase Tracking</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #667eea;
+      --green: #22c55e;
+      --orange: #f97316;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    h1 { margin: 0; font-size: 1.25rem; }
+    main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+    .auth-bar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    input, button {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #475569;
+      background: var(--card);
+      color: var(--text);
+      font-size: 14px;
+    }
+    button {
+      background: var(--accent);
+      border-color: var(--accent);
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button.secondary { background: var(--card); border-color: #475569; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat {
+      background: var(--card);
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .stat label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .stat strong { font-size: 1.5rem; }
+    .stat.mrr strong { color: var(--green); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #334155;
+    }
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid #334155;
+      font-size: 13px;
+    }
+    th {
+      background: #172033;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .pill.purchase_pro { background: rgba(34,197,94,0.2); color: #86efac; }
+    .pill.purchase_fleet { background: rgba(102,126,234,0.2); color: #a5b4fc; }
+    .pill.milestone_3mo { background: rgba(249,115,22,0.2); color: #fdba74; }
+    .pill.cancel_pro, .pill.cancel_fleet { background: rgba(239,68,68,0.2); color: #fca5a5; }
+    .error { color: #f87171; margin: 12px 0; }
+    .empty { color: var(--muted); padding: 24px; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>RigHand Purchase Tracking</h1>
+    <div class="auth-bar">
+      <input type="password" id="adminSecret" placeholder="Admin secret" />
+      <button type="button" id="saveBtn">Connect</button>
+      <button type="button" class="secondary" id="refreshBtn">Refresh</button>
+    </div>
+  </header>
+  <main>
+    <p id="error" class="error" hidden></p>
+    <section class="stats" id="stats"></section>
+    <div id="tableWrap"></div>
+  </main>
+  <script>
+    const API = window.location.origin;
+
+    function headers() {
+      const secret = sessionStorage.getItem('adminSecret') || document.getElementById('adminSecret').value;
+      return { 'X-Admin-Secret': secret };
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error');
+      el.textContent = msg;
+      el.hidden = !msg;
+    }
+
+    function renderStats(summary) {
+      const items = [
+        { label: 'Est. MRR', value: '$' + summary.estimated_mrr, cls: 'mrr' },
+        { label: 'Active subs', value: summary.active_subscribers },
+        { label: 'Purchases', value: summary.total_purchases },
+        { label: '3-mo milestones', value: summary.milestones_3mo },
+        { label: 'Cancellations', value: summary.cancellations },
+        { label: 'Total events', value: summary.total_events },
+      ];
+      document.getElementById('stats').innerHTML = items.map(i =>
+        `<div class="stat ${i.cls || ''}"><label>${i.label}</label><strong>${i.value}</strong></div>`
+      ).join('');
+    }
+
+    function renderEvents(events) {
+      if (!events.length) {
+        document.getElementById('tableWrap').innerHTML = '<p class="empty">No events yet. RigHand will POST purchases to /api/webhooks/righand.</p>';
+        return;
+      }
+      const rows = events.map(e => {
+        const d = e.data || {};
+        const ts = (e.received_at || e.timestamp || '').replace('T', ' ').slice(0, 19);
+        return `<tr>
+          <td>${ts}</td>
+          <td><span class="pill ${e.event}">${e.event}</span></td>
+          <td>${d.subscriber_id || '—'}</td>
+          <td>${d.email || '—'}</td>
+          <td>${d.plan || '—'}</td>
+          <td>${d.current_price != null ? '$' + d.current_price : '—'}</td>
+        </tr>`;
+      }).join('');
+      document.getElementById('tableWrap').innerHTML = `
+        <table>
+          <thead><tr><th>Received</th><th>Event</th><th>Subscriber</th><th>Email</th><th>Plan</th><th>Price</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    async function load() {
+      showError('');
+      try {
+        const [sumRes, evRes] = await Promise.all([
+          fetch(API + '/api/webhooks/righand/summary', { headers: headers() }),
+          fetch(API + '/api/webhooks/righand/events', { headers: headers() }),
+        ]);
+        if (!sumRes.ok || !evRes.ok) throw new Error('Unauthorized — check admin secret');
+        renderStats(await sumRes.json());
+        const data = await evRes.json();
+        renderEvents(data.events || []);
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    document.getElementById('saveBtn').addEventListener('click', () => {
+      sessionStorage.setItem('adminSecret', document.getElementById('adminSecret').value);
+      load();
+    });
+    document.getElementById('refreshBtn').addEventListener('click', load);
+
+    const saved = sessionStorage.getItem('adminSecret');
+    if (saved) document.getElementById('adminSecret').value = saved;
+    load();
+  </script>
+</body>
+</html>

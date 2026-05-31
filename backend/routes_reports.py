@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from tier_guard import require_pro
 from models import db, Expense
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -113,6 +114,7 @@ def get_metrics():
 
 @reports_bp.route('/export/csv', methods=['GET'])
 @jwt_required()
+@require_pro
 def export_csv():
     try:
         user_id = get_jwt_identity()
@@ -161,6 +163,7 @@ def export_csv():
 
 @reports_bp.route('/export/pdf', methods=['GET'])
 @jwt_required()
+@require_pro
 def export_pdf():
     try:
         from reportlab.lib import colors
@@ -292,6 +295,7 @@ def weekly_summary():
 
 @reports_bp.route('/tax/quarterly', methods=['GET'])
 @jwt_required()
+@require_pro
 def tax_quarterly():
     """Schedule C-style quarterly breakdown by category."""
     try:
@@ -341,6 +345,7 @@ def tax_quarterly():
 
 @reports_bp.route('/ifta', methods=['GET'])
 @jwt_required()
+@require_pro
 def ifta_report():
     """IFTA fuel tax helper — gallons and cost by state."""
     try:

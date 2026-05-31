@@ -1,7 +1,10 @@
 import axios from 'axios';
 import { ExpenseDB, SyncQueueDB } from './offlineDB';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const rawApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = rawApiUrl.endsWith('/api')
+  ? rawApiUrl
+  : `${rawApiUrl.replace(/\/$/, '')}/api`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -262,6 +265,28 @@ export const CategoriesAPI = {
     await api.delete(`/categories/${categoryId}`);
     return { success: true };
   }
+};
+
+export const SubscriptionAPI = {
+  async getMe() {
+    const response = await api.get('/subscriptions/me');
+    return response.data;
+  },
+
+  async verifyPurchase({ productId, googleOrderId, googleProductId, purchaseToken }) {
+    const response = await api.post('/subscriptions/verify-purchase', {
+      productId,
+      googleOrderId,
+      googleProductId,
+      purchaseToken,
+    });
+    return response.data;
+  },
+
+  async activate(tier = 'pro') {
+    const response = await api.post('/subscriptions/activate', { tier });
+    return response.data;
+  },
 };
 
 export const FleetAPI = {

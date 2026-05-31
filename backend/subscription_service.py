@@ -1,0 +1,213 @@
+"""Subscription helpers: subscriber IDs, purchase event logging, milestones."""
+
+import os
+from datetime import datetime, timedelta, timezone
+
+from fleet_service import ensure_fleet_for_owner
+from models import db, User, Subscription, PurchaseEvent
+from webhook_client import emit_righand_event
+
+TIER_PRICES = {
+    'free': 0.0,
+    'pro': 45.0,
+    'fleet': 99.0,
+}
+
+TIER_RANK = {'free': 0, 'pro': 1, 'fleet': 2}
+
+WEBHOOK_EVENT_MAP = {
+    'purchase': 'purchase_pro',
+    'upgrade': 'purchase_pro',
+    'renew': 'renewal_pro',
+    'downgrade': 'cancel_pro',
+    'cancel': 'cancel_pro',
+}
+
+
+def catalog_product_ids():
+    return {
+        'pro': os.environ.get('GOOGLE_PRODUCT_PRO', 'righand_pro_monthly'),
+        'fleet': os.environ.get('GOOGLE_PRODUCT_FLEET', 'righand_fleet_monthly'),
+    }
+
+
+def _product_catalog():
+    """Map Google Play / store product IDs → (tier, price)."""
+    ids = catalog_product_ids()
+    return {
+        ids['pro']: ('pro', TIER_PRICES['pro']),
+        ids['fleet']: ('fleet', TIER_PRICES['fleet']),
+        'pro': ('pro', TIER_PRICES['pro']),
+        'fleet': ('fleet', TIER_PRICES['fleet']),
+    }
+
+
+def resolve_product(product_id: str):
+    catalog = _product_catalog()
+    key = (product_id or '').strip()
+    if key not in catalog:
+        return None
+    return catalog[key]
+
+
+def utcnow():
+    return datetime.now(timezone.utc)
+
+
+def next_subscriber_id() -> str:
+    last = Subscription.query.order_by(Subscription.id.desc()).first()
+    num = (last.id if last else 0) + 1
+    return f'RH-{num:05d}'
+
+
+def get_or_create_subscription(user_id: str) -> Subscription:
+    sub = Subscription.query.filter_by(user_id=user_id).first()
+    if sub:
+        return sub
+    sub = Subscription(
+        user_id=user_id,
+        subscriber_id=next_subscriber_id(),
+        tier='free',
+        started_at=utcnow(),
+    )
+    db.session.add(sub)
+    db.session.flush()
+    return sub
+
+
+def find_purchase_by_order(google_order_id: str):
+    if not google_order_id:
+        return None
+    return PurchaseEvent.query.filter_by(google_order_id=google_order_id).first()
+
+
+def log_purchase_event(
+    sub: Subscription,
+    event_type: str,
+    tier: str,
+    amount: float,
+    google_order_id=None,
+    google_product_id=None,
+) -> PurchaseEvent:
+    event = PurchaseEvent(
+        subscription_id=sub.id,
+        subscriber_id=sub.subscriber_id,
+        event_type=event_type,
+        tier=tier,
+        amount=amount,
+        google_order_id=google_order_id,
+        google_product_id=google_product_id,
+        occurred_at=utcnow(),
+    )
+    db.session.add(event)
+    return event
+
+
+def subscriber_payload(user: User, sub: Subscription, amount: float = None) -> dict:
+    price = amount if amount is not None else TIER_PRICES.get(sub.tier, 0)
+    return {
+        'subscriber_id': sub.subscriber_id,
+        'user_id': user.id,
+        'email': user.email,
+        'name': user.name,
+        'tier': sub.tier,
+        'active': sub.tier in ('pro', 'fleet'),
+        'current_price': price,
+        'pro_started_at': sub.pro_started_at.isoformat() if sub.pro_started_at else None,
+        'free_updates_used': sub.free_updates_used,
+    }
+
+
+def emit_for_event(event_type: str, user: User, sub: Subscription, amount: float):
+    webhook_event = WEBHOOK_EVENT_MAP.get(event_type)
+    if event_type in ('purchase', 'upgrade', 'renew') and sub.tier == 'fleet':
+        webhook_event = 'purchase_fleet' if event_type == 'purchase' else 'renewal_fleet'
+    elif event_type == 'cancel' and sub.tier == 'free':
+        webhook_event = 'cancel_fleet' if amount >= 99 else 'cancel_pro'
+
+    if webhook_event:
+        emit_righand_event(webhook_event, subscriber_payload(user, sub, amount))
+
+
+def apply_tier_upgrade(
+    user: User,
+    tier: str,
+    amount: float,
+    google_order_id=None,
+    google_product_id=None,
+) -> Subscription:
+    """
+    Upgrade user to pro or fleet after verified payment.
+    Idempotent when the same google_order_id is submitted twice.
+    """
+    if tier not in ('pro', 'fleet'):
+        raise ValueError(f'Invalid tier: {tier}')
+
+    if google_order_id and find_purchase_by_order(google_order_id):
+        return get_or_create_subscription(user.id)
+
+    sub = get_or_create_subscription(user.id)
+    now = utcnow()
+    prev_tier = sub.tier
+
+    if TIER_RANK.get(tier, 0) <= TIER_RANK.get(prev_tier, 0) and prev_tier in ('pro', 'fleet'):
+        db.session.commit()
+        return sub
+
+    event_type = 'purchase' if prev_tier == 'free' else 'upgrade'
+    sub.tier = tier
+    sub.pro_started_at = now
+    sub.milestone_notified = False
+
+    log_purchase_event(sub, event_type, tier, amount, google_order_id, google_product_id)
+
+    if tier == 'fleet':
+        ensure_fleet_for_owner(user)
+
+    db.session.commit()
+    emit_for_event(event_type, user, sub, amount)
+    check_milestones()
+    return sub
+
+
+def apply_purchase_by_product(
+    user: User,
+    product_id: str,
+    google_order_id=None,
+    google_product_id=None,
+) -> Subscription:
+    resolved = resolve_product(product_id)
+    if not resolved:
+        raise ValueError(f'Unknown product: {product_id}')
+    tier, amount = resolved
+    pid = google_product_id or product_id
+    return apply_tier_upgrade(user, tier, amount, google_order_id, pid)
+
+
+def check_milestones():
+    """Notify dbops when a Pro subscriber hits 90 days."""
+    cutoff = utcnow() - timedelta(days=90)
+    subs = Subscription.query.filter(
+        Subscription.tier.in_(('pro', 'fleet')),
+        Subscription.pro_started_at.isnot(None),
+        Subscription.milestone_notified.is_(False),
+    ).all()
+
+    changed = False
+    for sub in subs:
+        started = sub.pro_started_at
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        if started > cutoff:
+            continue
+
+        user = User.query.get(sub.user_id)
+        if not user:
+            continue
+        price = TIER_PRICES.get(sub.tier, TIER_PRICES['pro'])
+        if emit_righand_event('milestone_3mo', subscriber_payload(user, sub, price)):
+            sub.milestone_notified = True
+            changed = True
+
+    if changed:
+        db.session.commit()

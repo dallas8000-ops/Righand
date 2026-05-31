@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from tier_guard import require_pro
 from models import db, Tenant, FleetMembership, User, Expense, VehicleLocation, DutyLog
 from datetime import datetime
 import uuid
@@ -128,6 +129,7 @@ def post_location():
 
 @fleet_bp.route('/hos/status', methods=['GET', 'POST'])
 @jwt_required()
+@require_pro
 def hos_status():
     """HOS lite — manual duty status log (not certified ELD)."""
     user_id = get_jwt_identity()

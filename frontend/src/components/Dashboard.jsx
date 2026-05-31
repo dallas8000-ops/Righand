@@ -22,6 +22,8 @@ import FleetDashboard from './dashboard/FleetDashboard';
 import AdminPanel from './dashboard/AdminPanel';
 import TripTracker from './dashboard/TripTracker';
 import ThemeSwitcher from './dashboard/ThemeSwitcher';
+import UpgradeGate from './dashboard/UpgradeGate';
+import { useSubscription } from '../hooks/useSubscription';
 import { DriverSettings } from '../utils/driverSettings';
 import './Dashboard.css';
 
@@ -118,6 +120,12 @@ const Dashboard = ({ user, onLogout }) => {
   const userId = localStorage.getItem('userId') || user?.id;
   const [openingIncome, setOpeningIncome] = useState(0);
   const isDemo = localStorage.getItem('authToken') === 'demo_token_12345';
+  const { subscription, isPro, refresh: refreshSubscription } = useSubscription(isDemo);
+
+  const handlePaidUnlock = async () => {
+    await refreshSubscription();
+    await loadFleetStatus();
+  };
 
   const allCategoryValues = useMemo(() => Array.from(new Set([
     ...DEFAULT_CATEGORIES.map(category => category.value),
@@ -1248,21 +1256,24 @@ const Dashboard = ({ user, onLogout }) => {
 
         <nav className="header-nav" aria-label="Main navigation">
           {[
-            { id: 'home', label: 'Home', icon: '⌂' },
-            { id: 'log', label: 'Log', icon: '✎' },
-            { id: 'reports', label: 'Reports', icon: '⎙' },
-            { id: 'hos', label: 'HOS', icon: '⏱' },
-            { id: 'fleet', label: 'Fleet', icon: '⛟' },
-            { id: 'admin', label: 'Admin', icon: '⚙' }
+            { id: 'home', label: 'Home', icon: '⌂', pro: false },
+            { id: 'log', label: 'Log', icon: '✎', pro: false },
+            { id: 'reports', label: 'Reports', icon: '⎙', pro: true },
+            { id: 'hos', label: 'HOS', icon: '⏱', pro: true },
+            { id: 'fleet', label: 'Fleet', icon: '⛟', pro: false },
+            { id: 'admin', label: 'Admin', icon: '⚙', pro: true }
           ].map(tab => (
             <button
               key={tab.id}
               type="button"
-              className={clsx('header-nav-item', activeTab === tab.id && 'active')}
+              className={clsx('header-nav-item', activeTab === tab.id && 'active', tab.pro && !isPro && 'locked')}
               onClick={() => setActiveTab(tab.id)}
             >
               <span className="header-nav-icon" aria-hidden="true">{tab.icon}</span>
-              <span className="header-nav-label">{tab.label}</span>
+              <span className="header-nav-label">
+                {tab.label}
+                {tab.pro && !isPro && <span className="nav-lock" aria-label="Pro feature"> 🔒</span>}
+              </span>
             </button>
           ))}
         </nav>
@@ -1275,11 +1286,28 @@ const Dashboard = ({ user, onLogout }) => {
 
         {activeTab === 'home' && renderHome()}
         {activeTab === 'log' && renderLog()}
-        {activeTab === 'reports' && renderReports()}
-        {activeTab === 'hos' && renderHos()}
-        {activeTab === 'fleet' && <FleetDashboard fleetStatus={fleetStatus} isDemo={isDemo} />}
+        {activeTab === 'reports' && (
+          <UpgradeGate tier="pro" subscription={subscription} onUnlocked={handlePaidUnlock}>
+            {renderReports()}
+          </UpgradeGate>
+        )}
+        {activeTab === 'hos' && (
+          <UpgradeGate tier="pro" subscription={subscription} onUnlocked={handlePaidUnlock}>
+            {renderHos()}
+          </UpgradeGate>
+        )}
+        {activeTab === 'fleet' && (
+          <FleetDashboard
+            fleetStatus={fleetStatus}
+            isDemo={isDemo}
+            userId={userId}
+            subscription={subscription}
+            onUnlocked={handlePaidUnlock}
+          />
+        )}
         {activeTab === 'admin' && (
-          <AdminPanel
+          <UpgradeGate tier="pro" subscription={subscription} onUnlocked={handlePaidUnlock}>
+            <AdminPanel
             expenses={adminExpenses}
             openingIncome={openingIncome}
             onSaveOpeningIncome={saveOpeningIncome}
@@ -1289,6 +1317,7 @@ const Dashboard = ({ user, onLogout }) => {
             onAddExpense={() => startQuickEntry('expense')}
             onReload={loadExpenses}
           />
+          </UpgradeGate>
         )}
       </main>
     </div>

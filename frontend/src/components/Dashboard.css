@@ -1683,6 +1683,85 @@ body.theme-dark,
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+.fleet-dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.fleet-dashboard-header h2 {
+  margin: 0 0 4px;
+}
+
+.fleet-gps-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.fleet-gps-panel h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.fleet-gps-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+
+.fleet-gps-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.fleet-gps-dot.active {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+}
+
+.fleet-gps-last {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.fleet-location-block {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.fleet-location-time {
+  font-size: 12px;
+  color: #64748b;
+  margin: 4px 0 8px;
+}
+
+.fleet-map-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: #667eea;
+  text-decoration: none;
+}
+
+.fleet-map-link:hover {
+  text-decoration: underline;
+}
+
+.night-drive .fleet-gps-panel,
+.theme-dark .fleet-gps-panel {
+  background: #181c23;
+  border-color: #3b4252;
+}
+
 .fleet-driver-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -2294,4 +2373,69 @@ body.theme-dark,
 .night-drive .trip-live-speed,
 .theme-dark .trip-live-speed {
   color: #e0e7ef;
+}
+
+.upgrade-gate {
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px 40px;
+}
+
+.upgrade-gate-card {
+  max-width: 420px;
+  width: 100%;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 28px 24px;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.upgrade-badge {
+  display: inline-block;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin: 0 0 12px;
+}
+
+.upgrade-gate-card h2 {
+  margin: 0 0 8px;
+}
+
+.upgrade-price {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 12px;
+}
+
+.upgrade-product-id {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 12px;
+}
+
+.header-nav-item.locked {
+  opacity: 0.75;
+}
+
+.nav-lock {
+  font-size: 0.75rem;
+}
+
+.theme-dark .upgrade-gate-card {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+.theme-dark .upgrade-price {
+  color: #f8fafc;
 }
