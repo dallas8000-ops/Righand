@@ -1,21 +1,40 @@
-# RigHand AI Backend (Django)
+# RigHand — Django app (API + web UI)
 
-1. Push code to GitHub.
-2. Create a Render Web Service pointing at the `backend` folder.
-3. Configure:
-   - Runtime: Python 3.x
-   - Build Command: `pip install -r requirements.txt`
-   - Start Command: `gunicorn --bind 0.0.0.0:$PORT righand.wsgi:application`
-4. Environment variables:
-   - `DJANGO_ENV=production` (or `FLASK_ENV=production` — still supported)
+One **Django** service serves everything:
+
+- `/` — React login / dashboard (production build)
+- `/api/` — REST API
+- `/health` — health check
+- `/admin/` — Django admin
+
+## Render Web Service
+
+1. **Root Directory:** `backend`
+2. **Build Command:**
+   ```bash
+   pip install -r requirements.txt && cd ../frontend && npm install && npm run build
+   ```
+3. **Start Command:**
+   ```bash
+   gunicorn --bind 0.0.0.0:$PORT righand.wsgi:application
+   ```
+4. **Environment:**
+   - `DJANGO_ENV=production`
    - `SECRET_KEY`, `JWT_SECRET_KEY`, `DATABASE_URL`
-   - `CORS_ORIGINS` (comma-separated frontend URLs)
-   - `ALLOWED_HOSTS` (your Render hostname, or `*`)
-5. Deploy and verify:
-   - `GET /` — service info (200)
-   - `GET /health` — health check (200)
-   - `GET /api/auth/verify` — requires Bearer token
+   - `REACT_APP_API_URL=/api` (same-origin API when UI is served by Django)
+   - `CORS_ORIGINS` — only needed if you also host UI on another domain
 
-# Frontend (React)
+## You do not need a separate Node/`serve` service
 
-Deploy separately with `serve -s build`. Point `REACT_APP_API_URL` at this backend.
+The old **righand-frontend** Render service (`npx serve -s build`) is optional. Point your main URL at this Django service instead.
+
+## Local run
+
+```bash
+cd frontend && npm install && npm run build
+cd ../backend && pip install -r requirements.txt
+set DJANGO_ENV=development
+python manage.py runserver
+```
+
+Open http://127.0.0.1:8000/

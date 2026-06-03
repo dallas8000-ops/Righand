@@ -1,5 +1,6 @@
 django>=4.2,<5
 django-cors-headers>=4.3
+whitenoise>=6.6
 PyJWT>=2.8
 python-dotenv==1.0.0
 firebase-admin==6.2.0

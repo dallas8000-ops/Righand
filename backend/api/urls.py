@@ -1,11 +1,18 @@
+from django.http import JsonResponse
 from django.urls import path
 from django.views.decorators.csrf import csrf_exempt
 
 from api import views
 
+
+def index(request):
+    return JsonResponse({'service': 'Righand API', 'status': 'online'})
+
+
 csrf = csrf_exempt
 
 urlpatterns = [
+    path('', index),
     path('auth/register', csrf(views.register)),
     path('auth/login', csrf(views.login)),
     path('auth/verify', csrf(views.verify)),

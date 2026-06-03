@@ -3,9 +3,11 @@ import { Capacitor } from '@capacitor/core';
 import { ExpenseDB, SyncQueueDB } from './offlineDB';
 
 const PRODUCTION_API = 'https://righand.onrender.com/api';
+const sameOriginApi =
+  typeof window !== 'undefined' ? `${window.location.origin}/api` : PRODUCTION_API;
 const defaultApiUrl = Capacitor.isNativePlatform()
   ? PRODUCTION_API
-  : 'http://localhost:5000/api';
+  : sameOriginApi;
 const rawApiUrl = process.env.REACT_APP_API_URL || defaultApiUrl;
 const API_BASE_URL = rawApiUrl.endsWith('/api')
   ? rawApiUrl

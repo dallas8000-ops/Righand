@@ -5,19 +5,41 @@ from datetime import timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+REPO_ROOT = BASE_DIR.parent
+FRONTEND_BUILD_DIR = REPO_ROOT / 'frontend' / 'build'
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'righand-secret-key-change-in-production')
 JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'righand-jwt-secret-change-in-production')
 
-_env = os.environ.get('DJANGO_ENV', os.environ.get('FLASK_ENV', 'development'))
+if os.environ.get('RENDER'):
+    _env = os.environ.get('DJANGO_ENV', os.environ.get('FLASK_ENV', 'production'))
+else:
+    _env = os.environ.get('DJANGO_ENV', os.environ.get('FLASK_ENV', 'development'))
 DEBUG = _env == 'development'
 
-_override = os.environ.get('ALLOWED_HOSTS')
-ALLOWED_HOSTS = (
-    [host.strip() for host in _override.split(',') if host.strip()]
-    if _override
-    else ['righand.onrender.com', '*']
-)
+
+def _build_allowed_hosts():
+    hosts = [
+        'righand.onrender.com',
+        '.onrender.com',
+        'localhost',
+        '127.0.0.1',
+        'testserver',
+    ]
+    render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+    if render_host:
+        hosts.insert(0, render_host)
+    override = os.environ.get('ALLOWED_HOSTS')
+    if override:
+        hosts = [
+            host.strip()
+            for host in override.split(',')
+            if host.strip() and host.strip() != '*'
+        ]
+    return list(dict.fromkeys(hosts))
+
+
+ALLOWED_HOSTS = _build_allowed_hosts()
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -32,6 +54,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -112,7 +135,17 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+if (FRONTEND_BUILD_DIR / 'static').is_dir():
+    STATICFILES_DIRS = [FRONTEND_BUILD_DIR / 'static']
+
+# Serve CRA build assets (JS/CSS) and index.html fallback for client routes
+if FRONTEND_BUILD_DIR.is_dir():
+    WHITENOISE_ROOT = FRONTEND_BUILD_DIR
+    WHITENOISE_INDEX_FILE = True
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=30)
@@ -132,6 +165,9 @@ else:
 CSRF_TRUSTED_ORIGINS = [
     origin for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()
 ]
+_render_url = os.environ.get('RENDER_EXTERNAL_URL', '').rstrip('/')
+if _render_url and _render_url not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(_render_url)
 
 LOGGING = {
     'version': 1,
