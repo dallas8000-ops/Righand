@@ -31,6 +31,8 @@ __pycache__/
 
 # Build outputs
 frontend/build/
+frontend/releases/
+*.apk
 backend/dist/
 backend/build/
 
