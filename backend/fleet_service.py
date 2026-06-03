@@ -2,14 +2,13 @@
 
 import uuid
 
-from models import db, User, Tenant, FleetMembership
+from api.models import FleetMembership, Tenant, User
 
 
 def ensure_fleet_for_owner(owner: User, fleet_name: str = None, max_drivers: int = 5) -> Tenant:
-    """Create fleet + owner membership if the user is not already in a fleet."""
-    existing = FleetMembership.query.filter_by(user_id=owner.id).first()
+    existing = FleetMembership.objects.filter(user_id=owner.id).first()
     if existing:
-        return Tenant.query.get(existing.tenant_id)
+        return Tenant.objects.filter(pk=existing.tenant_id).first()
 
     name = fleet_name or f'{owner.name or owner.email.split("@")[0]} Fleet'
     tenant = Tenant(
@@ -24,7 +23,6 @@ def ensure_fleet_for_owner(owner: User, fleet_name: str = None, max_drivers: int
         user_id=owner.id,
         role='owner',
     )
-    db.session.add(tenant)
-    db.session.add(membership)
-    db.session.flush()
+    tenant.save()
+    membership.save()
     return tenant

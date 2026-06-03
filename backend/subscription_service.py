@@ -3,8 +3,10 @@
 import os
 from datetime import datetime, timedelta, timezone
 
+from django.db import transaction
+
+from api.models import PurchaseEvent, Subscription, User
 from fleet_service import ensure_fleet_for_owner
-from models import db, User, Subscription, PurchaseEvent
 from webhook_client import emit_righand_event
 
 TIER_PRICES = {
@@ -32,7 +34,6 @@ def catalog_product_ids():
 
 
 def _product_catalog():
-    """Map Google Play / store product IDs → (tier, price)."""
     ids = catalog_product_ids()
     return {
         ids['pro']: ('pro', TIER_PRICES['pro']),
@@ -55,13 +56,13 @@ def utcnow():
 
 
 def next_subscriber_id() -> str:
-    last = Subscription.query.order_by(Subscription.id.desc()).first()
+    last = Subscription.objects.order_by('-id').first()
     num = (last.id if last else 0) + 1
     return f'RH-{num:05d}'
 
 
 def get_or_create_subscription(user_id: str) -> Subscription:
-    sub = Subscription.query.filter_by(user_id=user_id).first()
+    sub = Subscription.objects.filter(user_id=user_id).first()
     if sub:
         return sub
     sub = Subscription(
@@ -70,15 +71,14 @@ def get_or_create_subscription(user_id: str) -> Subscription:
         tier='free',
         started_at=utcnow(),
     )
-    db.session.add(sub)
-    db.session.flush()
+    sub.save()
     return sub
 
 
 def find_purchase_by_order(google_order_id: str):
     if not google_order_id:
         return None
-    return PurchaseEvent.query.filter_by(google_order_id=google_order_id).first()
+    return PurchaseEvent.objects.filter(google_order_id=google_order_id).first()
 
 
 def log_purchase_event(
@@ -99,7 +99,7 @@ def log_purchase_event(
         google_product_id=google_product_id,
         occurred_at=utcnow(),
     )
-    db.session.add(event)
+    event.save()
     return event
 
 
@@ -136,10 +136,6 @@ def apply_tier_upgrade(
     google_order_id=None,
     google_product_id=None,
 ) -> Subscription:
-    """
-    Upgrade user to pro or fleet after verified payment.
-    Idempotent when the same google_order_id is submitted twice.
-    """
     if tier not in ('pro', 'fleet'):
         raise ValueError(f'Invalid tier: {tier}')
 
@@ -151,20 +147,19 @@ def apply_tier_upgrade(
     prev_tier = sub.tier
 
     if TIER_RANK.get(tier, 0) <= TIER_RANK.get(prev_tier, 0) and prev_tier in ('pro', 'fleet'):
-        db.session.commit()
         return sub
 
     event_type = 'purchase' if prev_tier == 'free' else 'upgrade'
     sub.tier = tier
     sub.pro_started_at = now
     sub.milestone_notified = False
+    sub.save()
 
     log_purchase_event(sub, event_type, tier, amount, google_order_id, google_product_id)
 
     if tier == 'fleet':
         ensure_fleet_for_owner(user)
 
-    db.session.commit()
     emit_for_event(event_type, user, sub, amount)
     check_milestones()
     return sub
@@ -185,15 +180,13 @@ def apply_purchase_by_product(
 
 
 def check_milestones():
-    """Notify dbops when a Pro subscriber hits 90 days."""
     cutoff = utcnow() - timedelta(days=90)
-    subs = Subscription.query.filter(
-        Subscription.tier.in_(('pro', 'fleet')),
-        Subscription.pro_started_at.isnot(None),
-        Subscription.milestone_notified.is_(False),
-    ).all()
+    subs = Subscription.objects.filter(
+        tier__in=('pro', 'fleet'),
+        pro_started_at__isnull=False,
+        milestone_notified=False,
+    )
 
-    changed = False
     for sub in subs:
         started = sub.pro_started_at
         if started.tzinfo is None:
@@ -201,13 +194,10 @@ def check_milestones():
         if started > cutoff:
             continue
 
-        user = User.query.get(sub.user_id)
+        user = User.objects.filter(pk=sub.user_id).first()
         if not user:
             continue
         price = TIER_PRICES.get(sub.tier, TIER_PRICES['pro'])
         if emit_righand_event('milestone_3mo', subscriber_payload(user, sub, price)):
             sub.milestone_notified = True
-            changed = True
-
-    if changed:
-        db.session.commit()
+            sub.save()

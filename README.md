@@ -220,7 +220,7 @@ The frontend auto-appends `/api` if omitted, but set it correctly on Render to a
 
 RigHand AI uses a two-tier architecture:
 - **Frontend:** React single-page application
-- **Backend:** Flask REST API
+- **Backend:** Django REST API
 - **Database:** SQLite locally, PostgreSQL in production
 
 High-level flow:
@@ -245,10 +245,9 @@ Local-only settings (starting income, active trip, trip history) use browser `lo
 - `@capacitor-community/bluetooth-le` — ELM327 OBD-II dongles
 
 **Backend:**
-- Flask
-- Flask-JWT-Extended
-- Flask-SQLAlchemy
-- Flask-CORS
+- Django 4.2
+- django-cors-headers
+- PyJWT (API auth)
 - Gunicorn
 - ReportLab (PDF export)
 
@@ -418,7 +417,7 @@ Local URLs:
 **Backend service:**
 - Root Directory: `backend`
 - Build Command: `pip install -r requirements.txt`
-- Start Command: `gunicorn --bind 0.0.0.0:$PORT app:app`
+- Start Command: `gunicorn --bind 0.0.0.0:$PORT righand.wsgi:application`
 
 **Frontend service:**
 - Root Directory: `frontend`

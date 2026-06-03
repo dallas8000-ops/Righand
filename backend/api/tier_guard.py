@@ -2,8 +2,7 @@
 
 from functools import wraps
 
-from flask import jsonify
-from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+from django.http import JsonResponse
 
 from subscription_service import get_or_create_subscription
 
@@ -24,16 +23,16 @@ def user_has_fleet_sub(user_id: str) -> bool:
     return user_tier(user_id) in FLEET_TIERS
 
 
-def require_pro(fn):
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        verify_jwt_in_request()
-        user_id = get_jwt_identity()
+def require_pro(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        user_id = getattr(request, 'righand_user_id', None)
         if not user_has_pro(user_id):
-            return jsonify({
+            return JsonResponse({
                 'error': 'Pro subscription required',
                 'code': 'PRO_REQUIRED',
                 'upgradeUrl': '/upgrade/pro',
-            }), 403
-        return fn(*args, **kwargs)
+            }, status=403)
+        return view_func(request, *args, **kwargs)
+
     return wrapper
