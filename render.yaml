@@ -16,5 +16,18 @@ services:
         value: production
       - key: REACT_APP_API_URL
         value: /api
+      - key: RIGHAND_FRONTEND_URL
+        sync: false
       - key: PYTHON_VERSION
         value: "3.11.9"
+      # Stripe: set values in Render dashboard (see docs/STRIPE_RENDER_SETUP.md). Verify: GET /health/billing
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_ID_PRO
+        sync: false
+      - key: STRIPE_PRICE_ID_FLEET
+        sync: false
+      - key: STRIPE_CHECKOUT_DISPLAY_NAME
+        sync: false

@@ -33,6 +33,13 @@ def catalog_product_ids():
     }
 
 
+def catalog_stripe_price_ids():
+    return {
+        'pro': os.environ.get('STRIPE_PRICE_ID_PRO', ''),
+        'fleet': os.environ.get('STRIPE_PRICE_ID_FLEET', ''),
+    }
+
+
 def _product_catalog():
     ids = catalog_product_ids()
     return {
@@ -49,6 +56,15 @@ def resolve_product(product_id: str):
     if key not in catalog:
         return None
     return catalog[key]
+
+
+def resolve_stripe_price(price_id: str):
+    prices = catalog_stripe_price_ids()
+    key = (price_id or '').strip()
+    for tier, configured_price in prices.items():
+        if configured_price and key == configured_price:
+            return tier, TIER_PRICES[tier]
+    return None
 
 
 def utcnow():
@@ -177,6 +193,42 @@ def apply_purchase_by_product(
     tier, amount = resolved
     pid = google_product_id or product_id
     return apply_tier_upgrade(user, tier, amount, google_order_id, pid)
+
+
+def apply_stripe_checkout_completed(session: dict) -> Subscription:
+    metadata = session.get('metadata') or {}
+    user_id = metadata.get('user_id') or metadata.get('userId')
+    tier = metadata.get('tier')
+    price_id = metadata.get('price_id') or metadata.get('priceId')
+    session_id = session.get('id')
+
+    if not tier and price_id:
+        resolved = resolve_stripe_price(price_id)
+        if resolved:
+            tier, _amount = resolved
+
+    if tier not in ('pro', 'fleet'):
+        raise ValueError('Stripe checkout session is missing a valid tier')
+
+    user = None
+    if user_id:
+        user = User.objects.filter(pk=user_id).first()
+    if not user:
+        customer_details = session.get('customer_details') or {}
+        email = customer_details.get('email') or session.get('customer_email')
+        if email:
+            user = User.objects.filter(email=email).first()
+    if not user:
+        raise ValueError('Stripe checkout session does not match a RigHand user')
+
+    amount = TIER_PRICES[tier]
+    return apply_tier_upgrade(
+        user,
+        tier,
+        amount,
+        google_order_id=session_id,
+        google_product_id=price_id or f'stripe_{tier}',
+    )
 
 
 def check_milestones():

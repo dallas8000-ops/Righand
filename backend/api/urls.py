@@ -37,7 +37,9 @@ urlpatterns = [
     path('subscriptions/events', csrf(views.my_purchase_events)),
     path('subscriptions/verify-purchase', csrf(views.verify_purchase)),
     path('subscriptions/activate', csrf(views.activate_subscription)),
+    path('subscriptions/stripe-checkout', csrf(views.create_stripe_checkout)),
     path('subscriptions/renew', csrf(views.renew_subscription)),
     path('subscriptions/cancel', csrf(views.cancel_subscription)),
     path('subscriptions/update-used', csrf(views.record_free_update)),
+    path('billing/webhook', csrf(views.stripe_webhook)),
 ]

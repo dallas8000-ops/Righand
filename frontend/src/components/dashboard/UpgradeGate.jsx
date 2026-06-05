@@ -20,6 +20,7 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
   const copy = TIER_COPY[tier] || TIER_COPY.pro;
 
   const productId = subscription?.products?.[tier]?.productId;
+  const stripeConfigured = Boolean(subscription?.stripeConfigured);
   const alreadyUnlocked =
     tier === 'fleet'
       ? subscription?.tier === 'fleet'
@@ -36,6 +37,23 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
       if (onUnlocked) await onUnlocked();
     } catch (err) {
       setError(err?.error || err?.message || 'Purchase verification failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleStripeCheckout = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const session = await SubscriptionAPI.startStripeCheckout(tier);
+      if (session?.url) {
+        window.location.assign(session.url);
+        return;
+      }
+      setError('Stripe checkout did not return a checkout URL.');
+    } catch (err) {
+      setError(err?.error || err?.message || 'Stripe checkout failed.');
     } finally {
       setBusy(false);
     }
@@ -66,7 +84,7 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
         <p className="upgrade-price">${copy.price}/mo</p>
         <p className="admin-hint">{copy.blurb}</p>
         <p className="admin-hint">
-          Subscribe in the <strong>Google Play</strong> app on Android.
+          Subscribe with Stripe on web or in the <strong>Google Play</strong> app on Android.
           After payment, features unlock automatically.
         </p>
         {productId && (
@@ -75,6 +93,16 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
           </p>
         )}
         {error && <p className="error-message">{error}</p>}
+        {stripeConfigured && (
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={busy}
+            onClick={handleStripeCheckout}
+          >
+            {busy ? 'Opening checkout...' : 'Subscribe with Stripe'}
+          </button>
+        )}
         {process.env.NODE_ENV === 'development' && (
           <button
             type="button"

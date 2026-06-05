@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Capacitor } from '@capacitor/core';
 import { ExpenseDB, SyncQueueDB } from './offlineDB';
 
-const PRODUCTION_API = 'https://righand.onrender.com/api';
+const PRODUCTION_API = 'https://righand.gilliomfrontlinedigital.com/api';
 const sameOriginApi =
   typeof window !== 'undefined' ? `${window.location.origin}/api` : PRODUCTION_API;
 const defaultApiUrl = Capacitor.isNativePlatform()
@@ -292,6 +292,14 @@ export const SubscriptionAPI = {
 
   async activate(tier = 'pro') {
     const response = await api.post('/subscriptions/activate', { tier });
+    return response.data;
+  },
+
+  async startStripeCheckout(tier = 'pro') {
+    const response = await api.post('/subscriptions/stripe-checkout', {
+      tier,
+      frontendUrl: typeof window !== 'undefined' ? window.location.origin : undefined,
+    });
     return response.data;
   },
 };

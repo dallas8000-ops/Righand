@@ -1,3 +1,5 @@
+import os
+
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
@@ -6,9 +8,11 @@ from api.models import Subscription, User
 from api.utils import parse_json
 from subscription_service import (
     TIER_PRICES,
+    apply_stripe_checkout_completed,
     apply_purchase_by_product,
     apply_tier_upgrade,
     catalog_product_ids,
+    catalog_stripe_price_ids,
     check_milestones,
     get_or_create_subscription,
     log_purchase_event,
@@ -28,6 +32,7 @@ def my_subscription(request):
         'pro': {'productId': products['pro'], 'price': TIER_PRICES['pro']},
         'fleet': {'productId': products['fleet'], 'price': TIER_PRICES['fleet']},
     }
+    payload['stripeConfigured'] = bool(os.environ.get('STRIPE_SECRET_KEY') and os.environ.get('STRIPE_PRICE_ID_PRO'))
     return JsonResponse(payload)
 
 
@@ -100,6 +105,97 @@ def activate_subscription(request):
 
     sub = apply_tier_upgrade(user, tier, amount, google_order_id, google_product_id)
     return JsonResponse({'message': f'Subscription activated ({tier})', **sub.to_dict()}, status=201)
+
+
+@jwt_required
+@require_http_methods(['POST'])
+def create_stripe_checkout(request):
+    user_id = request.righand_user_id
+    user = User.objects.filter(pk=user_id).first()
+    if not user:
+        return JsonResponse({'error': 'User not found'}, status=404)
+
+    body = parse_json(request)
+    tier = body.get('tier', 'pro')
+    if tier not in ('pro', 'fleet'):
+        return JsonResponse({'error': 'Invalid tier - use pro or fleet'}, status=400)
+
+    secret_key = os.environ.get('STRIPE_SECRET_KEY', '').strip()
+    price_id = catalog_stripe_price_ids().get(tier, '').strip()
+    if not secret_key or not price_id:
+        return JsonResponse({'error': 'Stripe is not configured for this tier'}, status=503)
+
+    try:
+        import stripe
+    except ImportError:
+        return JsonResponse({'error': 'Stripe SDK is not installed'}, status=503)
+
+    frontend_url = (
+        body.get('frontendUrl')
+        or os.environ.get('RIGHAND_FRONTEND_URL')
+        or request.headers.get('Origin')
+        or request.build_absolute_uri('/').rstrip('/')
+    ).rstrip('/')
+    stripe.api_key = secret_key
+    try:
+        session = stripe.checkout.Session.create(
+            mode='subscription',
+            line_items=[{'price': price_id, 'quantity': 1}],
+            success_url=f'{frontend_url}?billing=success&tier={tier}',
+            cancel_url=f'{frontend_url}?billing=cancel',
+            customer_email=user.email,
+            allow_promotion_codes=True,
+            billing_address_collection='auto',
+            metadata={
+                'user_id': user.id,
+                'tier': tier,
+                'price_id': price_id,
+            },
+            subscription_data={
+                'metadata': {
+                    'user_id': user.id,
+                    'tier': tier,
+                    'price_id': price_id,
+                },
+            },
+        )
+    except Exception as exc:
+        return JsonResponse({'error': f'Stripe checkout failed: {exc}'}, status=400)
+
+    return JsonResponse({'mode': 'stripe', 'url': session.url, 'sessionId': session.id, 'tier': tier})
+
+
+@require_http_methods(['POST'])
+def stripe_webhook(request):
+    webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET', '').strip()
+    secret_key = os.environ.get('STRIPE_SECRET_KEY', '').strip()
+    if not webhook_secret or not secret_key:
+        return JsonResponse({'error': 'Stripe webhook is not configured'}, status=503)
+
+    try:
+        import stripe
+    except ImportError:
+        return JsonResponse({'error': 'Stripe SDK is not installed'}, status=503)
+
+    signature = request.headers.get('Stripe-Signature')
+    if not signature:
+        return JsonResponse({'error': 'Missing Stripe-Signature header'}, status=400)
+
+    stripe.api_key = secret_key
+    try:
+        event = stripe.Webhook.construct_event(request.body, signature, webhook_secret)
+    except Exception:
+        return JsonResponse({'error': 'Invalid Stripe webhook signature'}, status=400)
+
+    event_type = event.get('type')
+    if event_type == 'checkout.session.completed':
+        try:
+            sub = apply_stripe_checkout_completed(event['data']['object'])
+        except ValueError as exc:
+            return JsonResponse({'error': str(exc), 'eventType': event_type}, status=400)
+        return JsonResponse({'received': True, 'eventType': event_type, **sub.to_dict()})
+
+    return JsonResponse({'received': True, 'eventType': event_type})
 
 
 @jwt_required

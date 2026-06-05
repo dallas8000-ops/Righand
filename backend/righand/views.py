@@ -1,3 +1,6 @@
+import importlib.util
+import os
+
 from django.conf import settings
 from django.http import FileResponse, JsonResponse
 
@@ -8,6 +11,38 @@ def health(request):
         'service': 'RigHand AI Backend',
         'version': '1.0.0',
     })
+
+
+def _env_configured(name):
+    return bool(os.environ.get(name, '').strip())
+
+
+def billing_health(request):
+    billing = {
+        'stripe_secret_key': _env_configured('STRIPE_SECRET_KEY'),
+        'stripe_webhook_secret': _env_configured('STRIPE_WEBHOOK_SECRET'),
+        'stripe_price_id_pro': _env_configured('STRIPE_PRICE_ID_PRO'),
+        'stripe_price_id_fleet': _env_configured('STRIPE_PRICE_ID_FLEET'),
+        'stripe_sdk_installed': importlib.util.find_spec('stripe') is not None,
+    }
+    required = (
+        billing['stripe_secret_key']
+        and billing['stripe_webhook_secret']
+        and billing['stripe_price_id_pro']
+        and billing['stripe_sdk_installed']
+    )
+    return JsonResponse({
+        'status': 'ok' if required else 'missing_config',
+        'billing': billing,
+        'webhook_url_path': '/api/billing/webhook',
+        'checkout_url_path': '/api/subscriptions/stripe-checkout',
+        'required_webhook_events': [
+            'checkout.session.completed',
+            'customer.subscription.created',
+            'customer.subscription.updated',
+            'customer.subscription.deleted',
+        ],
+    }, status=200 if required else 503)
 
 
 def spa_index(request):
