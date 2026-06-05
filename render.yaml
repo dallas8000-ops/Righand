@@ -18,6 +18,8 @@ services:
         value: /api
       - key: RIGHAND_FRONTEND_URL
         sync: false
+      - key: ALLOWED_HOSTS
+        value: righand.gilliomfrontlinedigital.com,righand.onrender.com,.onrender.com,localhost,127.0.0.1
       - key: PYTHON_VERSION
         value: "3.11.9"
       # Stripe: set values in Render dashboard (see docs/STRIPE_RENDER_SETUP.md). Verify: GET /health/billing

@@ -20,6 +20,7 @@ DEBUG = _env == 'development'
 
 def _build_allowed_hosts():
     hosts = [
+        'righand.gilliomfrontlinedigital.com',
         'righand.onrender.com',
         '.onrender.com',
         'localhost',
