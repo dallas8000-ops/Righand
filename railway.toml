@@ -1,5 +1,6 @@
 [build]
-buildCommand = "pip install -r backend/requirements.txt && (cd frontend && npm install && npm run build) && (cd backend && python3 manage.py collectstatic --noinput)"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 healthcheckPath = "/health"
