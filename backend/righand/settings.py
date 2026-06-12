@@ -11,7 +11,8 @@ FRONTEND_BUILD_DIR = REPO_ROOT / 'frontend' / 'build'
 SECRET_KEY = os.environ.get('SECRET_KEY', 'righand-secret-key-change-in-production')
 JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'righand-jwt-secret-change-in-production')
 
-if os.environ.get('RENDER'):
+_is_production = bool(os.environ.get('RENDER') or os.environ.get('RAILWAY_ENVIRONMENT'))
+if _is_production:
     _env = os.environ.get('DJANGO_ENV', os.environ.get('FLASK_ENV', 'production'))
 else:
     _env = os.environ.get('DJANGO_ENV', os.environ.get('FLASK_ENV', 'development'))
@@ -23,6 +24,7 @@ def _build_allowed_hosts():
         'righand.gilliomfrontlinedigital.com',
         'righand.onrender.com',
         '.onrender.com',
+        '.railway.app',
         'localhost',
         '127.0.0.1',
         'testserver',
@@ -30,6 +32,9 @@ def _build_allowed_hosts():
     render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
     if render_host:
         hosts.insert(0, render_host)
+    railway_host = os.environ.get('RAILWAY_PUBLIC_DOMAIN')
+    if railway_host:
+        hosts.insert(0, railway_host)
     override = os.environ.get('ALLOWED_HOSTS')
     if override:
         hosts = [
