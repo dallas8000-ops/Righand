@@ -1,8 +1,8 @@
 [build]
-buildCommand = "pip install -r backend/requirements.txt && cd frontend && npm install && npm run build && cd ../backend && python manage.py collectstatic --noinput && python manage.py migrate --noinput"
+buildCommand = "pip install -r backend/requirements.txt && cd frontend && npm install && npm run build && cd ../backend && python manage.py collectstatic --noinput"
 
 [deploy]
-startCommand = "cd backend && gunicorn --bind 0.0.0.0:$PORT righand.wsgi:application"
+startCommand = "cd backend && python manage.py migrate --noinput && gunicorn --bind 0.0.0.0:$PORT righand.wsgi:application"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
