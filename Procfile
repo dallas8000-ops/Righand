@@ -1,0 +1,1 @@
+web: cd backend && python3 manage.py migrate --noinput && gunicorn --bind 0.0.0.0:$PORT righand.wsgi:application
