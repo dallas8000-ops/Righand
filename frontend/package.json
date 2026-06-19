@@ -43,7 +43,8 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^6.0.0",
-    "react-scripts": "5.0.1"
+    "react-scripts": "5.0.1",
+    "yaml": "^2.9.0"
   },
   "proxy": "https://righand-frontend-production.up.railway.app"
 }
