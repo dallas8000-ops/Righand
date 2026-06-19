@@ -45,11 +45,11 @@ def main() -> int:
     missing = [k for k, ok in billing.items() if k.startswith("stripe_") and not ok]
     if status != 200 or missing:
         print("\nAction: set missing Railway env vars:", ", ".join(missing), file=sys.stderr)
-        print("See docs/STRIPE_RENDER_SETUP.md", file=sys.stderr)
+        print("See docs/STRIPE_RAILWAY_SETUP.md", file=sys.stderr)
         return 1
 
     print("\nStripe env vars are present on the API. Confirm webhook events in Stripe Dashboard.")
-    print("Guide: docs/STRIPE_RENDER_SETUP.md")
+    print("Guide: docs/STRIPE_RAILWAY_SETUP.md")
     return 0
 
 

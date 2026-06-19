@@ -11,7 +11,7 @@ FRONTEND_BUILD_DIR = REPO_ROOT / 'frontend' / 'build'
 SECRET_KEY = os.environ.get('SECRET_KEY', 'righand-secret-key-change-in-production')
 JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'righand-jwt-secret-change-in-production')
 
-_is_production = bool(os.environ.get('RENDER') or os.environ.get('RAILWAY_ENVIRONMENT'))
+_is_production = bool(os.environ.get('RAILWAY_ENVIRONMENT'))
 if _is_production:
     _env = os.environ.get('DJANGO_ENV', os.environ.get('FLASK_ENV', 'production'))
 else:
@@ -21,17 +21,13 @@ DEBUG = _env == 'development'
 
 def _build_allowed_hosts():
     hosts = [
+        'righand-production.up.railway.app',
         'righand.gilliomfrontlinedigital.com',
-        'righand.onrender.com',
-        '.onrender.com',
         '.railway.app',
         'localhost',
         '127.0.0.1',
         'testserver',
     ]
-    render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
-    if render_host:
-        hosts.insert(0, render_host)
     railway_host = os.environ.get('RAILWAY_PUBLIC_DOMAIN')
     if railway_host:
         hosts.insert(0, railway_host)
@@ -173,8 +169,8 @@ CSRF_TRUSTED_ORIGINS = [
     origin for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()
 ]
 for _url in (
-    os.environ.get('RENDER_EXTERNAL_URL', '').rstrip('/'),
     f"https://{os.environ['RAILWAY_PUBLIC_DOMAIN']}" if os.environ.get('RAILWAY_PUBLIC_DOMAIN') else '',
+    'https://righand-production.up.railway.app',
     'https://righand.gilliomfrontlinedigital.com',
 ):
     if _url and _url not in CSRF_TRUSTED_ORIGINS:

@@ -250,7 +250,7 @@ Deploy on:
 - Heroku (free tier available)
 - AWS
 - DigitalOcean
-- Render.com
+- Railway (Dockerfile + `railway.toml`)
 
 Users access via browser - no local code access.
 

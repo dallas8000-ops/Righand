@@ -125,7 +125,7 @@
 
 **Platforms:**
 - [ ] Heroku
-- [ ] Render.com
+- [ ] Railway
 - [ ] AWS
 - [ ] DigitalOcean
 

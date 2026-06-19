@@ -22,10 +22,10 @@ Primary goals:
 |---------|-----|
 | Web app + API | https://righand-production.up.railway.app |
 | Health check | https://righand-production.up.railway.app/health |
-| Custom domain (when DNS is configured) | https://righand.gilliomfrontlinedigital.com |
+| Custom domain (CNAME → Railway) | https://righand.gilliomfrontlinedigital.com |
 | Android app | Built locally — see [Section 12](#12-android-app-capacitor) |
 
-Production uses **one Railway service** (`Righand`) via root `Dockerfile` + `railway.toml`. The older `righand-frontend` Railway service and Render blueprint are legacy.
+Production uses **one Railway service** (`Righand`) via root `Dockerfile` + `railway.toml`.
 
 ## 3. Features
 
@@ -424,13 +424,13 @@ Local URLs:
 
 See **`backend/RAILWAY_DEPLOY.md`** for the full guide.
 
-**Single service (recommended):**
+**Single service:**
 - Source: GitHub repo root
 - Builder: Dockerfile (`railway.toml`)
 - Start: `/app/backend/railway_start.sh` (migrate + gunicorn)
 - Health check: `/health`
 
-**Legacy:** `render.yaml` and a separate `righand-frontend` Railway service are not used for current production deploys.
+Full guide: **`backend/RAILWAY_DEPLOY.md`**
 
 ## 10. Project Structure
 

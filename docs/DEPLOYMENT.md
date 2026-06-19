@@ -246,9 +246,13 @@ start http://localhost:3000
 
 ---
 
-## Option 3: Cloud Deployment (Heroku/Render)
+## Option 3: Cloud Deployment (Railway)
 
-### Heroku Deployment
+Production deploys on **Railway** using the root `Dockerfile` and `railway.toml`.
+
+See **`backend/RAILWAY_DEPLOY.md`** for the current setup.
+
+### Heroku Deployment (historical reference only)
 
 1. Create `Procfile`:
 ```
@@ -265,38 +269,6 @@ python-3.9.16
 heroku create righand-app
 git push heroku main
 ```
-
-### Render.com Deployment
-
-Create `render.yaml`:
-```yaml
-services:
-  - type: web
-    name: righand-backend
-    env: python
-    buildCommand: pip install -r backend/requirements.txt
-    startCommand: python backend/app.py
-    envVars:
-      - key: FLASK_ENV
-        value: production
-
-  - type: static
-    name: righand-frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: frontend/build
-```
-
-**Advantages:**
-- ✅ No installation needed
-- ✅ Automatic SSL/HTTPS
-- ✅ Auto-scaling
-- ✅ Global CDN
-- ✅ Source code never visible
-
-**Disadvantages:**
-- ✗ Requires account setup
-- ✗ Monthly costs
-- ✗ Dependency on third-party
 
 ---
 
@@ -470,7 +442,7 @@ Track changes in `CHANGELOG.md`:
 ## Recommended Deployment Path
 
 1. **Development**: Run locally with npm/pip
-2. **Testing**: Deploy to Render free tier
+2. **Testing**: Deploy to Railway (see `backend/RAILWAY_DEPLOY.md`)
 3. **Demo**: Run Docker Compose locally
 4. **Production**: Docker + Cloud or Compiled binaries
 
@@ -510,7 +482,7 @@ docker-compose up
 | Option | Setup | Monthly | Notes |
 |--------|-------|---------|-------|
 | Docker Local | Free | $0 | Best for demos |
-| Render.com | Free | $7 | Good for testing |
+| Railway | Hobby | Usage-based | Production host for RigHand |
 | AWS | Free tier | $10-50 | Scalable |
 | Heroku | Free tier | $7+ | Simple deployment |
 | Own server | $0 | $5-100 | Full control |

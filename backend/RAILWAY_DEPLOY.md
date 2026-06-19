@@ -41,12 +41,12 @@ Optional:
 | `RAILWAY_PUBLIC_DOMAIN` | Auto-set by Railway → `ALLOWED_HOSTS` |
 | `ALLOWED_HOSTS` | Extra hosts merged with defaults (`.railway.app` always kept) |
 | `CORS_ORIGINS` | Only if UI is on another domain |
-| Stripe keys | See `docs/STRIPE_RENDER_SETUP.md` |
+| Stripe keys | See `docs/STRIPE_RAILWAY_SETUP.md` |
 
 ## Custom domain
 
-Point DNS (CNAME) to Railway, then add the domain on the **Righand** service.  
-`righand.gilliomfrontlinedigital.com` is already in default `ALLOWED_HOSTS`.
+Point DNS (CNAME) to Railway’s target for the **Righand** service, then add the domain in Railway → **Righand** → Settings → Domains.  
+`righand.gilliomfrontlinedigital.com` is in default `ALLOWED_HOSTS` and will serve the same app as `righand-production.up.railway.app` once DNS propagates.
 
 ## Verify after deploy
 

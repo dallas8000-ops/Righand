@@ -173,7 +173,7 @@ start.bat
 
 **Platforms:**
 - Heroku (easy, free tier available)
-- Render.com (simple setup)
+- Railway (see `backend/RAILWAY_DEPLOY.md`)
 - AWS (scalable)
 - DigitalOcean (affordable)
 

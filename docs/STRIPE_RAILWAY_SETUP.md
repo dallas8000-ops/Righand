@@ -3,7 +3,9 @@
 Production API host: `https://righand-production.up.railway.app`
 Webhook URL: `https://righand-production.up.railway.app/api/billing/webhook`
 
-> **Note:** This file was originally named for Render. Production now runs on **Railway** (`railway.toml` + root `Dockerfile`). See `backend/RAILWAY_DEPLOY.md`.
+Custom domain (when DNS CNAME points to Railway): `https://righand.gilliomfrontlinedigital.com`
+
+See also: `backend/RAILWAY_DEPLOY.md`
 
 ## 1. Stripe Dashboard
 
