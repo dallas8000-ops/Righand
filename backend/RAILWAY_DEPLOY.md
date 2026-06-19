@@ -108,10 +108,74 @@ If npm is in the start command, the container exits immediately with `The execut
 | Missing `DATABASE_URL` | Link Postgres service, reference `${{Postgres.DATABASE_URL}}` |
 | **`DATABASE_URL` still points to Render** (`*.oregon-postgres.render.com`) | **Not in git** — old value is saved in Railway → **Righand** → **Variables**. Delete it. Add a **Postgres** plugin in the project if missing. Set `DATABASE_URL` to `${{Postgres.DATABASE_URL}}` (reference variable, not a pasted URL). Redeploy. |
 | Migrate fails / health check timeout | Startup runs `migrate` before Gunicorn; bad `DATABASE_URL` blocks the whole service |
+| **`relation "users" does not exist`** | Fresh Railway Postgres — app tables are created at startup via `ensure_core_schema()` in `railway_start.sh`. Redeploy latest `main`, then create a user with `create_user.py`. |
 | Health check timeout | Check migrate logs; Postgres must be linked before deploy |
 | `ALLOWED_HOSTS` / DisallowedHost | Ensure `.railway.app` is not removed from env override |
 | Duplicate frontend service | Suspend `righand-frontend` (legacy split deploy) |
 | `npm could not be found` at startup | Clear dashboard start command; use `railway.toml` startCommand |
+
+## Fix Render DATABASE_URL (login shows SSL / render.com error)
+
+If login returns an error mentioning `oregon-postgres.render.com`, the **Righand** service still has the old Render Postgres URL in **Variables** — not in git.
+
+1. Railway project → **+ New** → **Database** → **PostgreSQL** (skip if Postgres already exists)
+2. **Righand** (web) → **Variables** → delete `DATABASE_URL` if it contains `render.com`
+3. Add: `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`
+4. **Deploy** → **Redeploy** Righand (latest `main` includes startup guardrails)
+
+**Verify:**
+
+```bash
+curl https://righand-production.up.railway.app/health
+# Expect: "database": "ok"
+
+curl -X POST https://righand-production.up.railway.app/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@test.com","password":"wrong"}'
+# Expect: {"error":"Invalid credentials"} — NOT render.com / SSL errors
+```
+
+## Recreate login after switching to Railway Postgres
+
+Railway Postgres starts **empty**. Accounts on Render are not copied automatically.
+
+**Option A — Railway shell (recommended)**
+
+1. Righand service → **Settings** → open a **Shell** (or use Railway CLI: `railway shell`)
+2. Run:
+
+```bash
+cd /app/backend
+python3 create_user.py \
+  --email dallas8000@gmail.com \
+  --name "Your Name" \
+  --license YOUR-CDL-NUMBER
+```
+
+3. Enter password when prompted, then log in on the tablet or web.
+
+**Option B — From your PC**
+
+1. Railway → **Postgres** → **Connect** → copy the **public** `DATABASE_URL`
+2. Locally:
+
+```powershell
+cd backend
+$env:DATABASE_URL = "postgresql://..."   # paste Railway public URL
+python create_user.py --email dallas8000@gmail.com --name "Your Name" --license YOUR-CDL-NUMBER
+```
+
+**Reset password** (user already exists):
+
+```powershell
+python reset_password.py --email dallas8000@gmail.com
+```
+
+**List users:**
+
+```powershell
+python setup_fleet.py list-users
+```
 
 ## righand-frontend (legacy)
 

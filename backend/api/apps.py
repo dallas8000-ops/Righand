@@ -1,4 +1,5 @@
 from django.apps import AppConfig
+import logging
 
 
 class ApiConfig(AppConfig):
@@ -11,4 +12,5 @@ class ApiConfig(AppConfig):
         try:
             run_migrations()
         except Exception:
-            pass
+            logger = logging.getLogger(__name__)
+            logger.exception('Schema migration failed during app startup')

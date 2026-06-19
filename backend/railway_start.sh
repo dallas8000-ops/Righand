@@ -7,6 +7,12 @@ host=u.urlparse(url.replace('postgres://','postgresql://',1)).hostname or '(unkn
 print('DATABASE_URL host:', host); \
 sys.exit(1 if 'render.com' in host else 0)" || exit 1
 
+echo "RigHand Railway start: ensuring application schema"
+if ! python3 -c "import os,django; os.environ.setdefault('DJANGO_SETTINGS_MODULE','righand.settings'); django.setup(); from api.schema_migrations import ensure_core_schema; ensure_core_schema(); print('Application schema ready')"; then
+  echo "ERROR: Application schema setup failed."
+  exit 1
+fi
+
 if ! python3 manage.py migrate --noinput; then
   echo "ERROR: Django migrate failed. Check DATABASE_URL in Railway Variables (must be Railway Postgres, not Render)."
   if [ -n "${RAILWAY_ENVIRONMENT:-}" ]; then
