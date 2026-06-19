@@ -10,7 +10,7 @@ Primary goals:
 - Fast entry of expenses and income while on the road
 - Offline-first operation with background sync
 - Trip tracking: manual odometer, live GPS, or OBD-II dongle (Android)
-- **Subscription tiers** — Free, Pro ($45/mo), Fleet Lite ($99/mo) with payment-triggered unlock
+- **Subscription tiers** — Free, Compliance Pro ($34.99/mo), Fleet Lite ($89/mo) with payment-triggered unlock
 - Admin tools to edit all data and set starting income (Pro)
 - Tax-ready exports (Schedule C, IFTA, PDF, CSV) (Pro)
 - Native Android app via Capacitor (web + tablet/phone)
@@ -31,9 +31,9 @@ Primary goals:
 
 | Tier | Price | Unlocks |
 |------|-------|---------|
-| **Free** | $0 | Home, Log (add/history/receipts), basic profit summary, weekly chart on Home |
-| **Pro** | $45/mo | Reports (PDF/CSV, Schedule C, IFTA), HOS clocks, Admin panel, custom categories |
-| **Fleet Lite** | $99/mo | Everything in Pro + multi-driver P&amp;L, dispatcher view, live GPS sharing |
+| **Free** | $0 | Home, Money Log (add/history/receipts), basic profit summary, trip miles, weekly chart |
+| **Compliance Pro** | $34.99/mo | Tax & IFTA reports, PDF/CSV export, HOS-lite, maintenance reminders, document/load packets, Admin panel, custom categories |
+| **Fleet Lite** | $89/mo | Everything in Compliance Pro + up to 5 drivers, dispatcher view, live GPS sharing |
 
 **How unlock works:**
 1. New users start on **Free** (`GET /api/subscriptions/me` creates a `free` row).
@@ -58,7 +58,7 @@ window.RigHandBilling?.onPurchase({
 });
 ```
 
-**Backend enforcement:** Pro-only API routes return `403` with `PRO_REQUIRED` if tier is `free`. UI shows upgrade screens on locked tabs (Reports, HOS, Admin, Fleet).
+**Backend enforcement:** Pro-only API routes return `403` with `PRO_REQUIRED` if tier is `free`. UI shows upgrade screens on locked tabs (Tax & IFTA, HOS, Admin, Dispatch).
 
 **Demo mode** never receives paid tiers — use a real account to test subscriptions.
 
@@ -66,11 +66,12 @@ window.RigHandBilling?.onPurchase({
 
 | Tab | Tier | Description |
 |-----|------|-------------|
-| **Home** | Free | Net profit hero, income/expense summary, pro metrics, weekly chart, trip tracker, quick templates |
-| **Log** | Free | New Entry, History (search/filter/sort), Receipt gallery |
-| **Reports** | Pro | PDF/CSV export, Schedule C quarterly, IFTA fuel by state |
+| **Home** | Free | Driver cockpit, Quiet Watch automation alerts, fuel range, maintenance, net profit, weekly chart, trip tracker |
+| **Loads** | Free | Load contract packets, rate/deadhead/fuel/toll scoring, trip packet text export, SMS share, log as income |
+| **Money Log** | Free | New Entry, History (search/filter/sort), Receipt gallery |
+| **Tax & IFTA** | Compliance Pro | PDF/CSV export, Schedule C quarterly, IFTA fuel by state |
 | **HOS** | Pro | Manual duty status with 11/14-hour countdown clocks (compliance assistant, not a certified ELD) |
-| **Fleet** | Fleet Lite | Multi-driver P&amp;L and GPS view (paid Fleet or manual admin setup) |
+| **Dispatch** | Fleet Lite | Multi-driver P&amp;L and GPS view (paid Fleet or manual admin setup) |
 | **Admin** | Pro | Starting income, full entry table with edit/delete, quick add income/expense |
 
 ### 3.2 Income and Expense Entry
@@ -126,7 +127,7 @@ See [Section 12](#12-android-app-capacitor) for building and installing the Andr
 - Loaded miles
 - Weekly bar chart (income vs expenses)
 
-### 3.6 Reports and Export (Pro)
+### 3.6 Tax & IFTA Reports (Compliance Pro)
 
 - Monthly and weekly **PDF** reports
 - **CSV** export (QuickBooks-friendly)
@@ -148,7 +149,7 @@ Multi-driver P&amp;L and live GPS for carriers with up to 5 drivers.
 
 | Method | When to use |
 |--------|-------------|
-| **Paid unlock** | User subscribes to Fleet Lite ($99/mo) in Google Play → `verify-purchase` auto-creates fleet |
+| **Paid unlock** | User subscribes to Fleet Lite ($89/mo) in Google Play → `verify-purchase` auto-creates fleet |
 | **Manual setup** | You (admin) run `setup_fleet.py` against production Postgres for legacy/support accounts |
 
 **Requirements:**
@@ -172,7 +173,7 @@ Then log out and back in → open **Fleet** tab.
 
 **Roles:**
 
-| Role | Fleet tab shows |
+| Role | Dispatch tab shows |
 |------|-----------------|
 | `owner` / `dispatcher` | All drivers' income, expenses, net, last GPS ping |
 | `driver` | GPS sharing; pings via `POST /api/fleet/location` |
@@ -406,7 +407,7 @@ REACT_APP_API_URL=/api
 
 Restart `npm start` after creating or changing `.env.local`.
 
-**Test subscription unlock locally:** open a locked tab (Reports, Admin) → click **Dev: simulate payment** (development mode only).
+**Test subscription unlock locally:** open a locked tab (Tax & IFTA, Admin) → click **Dev: simulate payment** (development mode only).
 
 Local URLs:
 - Frontend: http://localhost:3000 (or 3001 if 3000 is busy)
@@ -490,7 +491,7 @@ After deployment, verify:
 3. Demo mode opens dashboard (Free tier — Pro tabs locked)
 4. Real account login works (`REACT_APP_API_URL` must include `/api`)
 5. **+ Add Income** creates and saves a load payment
-6. **Reports / Admin / HOS** show upgrade screen on Free tier
+6. **Tax & IFTA / Admin / HOS** show upgrade screen on Free tier
 7. **Dev: simulate payment** or `POST /verify-purchase` unlocks Pro tabs
 8. **Trip Miles** — Manual, GPS, and OBD modes work (Android for OBD)
 9. No browser CORS errors on production frontend
@@ -615,8 +616,8 @@ DBOPS_WEBHOOK_SECRET=<same as dbops-api>
 
 | Event | When |
 |-------|------|
-| `purchase_pro` | New Pro subscription ($45/mo) |
-| `purchase_fleet` | New Fleet Lite subscription ($99/mo) |
+| `purchase_pro` | New Compliance Pro subscription ($34.99/mo) |
+| `purchase_fleet` | New Fleet Lite subscription ($89/mo) |
 | `renewal_pro` / `renewal_fleet` | Plan renewal |
 | `milestone_3mo` | Subscriber active 90+ days |
 | `cancel_pro` / `cancel_fleet` | Subscription cancelled |

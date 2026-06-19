@@ -68,7 +68,7 @@ def create_fleet(owner_email: str, fleet_name: str, max_drivers: int = 5):
     print(f'  Owner: {owner.email} (role: owner)')
     print(f'  Tenant ID: {tenant.id}')
     print(f'  Max drivers: {max_drivers}')
-    print('Log out and back in, then open the Fleet tab.')
+    print('Log out and back in, then open the Dispatch tab.')
 
 
 def add_member(owner_email: str, member_email: str, role: str):

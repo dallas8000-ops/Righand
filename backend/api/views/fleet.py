@@ -25,7 +25,7 @@ def fleet_status(request):
             'success': True,
             'hasFleet': False,
             'tier': 'solo',
-            'message': 'Fleet Lite ($99/mo) supports up to 5 drivers with dispatcher view.',
+            'message': 'Fleet Lite ($89/mo) supports up to 5 drivers with dispatcher view.',
         })
 
     tenant = Tenant.objects.filter(pk=membership.tenant_id).first()

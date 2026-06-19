@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import clsx from 'clsx';
-import { ExpenseAPI, ReportsAPI, FleetAPI, CategoriesAPI, SyncManager } from '../services/api';
+import { ExpenseAPI, ReportsAPI, FleetAPI, CategoriesAPI, OpsAPI, SyncManager } from '../services/api';
 import {
   EMPTY_FORM,
   computeLocalMetrics,
@@ -25,6 +25,14 @@ import ThemeSwitcher from './dashboard/ThemeSwitcher';
 import UpgradeGate from './dashboard/UpgradeGate';
 import { useSubscription } from '../hooks/useSubscription';
 import { DriverSettings } from '../utils/driverSettings';
+import {
+  DriverOpsStore,
+  analyzeDriverOps,
+  computeLoadDecision,
+  emptyLoadPacket,
+  emptyMaintenanceItem,
+  latestOdometer
+} from '../utils/driverOps';
 import './Dashboard.css';
 
 const DEFAULT_CATEGORIES = [
@@ -116,6 +124,13 @@ const Dashboard = ({ user, onLogout }) => {
   const [exporting, setExporting] = useState('');
   const [customCategories, setCustomCategories] = useState([]);
   const [savedCategories, setSavedCategories] = useState([]);
+  const [loadPackets, setLoadPackets] = useState([]);
+  const [loadForm, setLoadForm] = useState(emptyLoadPacket);
+  const [editingLoadId, setEditingLoadId] = useState(null);
+  const [maintenanceItems, setMaintenanceItems] = useState([]);
+  const [maintenanceForm, setMaintenanceForm] = useState(emptyMaintenanceItem);
+  const [driverTargets, setDriverTargets] = useState(() => DriverOpsStore.getTargets('default'));
+  const [opsLoaded, setOpsLoaded] = useState(false);
 
   const userId = localStorage.getItem('userId') || user?.id;
   const [openingIncome, setOpeningIncome] = useState(0);
@@ -179,6 +194,41 @@ const Dashboard = ({ user, onLogout }) => {
     return computeWeeklyFromExpenses(expenses);
   }, [weeklySummary, expenses]);
 
+  const driverAlerts = useMemo(() => analyzeDriverOps({
+    expenses,
+    loadPackets,
+    maintenanceItems,
+    targets: driverTargets,
+    weeklyDays
+  }), [expenses, loadPackets, maintenanceItems, driverTargets, weeklyDays]);
+
+  const currentOdometer = useMemo(() => latestOdometer(expenses), [expenses]);
+  const nextMaintenance = useMemo(() => {
+    if (!maintenanceItems.length) return null;
+    return [...maintenanceItems].sort((a, b) => {
+      const aMiles = Number(a.dueOdometer) || Number.MAX_SAFE_INTEGER;
+      const bMiles = Number(b.dueOdometer) || Number.MAX_SAFE_INTEGER;
+      return aMiles - bMiles;
+    })[0];
+  }, [maintenanceItems]);
+  const activeLoadPacket = useMemo(() => (
+    loadPackets.find(packet => packet.status === 'active')
+    || loadPackets.find(packet => packet.status === 'planned')
+    || null
+  ), [loadPackets]);
+  const estimatedFuelRange = useMemo(() => {
+    const fuelEntries = expenses
+      .filter(entry => entry.category === 'fuel' && Number(entry.odometer) > 0 && Number(entry.gallons) > 0)
+      .sort((a, b) => Number(b.odometer) - Number(a.odometer));
+    if (fuelEntries.length < 2 || driverTargets.fuelLevelPct === '') return null;
+    const current = fuelEntries[0];
+    const previous = fuelEntries[1];
+    const miles = Number(current.odometer) - Number(previous.odometer);
+    const mpg = miles > 0 ? miles / Number(current.gallons) : null;
+    if (!mpg) return null;
+    return mpg * Number(driverTargets.tankGallons || 0) * (Number(driverTargets.fuelLevelPct) / 100);
+  }, [expenses, driverTargets]);
+
   useEffect(() => {
     loadExpenses();
     loadMetrics();
@@ -187,6 +237,8 @@ const Dashboard = ({ user, onLogout }) => {
     loadFleetStatus();
     loadHosStatus();
     setOpeningIncome(DriverSettings.getOpeningIncome(userId));
+    setDriverTargets(DriverOpsStore.getTargets(userId));
+    loadDriverOps();
     SyncManager.enableAutoSync(userId, 30000);
   }, [userId]);
 
@@ -204,6 +256,20 @@ const Dashboard = ({ user, onLogout }) => {
   useEffect(() => {
     localStorage.setItem('customCategories', JSON.stringify(customCategories));
   }, [customCategories]);
+
+  useEffect(() => {
+    if (!opsLoaded) return;
+    DriverOpsStore.saveLoadPackets(userId, loadPackets);
+  }, [userId, loadPackets, opsLoaded]);
+
+  useEffect(() => {
+    if (!opsLoaded) return;
+    DriverOpsStore.saveMaintenance(userId, maintenanceItems);
+  }, [userId, maintenanceItems, opsLoaded]);
+
+  useEffect(() => {
+    DriverOpsStore.saveTargets(userId, driverTargets);
+  }, [userId, driverTargets]);
 
   const loadCategories = async () => {
     const remote = await CategoriesAPI.list();
@@ -373,6 +439,31 @@ const Dashboard = ({ user, onLogout }) => {
       if (data.currentStatus === 'DRIVING') {
         setDrivingStartedAt(data.currentStartedAt);
       }
+    }
+  };
+
+  const loadDriverOps = async () => {
+    const localLoads = DriverOpsStore.getLoadPackets(userId);
+    const localMaintenance = DriverOpsStore.getMaintenance(userId);
+    setLoadPackets(localLoads);
+    setMaintenanceItems(localMaintenance);
+
+    if (isDemo) {
+      setOpsLoaded(true);
+      return;
+    }
+
+    try {
+      const [remoteLoads, remoteMaintenance] = await Promise.all([
+        OpsAPI.getLoadPackets(),
+        OpsAPI.getMaintenanceItems()
+      ]);
+      setLoadPackets(remoteLoads.length ? remoteLoads : localLoads);
+      setMaintenanceItems(remoteMaintenance.length ? remoteMaintenance : localMaintenance);
+    } catch {
+      showToast('Using local load and maintenance records until sync returns.', 'warning');
+    } finally {
+      setOpsLoaded(true);
     }
   };
 
@@ -695,6 +786,192 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
+  const handleLoadFormChange = (e) => {
+    const { name, value } = e.target;
+    setLoadForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const saveLoadPacket = async (e) => {
+    e.preventDefault();
+    if (!loadForm.broker && !loadForm.shipper && !loadForm.loadNumber) {
+      showToast('Add a broker, shipper, or load number first.', 'error');
+      return;
+    }
+    const packet = {
+      ...loadForm,
+      id: editingLoadId || loadForm.id || `load-${Date.now()}`,
+      updatedAt: new Date().toISOString(),
+      createdAt: loadForm.createdAt || new Date().toISOString()
+    };
+    let savedPacket = packet;
+    if (!isDemo) {
+      try {
+        savedPacket = editingLoadId
+          ? await OpsAPI.saveLoadPacket(packet)
+          : await OpsAPI.createLoadPacket(packet);
+      } catch {
+        showToast('Saved locally. Load packet will stay on this device until sync returns.', 'warning');
+      }
+    }
+    setLoadPackets(prev => [
+      savedPacket,
+      ...prev.filter(item => item.id !== savedPacket.id)
+    ]);
+    setLoadForm(emptyLoadPacket());
+    setEditingLoadId(null);
+    showToast('Load packet saved.', 'success');
+  };
+
+  const editLoadPacket = (packet) => {
+    setLoadForm(packet);
+    setEditingLoadId(packet.id);
+    setActiveTab('loads');
+  };
+
+  const deleteLoadPacket = async (packetId) => {
+    if (!window.confirm('Delete this load packet?')) return;
+    if (!isDemo) {
+      try {
+        await OpsAPI.deleteLoadPacket(packetId);
+      } catch {
+        showToast('Deleted locally. Server delete could not sync yet.', 'warning');
+      }
+    }
+    setLoadPackets(prev => prev.filter(packet => packet.id !== packetId));
+    if (editingLoadId === packetId) {
+      setLoadForm(emptyLoadPacket());
+      setEditingLoadId(null);
+    }
+    showToast('Load packet deleted.', 'success');
+  };
+
+  const setLoadStatus = async (packetId, status) => {
+    const current = loadPackets.find(packet => packet.id === packetId);
+    if (!current) return;
+    const updated = { ...current, status, updatedAt: new Date().toISOString() };
+    if (!isDemo) {
+      try {
+        await OpsAPI.saveLoadPacket(updated);
+      } catch {
+        showToast('Status saved locally. Server sync will need retry.', 'warning');
+      }
+    }
+    setLoadPackets(prev => prev.map(packet => (
+      packet.id === packetId ? updated : packet
+    )));
+  };
+
+  const logLoadPacketIncome = (packet) => {
+    setEditingExpense(null);
+    setFormData({
+      ...EMPTY_FORM,
+      date: packet.deliveryDate || packet.pickupDate || new Date().toISOString().split('T')[0],
+      type: 'income',
+      category: 'load',
+      description: packet.loadNumber ? `Load ${packet.loadNumber}` : `Load payment - ${packet.broker || packet.shipper || 'broker'}`,
+      amount: packet.rate ? String(packet.rate) : '',
+      miles: packet.loadedMiles ? String(packet.loadedMiles) : '',
+      deadheadMiles: packet.deadheadMiles ? String(packet.deadheadMiles) : '',
+      tollsAmount: packet.tolls ? String(packet.tolls) : '',
+      fuelCostAlloc: packet.fuelEstimate ? String(packet.fuelEstimate) : '',
+      broker: packet.broker || '',
+      customer: packet.shipper || '',
+      notes: [
+        packet.receiver ? `Receiver: ${packet.receiver}` : '',
+        packet.detentionTerms ? `Detention: ${packet.detentionTerms}` : '',
+        packet.notes || ''
+      ].filter(Boolean).join(' | ')
+    });
+    setActiveTab('log');
+    setLogView('add');
+    showToast('Load packet ready to save as income.', 'success');
+  };
+
+  const buildLoadPacketText = (packet) => {
+    const decision = computeLoadDecision(packet, driverTargets);
+    return [
+      'RigHand Load Packet',
+      packet.loadNumber ? `Load: ${packet.loadNumber}` : '',
+      packet.broker ? `Broker: ${packet.broker}` : '',
+      packet.shipper ? `Pickup: ${packet.shipper} ${packet.pickupDate || ''}` : '',
+      packet.receiver ? `Delivery: ${packet.receiver} ${packet.deliveryDate || ''}` : '',
+      packet.pickupAddress ? `Pickup address: ${packet.pickupAddress}` : '',
+      packet.deliveryAddress ? `Delivery address: ${packet.deliveryAddress}` : '',
+      `Rate: ${formatMoney(packet.rate || 0)}`,
+      `Miles: ${decision.totalMiles || 0}`,
+      `Net: ${formatMoney(decision.net)} (${decision.netPerMile ? `${formatMoney(decision.netPerMile)}/mi` : 'missing miles'})`,
+      packet.detentionTerms ? `Detention: ${packet.detentionTerms}` : '',
+      packet.notes ? `Notes: ${packet.notes}` : ''
+    ].filter(Boolean).join('\n');
+  };
+
+  const downloadLoadPacket = (packet) => {
+    const blob = new Blob([buildLoadPacketText(packet)], { type: 'text/plain;charset=utf-8' });
+    downloadBlob(blob, `righand-load-${packet.loadNumber || packet.id}.txt`);
+    showToast('Load packet downloaded.', 'success');
+  };
+
+  const shareLoadPacket = (packet) => {
+    const text = buildLoadPacketText(packet);
+    if (navigator.share) {
+      navigator.share({ title: 'RigHand Load Packet', text }).catch(() => {});
+      return;
+    }
+    window.location.href = `sms:?&body=${encodeURIComponent(text)}`;
+  };
+
+  const handleMaintenanceFormChange = (e) => {
+    const { name, value } = e.target;
+    setMaintenanceForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const saveMaintenanceItem = async (e) => {
+    e.preventDefault();
+    if (!maintenanceForm.name) {
+      showToast('Add a maintenance item name.', 'error');
+      return;
+    }
+    const item = {
+      ...maintenanceForm,
+      id: maintenanceForm.id || `maint-${Date.now()}`,
+      updatedAt: new Date().toISOString()
+    };
+    let savedItem = item;
+    if (!isDemo) {
+      try {
+        savedItem = maintenanceForm.id
+          ? await OpsAPI.saveMaintenanceItem(item)
+          : await OpsAPI.createMaintenanceItem(item);
+      } catch {
+        showToast('Saved locally. Maintenance reminder will stay on this device until sync returns.', 'warning');
+      }
+    }
+    setMaintenanceItems(prev => [savedItem, ...prev.filter(row => row.id !== savedItem.id)]);
+    setMaintenanceForm(emptyMaintenanceItem());
+    showToast('Maintenance reminder saved.', 'success');
+  };
+
+  const completeMaintenanceItem = async (item) => {
+    const current = currentOdometer || Number(item.dueOdometer) || 0;
+    const nextDue = item.name.toLowerCase().includes('oil') && current
+      ? current + 15000
+      : '';
+    const updated = { ...item, lastCompletedOdometer: current || '', dueOdometer: nextDue, updatedAt: new Date().toISOString() };
+    if (!isDemo) {
+      try {
+        await OpsAPI.saveMaintenanceItem(updated);
+      } catch {
+        showToast('Completion saved locally. Server sync will need retry.', 'warning');
+      }
+    }
+    setMaintenanceItems(prev => prev.map(row => (
+      row.id === item.id
+        ? updated
+        : row
+    )));
+    showToast('Maintenance marked complete.', 'success');
+  };
+
   const handleHosChange = async (status) => {
     const now = new Date().toISOString();
     if (isDemo) {
@@ -755,7 +1032,75 @@ const Dashboard = ({ user, onLogout }) => {
       <div className="quick-actions">
         <button type="button" className="btn-primary" onClick={() => startQuickEntry('income')}>+ Add Income</button>
         <button type="button" className="btn-secondary" onClick={() => startQuickEntry('expense')}>+ Add Expense</button>
+        <button type="button" className="btn-secondary" onClick={() => setActiveTab('loads')}>+ Load Packet</button>
       </div>
+
+      <section className="cockpit-grid">
+        <article className="cockpit-card primary">
+          <span className="metric-label">Today</span>
+          <strong>{activeLoadPacket ? (activeLoadPacket.loadNumber || activeLoadPacket.broker || activeLoadPacket.shipper) : 'No active load'}</strong>
+          <p>{activeLoadPacket ? `${activeLoadPacket.shipper || 'Pickup'} to ${activeLoadPacket.receiver || 'delivery'}` : 'Create your first load packet to track rate, documents, and delivery.'}</p>
+          <button type="button" className="link-btn" onClick={() => setActiveTab('loads')}>
+            {activeLoadPacket ? 'Open load packet' : 'Create load packet'}
+          </button>
+        </article>
+        <article className="cockpit-card">
+          <span className="metric-label">Fuel Watch</span>
+          <strong>{estimatedFuelRange ? `${estimatedFuelRange.toFixed(0)} mi range` : (displayMetrics.costPerGallon ? `${formatMoney(displayMetrics.costPerGallon)}/gal` : 'Add fuel stop')}</strong>
+          <p>{displayMetrics.fuelCostPerMile ? `${formatMoney(displayMetrics.fuelCostPerMile)}/mile fuel cost` : 'Gallons, odometer, and state unlock MPG and IFTA checks.'}</p>
+          <div className="fuel-watch-inputs">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={driverTargets.fuelLevelPct}
+              onChange={(e) => setDriverTargets(prev => ({ ...prev, fuelLevelPct: e.target.value }))}
+              placeholder="Fuel %"
+              aria-label="Fuel level percent"
+            />
+            <input
+              type="number"
+              min="1"
+              value={driverTargets.tankGallons}
+              onChange={(e) => setDriverTargets(prev => ({ ...prev, tankGallons: e.target.value }))}
+              placeholder="Tank gal"
+              aria-label="Tank gallons"
+            />
+          </div>
+        </article>
+        <article className="cockpit-card">
+          <span className="metric-label">Next Maintenance</span>
+          <strong>{nextMaintenance ? nextMaintenance.name : 'No reminders'}</strong>
+          <p>{nextMaintenance?.dueOdometer ? `Due at ${Number(nextMaintenance.dueOdometer).toLocaleString()} mi` : 'Add oil, tires, DOT, insurance, or registration reminders.'}</p>
+        </article>
+        <article className="cockpit-card">
+          <span className="metric-label">Compliance Assistant</span>
+          <strong>{hosStatus.replace('_', ' ')}</strong>
+          <p>Recordkeeping support only. Not a certified ELD.</p>
+        </article>
+      </section>
+
+      <section className="automation-panel">
+        <div className="section-heading-row">
+          <div>
+            <h2>Quiet Watch</h2>
+            <p className="section-help">RigHand watches fuel, IFTA, maintenance, loads, and profit targets while you drive.</p>
+          </div>
+          <button type="button" className="link-btn" onClick={() => setActiveTab('loads')}>Manage</button>
+        </div>
+        {driverAlerts.length === 0 ? (
+          <p className="admin-empty">No warnings yet. Add fuel, load, and maintenance records to activate automation.</p>
+        ) : (
+          <div className="automation-alert-list">
+            {driverAlerts.slice(0, 4).map((alert, index) => (
+              <article key={`${alert.title}-${index}`} className={clsx('automation-alert', alert.level)}>
+                <strong>{alert.title}</strong>
+                <p>{alert.body}</p>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
 
       <TripTracker userId={userId} onLogMiles={logTripMiles} />
 
@@ -1085,6 +1430,215 @@ const Dashboard = ({ user, onLogout }) => {
     </section>
   );
 
+  const renderLoads = () => (
+    <section className="loads-workspace">
+      <div className="section-heading-row">
+        <div>
+          <h2>Load Packets</h2>
+          <p className="section-help">Store contract details, score the load, export a trip packet, and convert it into income.</p>
+        </div>
+        <button type="button" className="btn-secondary" onClick={() => {
+          setLoadForm(emptyLoadPacket());
+          setEditingLoadId(null);
+        }}>
+          New Packet
+        </button>
+      </div>
+
+      <form className="expense-form-section load-packet-form" onSubmit={saveLoadPacket}>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Load #</label>
+            <input name="loadNumber" value={loadForm.loadNumber} onChange={handleLoadFormChange} placeholder="Broker / rate con #" />
+          </div>
+          <div className="form-group">
+            <label>Status</label>
+            <select name="status" value={loadForm.status} onChange={handleLoadFormChange}>
+              <option value="planned">Planned</option>
+              <option value="active">Active</option>
+              <option value="delivered">Delivered</option>
+              <option value="paid">Paid</option>
+            </select>
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Broker</label>
+            <input name="broker" value={loadForm.broker} onChange={handleLoadFormChange} placeholder="Broker / dispatcher" />
+          </div>
+          <div className="form-group">
+            <label>Shipper</label>
+            <input name="shipper" value={loadForm.shipper} onChange={handleLoadFormChange} placeholder="Pickup customer" />
+          </div>
+          <div className="form-group">
+            <label>Receiver</label>
+            <input name="receiver" value={loadForm.receiver} onChange={handleLoadFormChange} placeholder="Delivery customer" />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Pickup Date</label>
+            <input type="date" name="pickupDate" value={loadForm.pickupDate} onChange={handleLoadFormChange} />
+          </div>
+          <div className="form-group">
+            <label>Delivery Date</label>
+            <input type="date" name="deliveryDate" value={loadForm.deliveryDate} onChange={handleLoadFormChange} />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Rate ($)</label>
+            <input type="number" name="rate" value={loadForm.rate} onChange={handleLoadFormChange} step="0.01" min="0" />
+          </div>
+          <div className="form-group">
+            <label>Loaded Miles</label>
+            <input type="number" name="loadedMiles" value={loadForm.loadedMiles} onChange={handleLoadFormChange} step="0.1" min="0" />
+          </div>
+          <div className="form-group">
+            <label>Deadhead Miles</label>
+            <input type="number" name="deadheadMiles" value={loadForm.deadheadMiles} onChange={handleLoadFormChange} step="0.1" min="0" />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Fuel Estimate ($)</label>
+            <input type="number" name="fuelEstimate" value={loadForm.fuelEstimate} onChange={handleLoadFormChange} step="0.01" min="0" />
+          </div>
+          <div className="form-group">
+            <label>Tolls ($)</label>
+            <input type="number" name="tolls" value={loadForm.tolls} onChange={handleLoadFormChange} step="0.01" min="0" />
+          </div>
+          <div className="form-group">
+            <label>Lumper ($)</label>
+            <input type="number" name="lumper" value={loadForm.lumper} onChange={handleLoadFormChange} step="0.01" min="0" />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Pickup Address</label>
+            <input name="pickupAddress" value={loadForm.pickupAddress} onChange={handleLoadFormChange} />
+          </div>
+          <div className="form-group">
+            <label>Delivery Address</label>
+            <input name="deliveryAddress" value={loadForm.deliveryAddress} onChange={handleLoadFormChange} />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Detention Terms</label>
+            <input name="detentionTerms" value={loadForm.detentionTerms} onChange={handleLoadFormChange} placeholder="e.g. 2 hrs free, $75/hr" />
+          </div>
+          <div className="form-group">
+            <label>Notes / Document Links</label>
+            <input name="notes" value={loadForm.notes} onChange={handleLoadFormChange} placeholder="BOL, POD, rate con, accessorial notes" />
+          </div>
+        </div>
+
+        <div className="load-score-panel">
+          {(() => {
+            const decision = computeLoadDecision(loadForm, driverTargets);
+            return (
+              <>
+                <div>
+                  <span className="metric-label">Decision</span>
+                  <strong className={clsx('load-score', decision.score.toLowerCase())}>{decision.score}</strong>
+                </div>
+                <div>
+                  <span className="metric-label">Net</span>
+                  <strong>{formatMoney(decision.net)}</strong>
+                </div>
+                <div>
+                  <span className="metric-label">Net / Mile</span>
+                  <strong>{decision.netPerMile ? `${formatMoney(decision.netPerMile)}/mi` : 'Add miles'}</strong>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+
+        <div className="form-actions">
+          <button type="submit" className="btn-primary">{editingLoadId ? 'Update Packet' : 'Save Packet'}</button>
+          {editingLoadId && (
+            <button type="button" className="btn-secondary" onClick={() => {
+              setLoadForm(emptyLoadPacket());
+              setEditingLoadId(null);
+            }}>
+              Cancel Edit
+            </button>
+          )}
+        </div>
+      </form>
+
+      <section className="maintenance-panel">
+        <div className="section-heading-row">
+          <div>
+            <h2>Maintenance Automation</h2>
+            <p className="section-help">Reminders trigger by odometer or date. Current odometer: {currentOdometer ? currentOdometer.toLocaleString() : 'not logged yet'}.</p>
+          </div>
+        </div>
+        <form className="maintenance-form" onSubmit={saveMaintenanceItem}>
+          <input name="name" value={maintenanceForm.name} onChange={handleMaintenanceFormChange} placeholder="Oil service, tires, DOT inspection" />
+          <input type="number" name="dueOdometer" value={maintenanceForm.dueOdometer} onChange={handleMaintenanceFormChange} placeholder="Due odometer" />
+          <input type="date" name="dueDate" value={maintenanceForm.dueDate} onChange={handleMaintenanceFormChange} />
+          <button type="submit" className="btn-secondary">Save Reminder</button>
+        </form>
+        <div className="maintenance-list">
+          {maintenanceItems.length === 0 ? (
+            <p className="admin-empty">Add oil, tires, brakes, DOT, insurance, registration, or license reminders.</p>
+          ) : maintenanceItems.map(item => (
+            <article key={item.id} className="maintenance-item">
+              <div>
+                <strong>{item.name}</strong>
+                <p>{item.dueOdometer ? `Due at ${Number(item.dueOdometer).toLocaleString()} mi` : 'No odometer due'}{item.dueDate ? ` | ${item.dueDate}` : ''}</p>
+              </div>
+              <button type="button" className="btn-secondary small" onClick={() => completeMaintenanceItem(item)}>Done</button>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <div className="load-packet-grid">
+        {loadPackets.length === 0 ? (
+          <section className="empty-work-card">
+            <h3>Create your first load packet</h3>
+            <p>Capture rate con details, pickup and delivery, fuel estimate, BOL/POD notes, and profit before accepting the load.</p>
+          </section>
+        ) : loadPackets.map(packet => {
+          const decision = computeLoadDecision(packet, driverTargets);
+          return (
+            <article key={packet.id} className="load-packet-card">
+              <div className="load-card-top">
+                <div>
+                  <span className="status-pill">{packet.status}</span>
+                  <h3>{packet.loadNumber || packet.broker || packet.shipper || 'Load Packet'}</h3>
+                  <p>{packet.shipper || 'Pickup'} to {packet.receiver || 'delivery'}</p>
+                </div>
+                <strong className={clsx('load-score', decision.score.toLowerCase())}>{decision.score}</strong>
+              </div>
+              <div className="fleet-driver-metrics">
+                <div><span>Rate</span><strong>{formatMoney(packet.rate || 0)}</strong></div>
+                <div><span>Net</span><strong>{formatMoney(decision.net)}</strong></div>
+                <div><span>Net/mi</span><strong>{decision.netPerMile ? formatMoney(decision.netPerMile) : 'N/A'}</strong></div>
+              </div>
+              <div className="load-card-actions">
+                <button type="button" className="btn-secondary small" onClick={() => editLoadPacket(packet)}>Edit</button>
+                <button type="button" className="btn-secondary small" onClick={() => logLoadPacketIncome(packet)}>Log Income</button>
+                <button type="button" className="btn-secondary small" onClick={() => downloadLoadPacket(packet)}>Download</button>
+                <button type="button" className="btn-secondary small" onClick={() => shareLoadPacket(packet)}>Text</button>
+                {packet.status !== 'paid' && (
+                  <button type="button" className="btn-secondary small" onClick={() => setLoadStatus(packet.id, packet.status === 'delivered' ? 'paid' : 'delivered')}>
+                    {packet.status === 'delivered' ? 'Mark Paid' : 'Delivered'}
+                  </button>
+                )}
+                <button type="button" className="btn-delete" onClick={() => deleteLoadPacket(packet.id)}>Delete</button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+
   const renderLog = () => (
     <>
       <div className="log-subnav">
@@ -1113,7 +1667,7 @@ const Dashboard = ({ user, onLogout }) => {
 
   const renderReports = () => (
     <section className="reports-section">
-      <h2>Reports</h2>
+      <h2>Tax & IFTA</h2>
 
       <div className="report-quarter-picker">
         <label>
@@ -1245,7 +1799,7 @@ const Dashboard = ({ user, onLogout }) => {
       <header className={clsx('dashboard-header', isNight && 'night-drive')}>
         <div className="header-top">
           <div className="header-brand">
-            <h1>RigHand Pro</h1>
+            <h1>RigHand Operations</h1>
             <p className="user-info">{user?.name || user?.email || 'Driver'}</p>
           </div>
           <div className="header-actions">
@@ -1256,11 +1810,12 @@ const Dashboard = ({ user, onLogout }) => {
 
         <nav className="header-nav" aria-label="Main navigation">
           {[
-            { id: 'home', label: 'Home', icon: '⌂', pro: false },
-            { id: 'log', label: 'Log', icon: '✎', pro: false },
-            { id: 'reports', label: 'Reports', icon: '⎙', pro: true },
+            { id: 'home', label: 'Home', icon: 'H', pro: false },
+            { id: 'loads', label: 'Loads', icon: 'L', pro: false },
+            { id: 'log', label: 'Money Log', icon: '$', pro: false },
+            { id: 'reports', label: 'Tax & IFTA', icon: 'R', pro: true },
             { id: 'hos', label: 'HOS', icon: '⏱', pro: true },
-            { id: 'fleet', label: 'Fleet', icon: '⛟', pro: false },
+            { id: 'fleet', label: 'Dispatch', icon: 'D', pro: false },
             { id: 'admin', label: 'Admin', icon: '⚙', pro: true }
           ].map(tab => (
             <button
@@ -1285,6 +1840,7 @@ const Dashboard = ({ user, onLogout }) => {
         )}
 
         {activeTab === 'home' && renderHome()}
+        {activeTab === 'loads' && renderLoads()}
         {activeTab === 'log' && renderLog()}
         {activeTab === 'reports' && (
           <UpgradeGate tier="pro" subscription={subscription} onUnlocked={handlePaidUnlock}>

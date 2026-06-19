@@ -50,8 +50,8 @@ const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked 
     return (
       <UpgradeGate tier="fleet" subscription={subscription} onUnlocked={onUnlocked}>
         <section className="fleet-dashboard upgrade">
-          <h2>Fleet</h2>
-          <p className="admin-hint">Fleet unlocked — refresh if this message persists.</p>
+          <h2>Dispatch</h2>
+          <p className="admin-hint">Dispatch unlocked - refresh if this message persists.</p>
         </section>
       </UpgradeGate>
     );
@@ -60,7 +60,7 @@ const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked 
   if (isDemo) {
     return (
       <section className="fleet-dashboard">
-        <h2>Fleet</h2>
+        <h2>Dispatch</h2>
         <p className="admin-hint">Not available in demo mode. Log in with a fleet-enabled account.</p>
       </section>
     );
@@ -70,7 +70,7 @@ const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked 
     <section className="fleet-dashboard">
       <div className="fleet-dashboard-header">
         <div>
-          <h2>Fleet</h2>
+          <h2>Dispatch</h2>
           <p className="admin-hint">
             {fleetStatus.tenant?.name} · {fleetStatus.tenant?.driverCount}/{fleetStatus.tenant?.maxDrivers} drivers
             {fleetStatus.role && ` · Your role: ${fleetStatus.role}`}
@@ -145,7 +145,7 @@ const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked 
                     </a>
                   </div>
                 ) : (
-                  <p className="admin-hint">No GPS ping yet — driver must enable sharing in Fleet tab.</p>
+                  <p className="admin-hint">No GPS ping yet - driver must enable sharing in Dispatch.</p>
                 )}
               </article>
             ))}

@@ -246,3 +246,91 @@ class SyncLog(models.Model):
             'errorMessage': self.error_message,
             'createdAt': self.created_at.isoformat(),
         }
+
+
+class LoadPacket(models.Model):
+    id = models.CharField(max_length=50, primary_key=True)
+    user_id = models.CharField(max_length=50, db_index=True)
+    status = models.CharField(max_length=20, default='planned')
+    load_number = models.CharField(max_length=80, null=True, blank=True)
+    broker = models.CharField(max_length=120, null=True, blank=True)
+    shipper = models.CharField(max_length=160, null=True, blank=True)
+    receiver = models.CharField(max_length=160, null=True, blank=True)
+    pickup_date = models.DateField(null=True, blank=True)
+    delivery_date = models.DateField(null=True, blank=True)
+    rate = models.FloatField(null=True, blank=True)
+    loaded_miles = models.FloatField(null=True, blank=True)
+    deadhead_miles = models.FloatField(null=True, blank=True)
+    fuel_estimate = models.FloatField(null=True, blank=True)
+    tolls = models.FloatField(null=True, blank=True)
+    detention_terms = models.TextField(null=True, blank=True)
+    lumper = models.FloatField(null=True, blank=True)
+    pickup_address = models.TextField(null=True, blank=True)
+    delivery_address = models.TextField(null=True, blank=True)
+    notes = models.TextField(null=True, blank=True)
+    contract_url = models.TextField(null=True, blank=True)
+    bol_url = models.TextField(null=True, blank=True)
+    pod_url = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'load_packets'
+        managed = False
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'userId': self.user_id,
+            'status': self.status,
+            'loadNumber': self.load_number or '',
+            'broker': self.broker or '',
+            'shipper': self.shipper or '',
+            'receiver': self.receiver or '',
+            'pickupDate': self.pickup_date.isoformat() if self.pickup_date else '',
+            'deliveryDate': self.delivery_date.isoformat() if self.delivery_date else '',
+            'rate': self.rate if self.rate is not None else '',
+            'loadedMiles': self.loaded_miles if self.loaded_miles is not None else '',
+            'deadheadMiles': self.deadhead_miles if self.deadhead_miles is not None else '',
+            'fuelEstimate': self.fuel_estimate if self.fuel_estimate is not None else '',
+            'tolls': self.tolls if self.tolls is not None else '',
+            'detentionTerms': self.detention_terms or '',
+            'lumper': self.lumper if self.lumper is not None else '',
+            'pickupAddress': self.pickup_address or '',
+            'deliveryAddress': self.delivery_address or '',
+            'notes': self.notes or '',
+            'contractUrl': self.contract_url or '',
+            'bolUrl': self.bol_url or '',
+            'podUrl': self.pod_url or '',
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class MaintenanceItem(models.Model):
+    id = models.CharField(max_length=50, primary_key=True)
+    user_id = models.CharField(max_length=50, db_index=True)
+    name = models.CharField(max_length=120)
+    due_odometer = models.FloatField(null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True)
+    last_completed_odometer = models.FloatField(null=True, blank=True)
+    notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'maintenance_items'
+        managed = False
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'userId': self.user_id,
+            'name': self.name,
+            'dueOdometer': self.due_odometer if self.due_odometer is not None else '',
+            'dueDate': self.due_date.isoformat() if self.due_date else '',
+            'lastCompletedOdometer': self.last_completed_odometer if self.last_completed_odometer is not None else '',
+            'notes': self.notes or '',
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+        }

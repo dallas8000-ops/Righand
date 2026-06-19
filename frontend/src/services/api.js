@@ -274,6 +274,52 @@ export const CategoriesAPI = {
   }
 };
 
+export const OpsAPI = {
+  async getLoadPackets() {
+    const response = await api.get('/ops/load-packets');
+    return response.data.loadPackets || [];
+  },
+
+  async saveLoadPacket(packet) {
+    const response = packet.id
+      ? await api.put(`/ops/load-packets/${packet.id}`, packet)
+      : await api.post('/ops/load-packets', packet);
+    return response.data.loadPacket;
+  },
+
+  async createLoadPacket(packet) {
+    const response = await api.post('/ops/load-packets', packet);
+    return response.data.loadPacket;
+  },
+
+  async deleteLoadPacket(packetId) {
+    await api.delete(`/ops/load-packets/${packetId}`);
+    return { success: true };
+  },
+
+  async getMaintenanceItems() {
+    const response = await api.get('/ops/maintenance');
+    return response.data.maintenanceItems || [];
+  },
+
+  async saveMaintenanceItem(item) {
+    const response = item.id
+      ? await api.put(`/ops/maintenance/${item.id}`, item)
+      : await api.post('/ops/maintenance', item);
+    return response.data.maintenanceItem;
+  },
+
+  async createMaintenanceItem(item) {
+    const response = await api.post('/ops/maintenance', item);
+    return response.data.maintenanceItem;
+  },
+
+  async deleteMaintenanceItem(itemId) {
+    await api.delete(`/ops/maintenance/${itemId}`);
+    return { success: true };
+  }
+};
+
 export const SubscriptionAPI = {
   async getMe() {
     const response = await api.get('/subscriptions/me');

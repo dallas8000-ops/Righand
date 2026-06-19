@@ -11,8 +11,8 @@ from webhook_client import emit_righand_event
 
 TIER_PRICES = {
     'free': 0.0,
-    'pro': 45.0,
-    'fleet': 99.0,
+    'pro': 34.99,
+    'fleet': 89.0,
 }
 
 TIER_RANK = {'free': 0, 'pro': 1, 'fleet': 2}

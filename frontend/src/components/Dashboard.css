@@ -2439,3 +2439,295 @@ body.theme-dark,
 .theme-dark .upgrade-price {
   color: #f8fafc;
 }
+
+/* --- RigHand Operations polish --- */
+:root {
+  --ops-navy: #0f2742;
+  --ops-steel: #334155;
+  --ops-blue: #2563eb;
+  --ops-green: #16a34a;
+  --ops-amber: #d97706;
+  --ops-red: #dc2626;
+  --ops-border: #d8e1ec;
+  --ops-bg: #f3f6f9;
+}
+
+.dashboard {
+  background: linear-gradient(180deg, #f7fafc 0%, #eef3f8 100%);
+}
+
+.dashboard-header {
+  background: linear-gradient(135deg, rgba(15, 39, 66, 0.98) 0%, rgba(30, 58, 92, 0.98) 100%);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--ops-blue) 0%, #1d4ed8 100%);
+}
+
+.btn-secondary {
+  color: var(--ops-navy);
+  border-color: #94a3b8;
+}
+
+.btn-secondary:hover,
+.header-nav-item.active,
+.log-subnav-btn.active,
+.toggle-btn.active,
+.theme-btn.active {
+  background: var(--ops-blue);
+  border-color: var(--ops-blue);
+  color: #fff;
+}
+
+.cockpit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.cockpit-card,
+.automation-panel,
+.maintenance-panel,
+.empty-work-card,
+.load-packet-card {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--ops-border);
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(15, 39, 66, 0.07);
+}
+
+.cockpit-card {
+  padding: 16px;
+  min-height: 132px;
+}
+
+.cockpit-card.primary {
+  background: linear-gradient(135deg, var(--ops-navy) 0%, #1e3a5c 100%);
+  color: #fff;
+}
+
+.cockpit-card strong {
+  display: block;
+  margin: 6px 0;
+  font-size: 20px;
+  color: inherit;
+}
+
+.cockpit-card p,
+.automation-alert p,
+.load-packet-card p,
+.maintenance-item p {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.cockpit-card.primary p,
+.cockpit-card.primary .metric-label,
+.cockpit-card.primary .link-btn {
+  color: #dbeafe;
+}
+
+.fuel-watch-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.fuel-watch-inputs input {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.section-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.section-heading-row h2 {
+  margin: 0 0 4px;
+}
+
+.automation-panel {
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.automation-alert-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.automation-alert {
+  border-left: 4px solid var(--ops-blue);
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.automation-alert.warning { border-left-color: var(--ops-amber); }
+.automation-alert.danger { border-left-color: var(--ops-red); }
+.automation-alert.info { border-left-color: var(--ops-blue); }
+
+.loads-workspace {
+  display: block;
+}
+
+.load-packet-form {
+  margin-bottom: 16px;
+}
+
+.load-score-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  margin: 4px 0 14px;
+}
+
+.load-score {
+  color: var(--ops-steel);
+}
+
+.load-score.take { color: var(--ops-green); }
+.load-score.review { color: var(--ops-amber); }
+.load-score.pass { color: var(--ops-red); }
+
+.load-packet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.load-packet-card,
+.empty-work-card {
+  padding: 16px;
+}
+
+.load-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.load-card-top h3 {
+  margin: 6px 0 4px;
+}
+
+.status-pill {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #075985;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.load-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.maintenance-panel {
+  padding: 16px;
+}
+
+.maintenance-form {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr auto;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.maintenance-form input {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.maintenance-list {
+  display: grid;
+  gap: 8px;
+}
+
+.maintenance-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.btn-secondary.small {
+  width: auto;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .dashboard-main {
+    padding-bottom: 96px;
+  }
+
+  .header-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    max-width: none;
+    margin: 0;
+    padding: 8px max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
+    background: rgba(15, 39, 66, 0.98);
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    gap: 6px;
+  }
+
+  .header-nav-item {
+    min-width: 64px;
+    min-height: 52px;
+    border-radius: 8px;
+    padding: 8px 6px;
+    font-size: 11px;
+  }
+
+  .header-nav-icon {
+    font-size: 13px;
+  }
+
+  .header-nav-label {
+    white-space: normal;
+    text-align: center;
+  }
+
+  .maintenance-form {
+    grid-template-columns: 1fr;
+  }
+
+  .section-heading-row {
+    flex-direction: column;
+  }
+}

@@ -3,14 +3,14 @@ import { SubscriptionAPI } from '../../services/api';
 
 const TIER_COPY = {
   pro: {
-    title: 'RigHand Pro',
-    price: 45,
-    blurb: 'Tax reports, IFTA, PDF/CSV export, HOS clocks, Admin panel, and custom categories.',
+    title: 'Compliance Pro',
+    price: 34.99,
+    blurb: 'Tax reports, IFTA package, HOS-lite, maintenance reminders, document packets, exports, Admin, and custom categories.',
   },
   fleet: {
     title: 'Fleet Lite',
-    price: 99,
-    blurb: 'Everything in Pro plus multi-driver P&L, dispatcher view, and live GPS sharing.',
+    price: 89,
+    blurb: 'Everything in Compliance Pro plus up to 5 drivers, dispatcher view, and live GPS sharing.',
   },
 };
 
