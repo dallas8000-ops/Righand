@@ -215,9 +215,38 @@ The frontend auto-appends `/api` if omitted, but set it correctly on Railway to 
 
 - Header navigation (mobile-friendly)
 - Light, Dark, and **Night Drive** themes
-- Voice input: Hold To Talk and Tap To Talk (browser speech recognition)
+- Voice input: **Hold To Talk** and **Tap To Talk** on the expense form (see [Section 3.12](#312-voice-entry-hold--tap-to-talk))
 - Push notification toggle for sync reminders
 - Photorealistic truck console background on dashboard
+
+### 3.12 Voice Entry (Hold / Tap To Talk)
+
+Voice fills the **Description** field on the expense form. Two buttons sit under that field:
+
+| Button | Behavior |
+|--------|----------|
+| **Hold To Talk** | Press and hold while speaking; release to finish |
+| **Tap To Talk** | Tap once to start; tap **Stop** when done |
+
+**Where it works**
+
+| Platform | Engine | Notes |
+|----------|--------|-------|
+| Chrome / Edge (web) | Browser Web Speech API | Requires mic permission in the browser |
+| RigHand Android app | `@capacitor-community/speech-recognition` | Native speech — **not** the browser API (Capacitor WebView does not expose `webkitSpeechRecognition`) |
+
+**When voice is unavailable**
+
+Buttons stay **visible but disabled** (grayed out). A hint appears under the buttons — you should never wonder silently why voice stopped working:
+
+- *Allow microphone access to enable voice entry.* — permission not granted yet
+- *Microphone blocked — allow mic access in Android settings.* — denied in Android app settings
+- *Voice entry works in Chrome or the RigHand Android app with mic permission.* — unsupported browser
+- *Voice requires an internet connection.* — network error during recognition
+
+**Android requirements:** `RECORD_AUDIO` in `AndroidManifest.xml`, `@capacitor-community/speech-recognition` synced via `npx cap sync android`, and mic permission granted on first use. Rebuild and reinstall the APK after manifest or plugin changes.
+
+**Regression note:** Early Capacitor builds only checked for browser speech APIs, so Hold/Tap To Talk appeared broken on Android tablets with no explanation. Fixed in **1.0.4-dev** — native plugin + visible disabled state + hints. See `CHANGELOG.md`.
 
 ## 4. Architecture
 
@@ -246,6 +275,7 @@ Local-only settings (starting income, active trip, trip history) use browser `lo
 - `@capacitor/core`, `@capacitor/android`
 - `@capacitor/geolocation` — live GPS trip miles
 - `@capacitor-community/bluetooth-le` — ELM327 OBD-II dongles
+- `@capacitor-community/speech-recognition` — Hold To Talk / Tap To Talk on Android
 
 **Backend:**
 - Django 4.2
@@ -334,8 +364,10 @@ Required:
 - `DJANGO_ENV=production`
 - `SECRET_KEY=<your secret>`
 - `JWT_SECRET_KEY=<your secret>`
-- `DATABASE_URL=${{Postgres.DATABASE_URL}}`
+- `DATABASE_URL=${{Postgres.DATABASE_URL}}` — **must be Railway Postgres**, not a pasted Render URL
 - `PYTHON_VERSION=3.11` (optional; Docker image uses 3.11)
+
+**Important:** `DATABASE_URL` is **not** stored in this repo. It lives only in the Railway dashboard. If deploy logs show `dpg-….oregon-postgres.render.com`, delete that variable and use `${{Postgres.DATABASE_URL}}` after adding/linking a Postgres service in the same Railway project.
 
 Optional (subscriptions + purchase tracking):
 
@@ -508,15 +540,16 @@ After deployment, verify:
 2. Demo login works offline
 3. GPS trip accumulates miles (location permission granted)
 4. OBD connects to ELM327 dongle (Bluetooth permission granted)
-5. Live account syncs with `https://righand-production.up.railway.app`
-6. Fleet GPS sharing works after Fleet tier enabled
+5. Hold To Talk / Tap To Talk enabled (microphone permission granted; buttons not grayed out)
+6. Live account syncs with `https://righand-production.up.railway.app`
+7. Fleet GPS sharing works after Fleet tier enabled
 
 ## 12. Android App (Capacitor)
 
 The Android app wraps the same React UI with native GPS and Bluetooth for trip tracking.
 
 **App ID:** `com.righand.app`  
-**Plugins:** Geolocation, Bluetooth LE (OBD-II)
+**Plugins:** Geolocation, Bluetooth LE (OBD-II), Speech Recognition (voice entry)
 
 ### First-time setup
 
@@ -528,7 +561,9 @@ npx cap add android          # first time only
 npx cap sync
 ```
 
-Android SDK and Java 17 are required. Permissions (GPS, Bluetooth) are in `android/app/src/main/AndroidManifest.xml`. Full details: **`docs/capacitor-setup.md`**.
+Android SDK and Java 17 are required. Permissions (GPS, Bluetooth, **microphone**) are in `android/app/src/main/AndroidManifest.xml`. Full details: **`docs/capacitor-setup.md`**.
+
+**Voice on tablet:** After changing speech plugins or mic permissions, run `npx cap sync android`, rebuild the APK, and reinstall. If Hold/Tap To Talk are grayed out, check the hint under the buttons and Android **Settings → Apps → RigHand → Permissions → Microphone**.
 
 ### Build debug APK (production API)
 

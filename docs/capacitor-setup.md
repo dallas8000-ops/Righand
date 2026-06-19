@@ -57,6 +57,9 @@ After `npx cap add android`, edit `android/app/src/main/AndroidManifest.xml` ins
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+<!-- Voice entry (Hold To Talk / Tap To Talk) -->
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+
 <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
 ```
 
@@ -66,7 +69,24 @@ In Android Studio: **Build → Generate Signed Bundle / APK → Android App Bund
 
 Output: `android/app/release/app-release.aab`
 
-## 5. Dev workflow
+## 5. Voice entry (Android)
+
+The dashboard expense form includes **Hold To Talk** and **Tap To Talk**. On Android these use `@capacitor-community/speech-recognition` (native), not the browser Web Speech API.
+
+After adding or updating the plugin:
+
+```bash
+npm install
+npm run build
+npx cap sync android
+cd android && gradlew.bat assembleDebug   # Windows
+```
+
+Reinstall the APK on the device. Grant **Microphone** when prompted.
+
+If buttons are disabled, read the hint under them in the app (e.g. mic blocked in system settings). Implementation: `frontend/src/hooks/useVoiceCapture.js`.
+
+## 6. Dev workflow
 
 ```bash
 npm run build && npx cap sync

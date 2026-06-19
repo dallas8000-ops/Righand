@@ -106,6 +106,8 @@ If npm is in the start command, the container exits immediately with `The execut
 |---------|-----|
 | Missing `SECRET_KEY` / `JWT_SECRET_KEY` | Generate random strings in Variables |
 | Missing `DATABASE_URL` | Link Postgres service, reference `${{Postgres.DATABASE_URL}}` |
+| **`DATABASE_URL` still points to Render** (`*.oregon-postgres.render.com`) | **Not in git** — old value is saved in Railway → **Righand** → **Variables**. Delete it. Add a **Postgres** plugin in the project if missing. Set `DATABASE_URL` to `${{Postgres.DATABASE_URL}}` (reference variable, not a pasted URL). Redeploy. |
+| Migrate fails / health check timeout | Startup runs `migrate` before Gunicorn; bad `DATABASE_URL` blocks the whole service |
 | Health check timeout | Check migrate logs; Postgres must be linked before deploy |
 | `ALLOWED_HOSTS` / DisallowedHost | Ensure `.railway.app` is not removed from env override |
 | Duplicate frontend service | Suspend `righand-frontend` (legacy split deploy) |

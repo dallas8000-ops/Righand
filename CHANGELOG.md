@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4-dev] - 2026-06-18
+
+### Fixed
+- **Android voice entry:** Hold To Talk and Tap To Talk were silently non-functional on the Capacitor app because the UI only enabled voice when browser `webkitSpeechRecognition` was present (not available in Android WebView). Added `@capacitor-community/speech-recognition`, `RECORD_AUDIO` permission, and `useVoiceCapture` hook.
+
+### Changed
+- Voice buttons remain visible when unavailable; disabled state shows an on-screen hint instead of hiding controls.
+- Professional RigHand launcher icon and splash screens (replacing generic Capacitor defaults).
+- Expanded `backend/burn_test.py` for Railway health/API checks.
+
 ## [1.0.0] - 2024-01-15
 
 ### Added - Milestone 1: Foundation

@@ -1,8 +1,11 @@
 """Django settings for RigHand AI backend."""
 
 import os
+import urllib.parse
 from datetime import timedelta
 from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = BASE_DIR.parent
@@ -90,6 +93,16 @@ _database_url = os.environ.get('DATABASE_URL', f'sqlite:///{BASE_DIR / "righand.
 if _database_url.startswith('postgres://'):
     _database_url = _database_url.replace('postgres://', 'postgresql://', 1)
 
+if _is_production and _database_url.startswith('postgresql://'):
+    _db_host = urllib.parse.urlparse(_database_url).hostname or ''
+    if 'render.com' in _db_host:
+        raise ImproperlyConfigured(
+            'DATABASE_URL points to Render Postgres (' + _db_host + '). '
+            'Railway cannot use that database reliably. In Railway → Righand → Variables, '
+            'delete the old Render URL and set DATABASE_URL=${{Postgres.DATABASE_URL}} '
+            'after linking a Railway Postgres service in the same project.'
+        )
+
 if _database_url.startswith('sqlite:///'):
     db_name = _database_url.replace('sqlite:///', '', 1)
     if db_name == ':memory:':
@@ -110,19 +123,25 @@ if _database_url.startswith('sqlite:///'):
             }
         }
 elif _database_url.startswith('postgresql://'):
-    import urllib.parse
-
     parsed = urllib.parse.urlparse(_database_url)
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': parsed.path.lstrip('/'),
-            'USER': parsed.username,
-            'PASSWORD': parsed.password or '',
-            'HOST': parsed.hostname,
-            'PORT': parsed.port or '5432',
-        }
+    query = urllib.parse.parse_qs(parsed.query)
+    db_options = {}
+    if 'sslmode' in query:
+        db_options['sslmode'] = query['sslmode'][0]
+    elif parsed.hostname and parsed.hostname.endswith('.railway.app'):
+        db_options['sslmode'] = 'require'
+
+    db_config = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': parsed.path.lstrip('/'),
+        'USER': parsed.username,
+        'PASSWORD': parsed.password or '',
+        'HOST': parsed.hostname,
+        'PORT': parsed.port or '5432',
     }
+    if db_options:
+        db_config['OPTIONS'] = db_options
+    DATABASES = {'default': db_config}
 else:
     DATABASES = {
         'default': {

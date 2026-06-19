@@ -7,17 +7,32 @@ from django.http import FileResponse, JsonResponse
 
 def health(request):
     db_ok = True
+    db_host = None
     try:
         from django.db import connection
         connection.ensure_connection()
+        db_host = connection.settings_dict.get('HOST')
     except Exception:
         db_ok = False
-    return JsonResponse({
+        try:
+            from django.conf import settings as django_settings
+            db_host = django_settings.DATABASES.get('default', {}).get('HOST')
+        except Exception:
+            pass
+    payload = {
         'status': 'healthy' if db_ok else 'degraded',
         'service': 'RigHand AI Backend',
         'version': '1.0.0',
         'database': 'ok' if db_ok else 'unavailable',
-    })
+    }
+    if not db_ok and db_host:
+        payload['database_host'] = db_host
+        if 'render.com' in str(db_host):
+            payload['hint'] = (
+                'DATABASE_URL points to Render. Update Railway Variables to '
+                '${{Postgres.DATABASE_URL}} and redeploy.'
+            )
+    return JsonResponse(payload)
 
 
 def _env_configured(name):
