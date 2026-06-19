@@ -2,7 +2,30 @@
 
 Use **one** web service: **Righand** (Django). It serves the React UI and `/api` together.
 
-Do **not** run a separate `righand-frontend` Node service unless you know you need it — that causes split URLs and extra failures.
+**Canonical URL:** https://righand-production.up.railway.app
+
+Do **not** run a separate `righand-frontend` Node service — that causes split URLs and extra failures.
+
+## Resolving the two-URL conflict
+
+You may see **two** Railway URLs that both work:
+
+| URL | What it is | Action |
+|-----|------------|--------|
+| `righand-production.up.railway.app` | **Righand** service (Dockerfile) — web + API together | **Keep** — this is production |
+| `righand-frontend-production.up.railway.app` | Legacy **righand-frontend** service from old split deploy | **Suspend or delete** in Railway |
+
+**Why both exist:** An older setup ran React on a separate Node service (`npx serve`) and Django on another. The repo now uses one Dockerfile that builds React and serves it from Django. The old `righand-frontend` service is redundant but may still be online with the same or similar code.
+
+**What the repo uses today:**
+- `frontend/src/services/api.js` → `https://righand-production.up.railway.app/api`
+- `railway.toml` + root `Dockerfile` → deploys to **Righand** only
+- Docker build bakes `REACT_APP_API_URL=/api` (same-origin on whichever host serves the app)
+
+**Railway dashboard steps:**
+1. Open **Righand** → confirm GitHub repo root, Dockerfile builder, latest deploy
+2. Open **righand-frontend** → **Settings** → **Suspend Service** (or delete)
+3. Use **Righand** public URL or custom domain `righand.gilliomfrontlinedigital.com` (after DNS)
 
 **Live URL:** https://righand-production.up.railway.app
 

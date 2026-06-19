@@ -25,7 +25,7 @@ Primary goals:
 | Custom domain (CNAME → Railway) | https://righand.gilliomfrontlinedigital.com |
 | Android app | Built locally — see [Section 12](#12-android-app-capacitor) |
 
-Production uses **one Railway service** (`Righand`) via root `Dockerfile` + `railway.toml`.
+Production uses **one Railway service** (`Righand`) at `righand-production.up.railway.app`. Do not use the legacy `righand-frontend-production` service — suspend it in Railway.
 
 ## 3. Features
 

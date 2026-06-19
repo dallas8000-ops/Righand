@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { ExpenseDB, SyncQueueDB } from './offlineDB';
 
 const PRODUCTION_API = 'https://righand-production.up.railway.app/api';
+// Single Railway service (Righand). Legacy righand-frontend-production.up.railway.app is deprecated.
 const sameOriginApi =
   typeof window !== 'undefined' ? `${window.location.origin}/api` : PRODUCTION_API;
 const defaultApiUrl = Capacitor.isNativePlatform()
