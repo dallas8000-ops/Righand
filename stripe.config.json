@@ -1,5 +1,5 @@
 {
-  "appUrl": "https://righand-frontend-production.up.railway.app",
+  "appUrl": "https://righand-production.up.railway.app",
   "provision": {
     "reuseExisting": true,
     "createWebhook": true,

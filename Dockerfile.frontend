@@ -31,5 +31,5 @@ EXPOSE 3000
 # Set environment
 ENV NODE_ENV=production
 
-# Start application
-CMD ["serve", "-s", "build", "-l", "3000"]
+# Start application (Railway sets PORT dynamically)
+CMD ["sh", "-c", "serve -s build -l ${PORT:-3000}"]

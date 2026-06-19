@@ -4,6 +4,8 @@ Use **one** web service: **Righand** (Django). It serves the React UI and `/api`
 
 Do **not** run a separate `righand-frontend` Node service unless you know you need it — that causes split URLs and extra failures.
 
+**Live URL:** https://righand-production.up.railway.app
+
 ## Righand service (main app)
 
 | Setting | Value |

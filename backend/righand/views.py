@@ -6,10 +6,17 @@ from django.http import FileResponse, JsonResponse
 
 
 def health(request):
+    db_ok = True
+    try:
+        from django.db import connection
+        connection.ensure_connection()
+    except Exception:
+        db_ok = False
     return JsonResponse({
-        'status': 'healthy',
+        'status': 'healthy' if db_ok else 'degraded',
         'service': 'RigHand AI Backend',
         'version': '1.0.0',
+        'database': 'ok' if db_ok else 'unavailable',
     })
 
 
@@ -42,7 +49,7 @@ def billing_health(request):
             'customer.subscription.updated',
             'customer.subscription.deleted',
         ],
-    }, status=200 if required else 503)
+    })
 
 
 def spa_index(request):

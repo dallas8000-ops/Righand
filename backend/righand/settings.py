@@ -37,11 +37,12 @@ def _build_allowed_hosts():
         hosts.insert(0, railway_host)
     override = os.environ.get('ALLOWED_HOSTS')
     if override:
-        hosts = [
+        extra = [
             host.strip()
             for host in override.split(',')
             if host.strip() and host.strip() != '*'
         ]
+        hosts = extra + [h for h in hosts if h not in extra]
     return list(dict.fromkeys(hosts))
 
 
@@ -171,9 +172,17 @@ else:
 CSRF_TRUSTED_ORIGINS = [
     origin for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()
 ]
-_render_url = os.environ.get('RENDER_EXTERNAL_URL', '').rstrip('/')
-if _render_url and _render_url not in CSRF_TRUSTED_ORIGINS:
-    CSRF_TRUSTED_ORIGINS.append(_render_url)
+for _url in (
+    os.environ.get('RENDER_EXTERNAL_URL', '').rstrip('/'),
+    f"https://{os.environ['RAILWAY_PUBLIC_DOMAIN']}" if os.environ.get('RAILWAY_PUBLIC_DOMAIN') else '',
+    'https://righand.gilliomfrontlinedigital.com',
+):
+    if _url and _url not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_url)
+
+if _is_production:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    USE_X_FORWARDED_HOST = True
 
 LOGGING = {
     'version': 1,

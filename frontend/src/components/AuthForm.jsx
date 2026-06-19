@@ -5,6 +5,7 @@ import './AuthForm.css';
 
 const DEV_LOGIN_EMAIL = process.env.REACT_APP_DEV_LOGIN_EMAIL;
 const DEV_LOGIN_PASSWORD = process.env.REACT_APP_DEV_LOGIN_PASSWORD;
+const DEVELOPER_BUILD = process.env.REACT_APP_DEVELOPER_BUILD === 'true';
 
 const AuthForm = ({ onAuthSuccess, isLogin = true }) => {
   const [formData, setFormData] = useState({
@@ -179,6 +180,7 @@ const AuthForm = ({ onAuthSuccess, isLogin = true }) => {
           </button>
         </form>
 
+        {!DEVELOPER_BUILD && (
         <div className="demo-section">
           <p>Want to test the application?</p>
           <button 
@@ -189,6 +191,7 @@ const AuthForm = ({ onAuthSuccess, isLogin = true }) => {
             🎯 Demo Mode
           </button>
         </div>
+        )}
 
         <p className="auth-footer">
           {isLogin ? "Don't have an account? Contact RigHand AI support." : 'Already registered? Please login.'}

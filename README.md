@@ -1,6 +1,6 @@
 # RigHand AI
 
-RigHand AI is a full-stack expense and profit tracking platform built for truck drivers. It supports online and offline workflows, voice entry, tax-ready reports, subscription tiers, and production deployment on Render.
+RigHand AI is a full-stack expense and profit tracking platform built for truck drivers. It supports online and offline workflows, voice entry, tax-ready reports, subscription tiers, and production deployment on **Railway**.
 
 ## 1. Product Summary
 
@@ -20,10 +20,12 @@ Primary goals:
 
 | Service | URL |
 |---------|-----|
-| Web app | https://righand-frontend-production.up.railway.app |
-| Backend API | https://righand-frontend-production.up.railway.app |
-| Health check | https://righand-frontend-production.up.railway.app/health |
+| Web app + API | https://righand-production.up.railway.app |
+| Health check | https://righand-production.up.railway.app/health |
+| Custom domain (when DNS is configured) | https://righand.gilliomfrontlinedigital.com |
 | Android app | Built locally — see [Section 12](#12-android-app-capacitor) |
+
+Production uses **one Railway service** (`Righand`) via root `Dockerfile` + `railway.toml`. The older `righand-frontend` Railway service and Render blueprint are legacy.
 
 ## 3. Features
 
@@ -42,7 +44,7 @@ Primary goals:
 4. **Fleet payment** also auto-creates a fleet (`Tenant` + owner membership) — no manual `setup_fleet.py` required.
 5. UI refreshes and locked tabs unlock.
 
-**Google Play product IDs** (configure in Render backend env):
+**Google Play product IDs** (configure in Railway **Righand** service env):
 
 ```
 GOOGLE_PRODUCT_PRO=righand_pro_monthly
@@ -197,10 +199,10 @@ Then log out and back in → open **Fleet** tab.
 **Important:** Production API base URL must include `/api`:
 
 ```
-REACT_APP_API_URL=https://righand-frontend-production.up.railway.app/api
+REACT_APP_API_URL=https://righand-production.up.railway.app/api
 ```
 
-The frontend auto-appends `/api` if omitted, but set it correctly on Render to avoid login failures.
+The frontend auto-appends `/api` if omitted, but set it correctly on Railway to avoid login failures.
 
 ### 3.10 Offline-First Experience
 
@@ -254,10 +256,10 @@ Local-only settings (starting income, active trip, trip history) use browser `lo
 
 **Data:**
 - SQLite (development)
-- PostgreSQL (Render production)
+- PostgreSQL (Railway production)
 
 **Deployment:**
-- Render Web Services
+- Railway (Dockerfile + `railway.toml`)
 - GitHub integration
 
 ## 6. API Overview
@@ -326,15 +328,14 @@ See **`dbops-api/`** folder and [Section 13](#13-purchase-tracking-dashboard-dbo
 
 ## 7. Environment Variables
 
-### 7.1 Backend (Render)
+### 7.1 Backend (Railway — Righand service)
 
 Required:
-- `FLASK_ENV=production`
+- `DJANGO_ENV=production`
 - `SECRET_KEY=<your secret>`
 - `JWT_SECRET_KEY=<your secret>`
-- `DATABASE_URL=<render internal postgres url>`
-- `CORS_ORIGINS=https://righand-frontend-production.up.railway.app,http://localhost:3000,http://localhost:3001,https://localhost`
-- `PYTHON_VERSION=3.11.9`
+- `DATABASE_URL=${{Postgres.DATABASE_URL}}`
+- `PYTHON_VERSION=3.11` (optional; Docker image uses 3.11)
 
 Optional (subscriptions + purchase tracking):
 
@@ -345,15 +346,21 @@ DBOPS_WEBHOOK_URL=https://your-dbops-api/api/webhooks/righand
 DBOPS_WEBHOOK_SECRET=<shared secret>
 ```
 
-### 7.2 Frontend (Render)
+### 7.2 Frontend (baked into Dockerfile build)
 
-Required:
+The React UI is built inside the root `Dockerfile` — no separate frontend Railway service.
+
+Build arg (default in Dockerfile):
 
 ```
-REACT_APP_API_URL=https://righand-frontend-production.up.railway.app/api
+REACT_APP_API_URL=/api
 ```
 
-**Must include `/api`** — login and all API calls depend on it.
+For local dev against production API:
+
+```
+REACT_APP_API_URL=https://righand-production.up.railway.app/api
+```
 
 ## 8. Local Development
 
@@ -395,7 +402,7 @@ npm install
 npm start
 ```
 
-**Use production API from local dev** (real accounts, fleet, subscriptions live on Render):
+**Use production API from local dev** (real accounts, fleet, subscriptions live on Railway):
 
 Create `frontend/.env.local`:
 
@@ -403,7 +410,7 @@ Create `frontend/.env.local`:
 REACT_APP_API_URL=/api
 ```
 
-`package.json` includes `"proxy": "https://righand-frontend-production.up.railway.app"` so the dev server forwards `/api` to production without CORS errors.
+`package.json` includes `"proxy": "https://righand-production.up.railway.app"` so the dev server forwards `/api` to production without CORS errors.
 
 Restart `npm start` after creating or changing `.env.local`.
 
@@ -413,17 +420,17 @@ Local URLs:
 - Frontend: http://localhost:3000 (or 3001 if 3000 is busy)
 - Backend (optional): http://localhost:5000 — only needed if not using production proxy
 
-## 9. Render Deployment Reference
+## 9. Railway Deployment Reference
 
-**Backend service:**
-- Root Directory: `backend`
-- Build Command: `pip install -r requirements.txt`
-- Start Command: `gunicorn --bind 0.0.0.0:$PORT righand.wsgi:application`
+See **`backend/RAILWAY_DEPLOY.md`** for the full guide.
 
-**Frontend service:**
-- Root Directory: `frontend`
-- Build Command: `npm install && npm run build`
-- Start Command: `npx serve -s build -l $PORT`
+**Single service (recommended):**
+- Source: GitHub repo root
+- Builder: Dockerfile (`railway.toml`)
+- Start: `/app/backend/railway_start.sh` (migrate + gunicorn)
+- Health check: `/health`
+
+**Legacy:** `render.yaml` and a separate `righand-frontend` Railway service are not used for current production deploys.
 
 ## 10. Project Structure
 
@@ -501,7 +508,7 @@ After deployment, verify:
 2. Demo login works offline
 3. GPS trip accumulates miles (location permission granted)
 4. OBD connects to ELM327 dongle (Bluetooth permission granted)
-5. Live account syncs with `https://righand-frontend-production.up.railway.app`
+5. Live account syncs with `https://righand-production.up.railway.app`
 6. Fleet GPS sharing works after Fleet tier enabled
 
 ## 12. Android App (Capacitor)
@@ -527,8 +534,8 @@ Android SDK and Java 17 are required. Permissions (GPS, Bluetooth) are in `andro
 
 ```bash
 cd frontend
-set REACT_APP_API_URL=https://righand-frontend-production.up.railway.app/api   # Windows CMD
-# export REACT_APP_API_URL=https://righand-frontend-production.up.railway.app/api  # macOS/Linux
+set REACT_APP_API_URL=https://righand-production.up.railway.app/api   # Windows CMD
+# export REACT_APP_API_URL=https://righand-production.up.railway.app/api  # macOS/Linux
 
 npm run build
 npx cap sync android
@@ -628,7 +635,7 @@ Proprietary. All rights reserved.
 
 ## 15. Status
 
-Production web app live on Render. Android debug APK builds locally with Capacitor.
+Production web app live on Railway. Android debug APK builds locally with Capacitor.
 
 **Latest:** subscription tiers (Free / Pro / Fleet) with payment-triggered unlock, Pro API enforcement, upgrade UI, fleet auto-provisioning on Fleet purchase, admin CLI tools (`setup_fleet.py`, `reset_password.py`), purchase tracking via dbops-api, trip tracking (Manual / GPS / OBD), tabbed dashboard, reports, HOS clocks, fleet GPS sharing, themes, and voice entry.
 

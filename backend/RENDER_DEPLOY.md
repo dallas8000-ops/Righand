@@ -1,5 +1,7 @@
 # RigHand — Django app (API + web UI)
 
+> **Legacy:** This file describes Render deployment. **Production uses Railway** — see `RAILWAY_DEPLOY.md`.
+
 One **Django** service serves everything:
 
 - `/` — React login / dashboard (production build)

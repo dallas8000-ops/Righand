@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify live Stripe/Render billing config via public health endpoints."""
+"""Verify live Stripe/Railway billing config via public health endpoints."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import sys
 import urllib.error
 import urllib.request
 
-API_URL = os.environ.get("RIGHAND_API_URL", "https://righand.gilliomfrontlinedigital.com").rstrip("/")
+API_URL = os.environ.get("RIGHAND_API_URL", "https://righand-production.up.railway.app").rstrip("/")
 
 
 def fetch(path: str) -> tuple[int, dict]:
@@ -34,7 +34,7 @@ def main() -> int:
     print(f"GET /health -> {status or 'timeout'}")
     print(json.dumps(body, indent=2))
     if status == 0:
-        print("\nAPI unreachable. Check Render service or cold start.", file=sys.stderr)
+        print("\nAPI unreachable. Check Railway service or cold start.", file=sys.stderr)
         return 1
 
     status, body = fetch("/health/billing")
@@ -44,7 +44,7 @@ def main() -> int:
     billing = body.get("billing", {})
     missing = [k for k, ok in billing.items() if k.startswith("stripe_") and not ok]
     if status != 200 or missing:
-        print("\nAction: set missing Render env vars:", ", ".join(missing), file=sys.stderr)
+        print("\nAction: set missing Railway env vars:", ", ".join(missing), file=sys.stderr)
         print("See docs/STRIPE_RENDER_SETUP.md", file=sys.stderr)
         return 1
 

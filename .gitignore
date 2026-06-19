@@ -33,6 +33,7 @@ __pycache__/
 frontend/build/
 frontend/releases/
 *.apk
+backend/staticfiles/
 backend/dist/
 backend/build/
 
