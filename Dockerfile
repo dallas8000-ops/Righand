@@ -2,6 +2,8 @@
 
 FROM node:18-alpine AS frontend
 WORKDIR /app/frontend
+ARG REACT_APP_API_URL=/api
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
@@ -22,4 +24,4 @@ COPY --from=frontend /app/frontend/build /app/frontend/build
 RUN python3 manage.py collectstatic --noinput
 
 EXPOSE 8000
-CMD sh -c "python3 manage.py migrate --noinput && gunicorn --bind 0.0.0.0:${PORT:-8000} righand.wsgi:application"
+CMD ["sh", "-c", "python3 manage.py migrate --noinput && gunicorn --bind 0.0.0.0:${PORT:-8000} righand.wsgi:application"]

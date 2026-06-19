@@ -20,9 +20,9 @@ Primary goals:
 
 | Service | URL |
 |---------|-----|
-| Web app | https://righand-frontend.onrender.com |
-| Backend API | https://righand.onrender.com |
-| Health check | https://righand.onrender.com/health |
+| Web app | https://righand-frontend-production.up.railway.app |
+| Backend API | https://righand-frontend-production.up.railway.app |
+| Health check | https://righand-frontend-production.up.railway.app/health |
 | Android app | Built locally — see [Section 12](#12-android-app-capacitor) |
 
 ## 3. Features
@@ -197,7 +197,7 @@ Then log out and back in → open **Fleet** tab.
 **Important:** Production API base URL must include `/api`:
 
 ```
-REACT_APP_API_URL=https://righand.onrender.com/api
+REACT_APP_API_URL=https://righand-frontend-production.up.railway.app/api
 ```
 
 The frontend auto-appends `/api` if omitted, but set it correctly on Render to avoid login failures.
@@ -333,7 +333,7 @@ Required:
 - `SECRET_KEY=<your secret>`
 - `JWT_SECRET_KEY=<your secret>`
 - `DATABASE_URL=<render internal postgres url>`
-- `CORS_ORIGINS=https://righand-frontend.onrender.com,http://localhost:3000,http://localhost:3001,https://localhost`
+- `CORS_ORIGINS=https://righand-frontend-production.up.railway.app,http://localhost:3000,http://localhost:3001,https://localhost`
 - `PYTHON_VERSION=3.11.9`
 
 Optional (subscriptions + purchase tracking):
@@ -350,7 +350,7 @@ DBOPS_WEBHOOK_SECRET=<shared secret>
 Required:
 
 ```
-REACT_APP_API_URL=https://righand.onrender.com/api
+REACT_APP_API_URL=https://righand-frontend-production.up.railway.app/api
 ```
 
 **Must include `/api`** — login and all API calls depend on it.
@@ -403,7 +403,7 @@ Create `frontend/.env.local`:
 REACT_APP_API_URL=/api
 ```
 
-`package.json` includes `"proxy": "https://righand.onrender.com"` so the dev server forwards `/api` to production without CORS errors.
+`package.json` includes `"proxy": "https://righand-frontend-production.up.railway.app"` so the dev server forwards `/api` to production without CORS errors.
 
 Restart `npm start` after creating or changing `.env.local`.
 
@@ -501,7 +501,7 @@ After deployment, verify:
 2. Demo login works offline
 3. GPS trip accumulates miles (location permission granted)
 4. OBD connects to ELM327 dongle (Bluetooth permission granted)
-5. Live account syncs with `https://righand.onrender.com`
+5. Live account syncs with `https://righand-frontend-production.up.railway.app`
 6. Fleet GPS sharing works after Fleet tier enabled
 
 ## 12. Android App (Capacitor)
@@ -527,8 +527,8 @@ Android SDK and Java 17 are required. Permissions (GPS, Bluetooth) are in `andro
 
 ```bash
 cd frontend
-set REACT_APP_API_URL=https://righand.onrender.com/api   # Windows CMD
-# export REACT_APP_API_URL=https://righand.onrender.com/api  # macOS/Linux
+set REACT_APP_API_URL=https://righand-frontend-production.up.railway.app/api   # Windows CMD
+# export REACT_APP_API_URL=https://righand-frontend-production.up.railway.app/api  # macOS/Linux
 
 npm run build
 npx cap sync android
@@ -631,3 +631,4 @@ Proprietary. All rights reserved.
 Production web app live on Render. Android debug APK builds locally with Capacitor.
 
 **Latest:** subscription tiers (Free / Pro / Fleet) with payment-triggered unlock, Pro API enforcement, upgrade UI, fleet auto-provisioning on Fleet purchase, admin CLI tools (`setup_fleet.py`, `reset_password.py`), purchase tracking via dbops-api, trip tracking (Manual / GPS / OBD), tabbed dashboard, reports, HOS clocks, fleet GPS sharing, themes, and voice entry.
+

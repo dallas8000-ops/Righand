@@ -3,6 +3,9 @@ import { AuthAPI } from '../services/api';
 import { UserDB } from '../services/offlineDB';
 import './AuthForm.css';
 
+const DEV_LOGIN_EMAIL = process.env.REACT_APP_DEV_LOGIN_EMAIL;
+const DEV_LOGIN_PASSWORD = process.env.REACT_APP_DEV_LOGIN_PASSWORD;
+
 const AuthForm = ({ onAuthSuccess, isLogin = true }) => {
   const [formData, setFormData] = useState({
     email: '',
@@ -12,7 +15,6 @@ const AuthForm = ({ onAuthSuccess, isLogin = true }) => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [demoMode, setDemoMode] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -43,6 +45,29 @@ const AuthForm = ({ onAuthSuccess, isLogin = true }) => {
     }
   };
 
+  const canUseDeveloperLogin = () => (
+    isLogin
+    && DEV_LOGIN_EMAIL
+    && DEV_LOGIN_PASSWORD
+    && formData.email.trim().toLowerCase() === DEV_LOGIN_EMAIL.trim().toLowerCase()
+    && formData.password === DEV_LOGIN_PASSWORD
+  );
+
+  const handleDeveloperLogin = async () => {
+    const developerUser = {
+      id: 'developer_user_001',
+      email: DEV_LOGIN_EMAIL,
+      name: 'RigHand Developer',
+      truckerLicense: 'DEV-LOCAL'
+    };
+
+    await UserDB.saveUserSession(developerUser.id, developerUser.email, developerUser);
+    localStorage.setItem('authToken', `developer_token_${Date.now()}`);
+    localStorage.setItem('userId', developerUser.id);
+    localStorage.setItem('righandDeveloperMode', 'true');
+    onAuthSuccess(developerUser);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -66,6 +91,11 @@ const AuthForm = ({ onAuthSuccess, isLogin = true }) => {
         onAuthSuccess(response.user);
       }
     } catch (err) {
+      if (canUseDeveloperLogin()) {
+        await handleDeveloperLogin();
+        setLoading(false);
+        return;
+      }
       const msg = err?.error || err?.message || 'Authentication failed. Check your credentials.';
       setError(msg);
       console.error('Auth error:', err);

@@ -53,6 +53,7 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userId');
+    localStorage.removeItem('righandDeveloperMode');
     setAuthToken(null);
     setUser(null);
     setIsAuthenticated(false);

@@ -1,7 +1,7 @@
 # Stripe + Render setup
 
-Production API host: `https://righand.gilliomfrontlinedigital.com`
-Webhook URL: `https://righand.gilliomfrontlinedigital.com/api/billing/webhook`
+Production API host: `https://righand-frontend-production.up.railway.app`
+Webhook URL: `https://righand-frontend-production.up.railway.app/api/billing/webhook`
 
 ## 1. Stripe Dashboard
 
@@ -29,7 +29,7 @@ These keys are declared in `render.yaml` with `sync: false`, so Render prompts f
 Create a Stripe webhook endpoint:
 
 ```text
-https://righand.gilliomfrontlinedigital.com/api/billing/webhook
+https://righand-frontend-production.up.railway.app/api/billing/webhook
 ```
 
 Required events:
@@ -52,7 +52,7 @@ python scripts/verify_stripe_config.py
 Or check directly:
 
 ```bash
-curl -s https://righand.gilliomfrontlinedigital.com/health/billing
+curl -s https://righand-frontend-production.up.railway.app/health/billing
 ```
 
 The response reports only whether each setting exists. It never returns secret values.

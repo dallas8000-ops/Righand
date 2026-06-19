@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Capacitor } from '@capacitor/core';
 import { ExpenseDB, SyncQueueDB } from './offlineDB';
 
-const PRODUCTION_API = 'https://righand.gilliomfrontlinedigital.com/api';
+const PRODUCTION_API = 'https://righand-frontend-production.up.railway.app/api';
 const sameOriginApi =
   typeof window !== 'undefined' ? `${window.location.origin}/api` : PRODUCTION_API;
 const defaultApiUrl = Capacitor.isNativePlatform()
