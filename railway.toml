@@ -3,6 +3,8 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
+# Override dashboard npm start (final image is python:3.11-slim, no Node.js).
+startCommand = "/app/backend/railway_start.sh"
 healthcheckPath = "/health"
 healthcheckTimeout = 120
 restartPolicyType = "on_failure"
