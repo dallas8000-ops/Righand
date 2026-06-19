@@ -24,6 +24,7 @@ import TripTracker from './dashboard/TripTracker';
 import ThemeSwitcher from './dashboard/ThemeSwitcher';
 import UpgradeGate from './dashboard/UpgradeGate';
 import { useSubscription } from '../hooks/useSubscription';
+import { useVoiceCapture } from '../hooks/useVoiceCapture';
 import { DriverSettings } from '../utils/driverSettings';
 import {
   DriverOpsStore,
@@ -86,9 +87,6 @@ const formatMoney = (value) => {
 };
 
 const Dashboard = ({ user, onLogout }) => {
-  const speechRecognitionRef = useRef(null);
-  const voiceCommandRef = useRef(null);
-  const voiceSessionActiveRef = useRef(false);
   const toastTimerRef = useRef(null);
   const receiptInputRef = useRef(null);
 
@@ -117,9 +115,6 @@ const Dashboard = ({ user, onLogout }) => {
   const [searchText, setSearchText] = useState('');
   const [sortBy, setSortBy] = useState('date_desc');
   const [customCategoryInput, setCustomCategoryInput] = useState('');
-  const [speechSupported, setSpeechSupported] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [voiceHint, setVoiceHint] = useState('');
   const [toast, setToast] = useState({ message: '', type: '' });
   const [exporting, setExporting] = useState('');
   const [customCategories, setCustomCategories] = useState([]);
@@ -326,76 +321,11 @@ const Dashboard = ({ user, onLogout }) => {
     return () => clearInterval(tick);
   }, [hosStartedAt, drivingStartedAt, hosStatus]);
 
-  useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return undefined;
-
-    setSpeechSupported(true);
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      setVoiceHint('Listening… speak now, release when done.');
-    };
-    recognition.onend = () => {
-      voiceSessionActiveRef.current = false;
-      setIsListening(false);
-      setTimeout(() => setVoiceHint(''), 2000);
-    };
-    recognition.onerror = (event) => {
-      voiceSessionActiveRef.current = false;
-      setIsListening(false);
-      const messages = {
-        'not-allowed': 'Microphone blocked — allow mic access in browser settings.',
-        'no-speech': 'No speech detected. Hold button and speak clearly.',
-        'aborted': '',
-        'network': 'Voice requires an internet connection.',
-      };
-      const msg = messages[event.error] || `Voice error: ${event.error}`;
-      if (msg) setVoiceHint(msg);
-    };
-    recognition.onresult = (event) => {
-      let transcript = '';
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
-        if (event.results[i].isFinal) {
-          transcript += event.results[i][0].transcript;
-        }
-      }
-      transcript = transcript.trim();
-      if (transcript && voiceCommandRef.current) {
-        voiceCommandRef.current(transcript);
-      }
-    };
-
-    speechRecognitionRef.current = recognition;
-    return () => {
-      try { recognition.stop(); } catch { /* ignore */ }
-    };
-  }, []);
-
-  useEffect(() => {
-    const releaseVoice = () => {
-      if (!voiceSessionActiveRef.current) return;
-      try { speechRecognitionRef.current?.stop(); } catch { /* ignore */ }
-      voiceSessionActiveRef.current = false;
-    };
-    window.addEventListener('pointerup', releaseVoice);
-    window.addEventListener('pointercancel', releaseVoice);
-    return () => {
-      window.removeEventListener('pointerup', releaseVoice);
-      window.removeEventListener('pointercancel', releaseVoice);
-    };
-  }, []);
-
-  const showToast = (message, type = 'success') => {
+  const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast({ message: '', type: '' }), 2600);
-  };
+  }, []);
 
   const loadExpenses = async () => {
     setLoading(true);
@@ -698,47 +628,28 @@ const Dashboard = ({ user, onLogout }) => {
       category: parsedCategory,
       type: parsedType
     }));
-    setVoiceHint(`Captured: "${spokenText}"`);
-  }, []);
+    showToast(`Voice captured: "${spokenText}"`, 'success');
+  }, [showToast]);
 
-  useEffect(() => {
-    voiceCommandRef.current = applyVoiceCommand;
-  }, [applyVoiceCommand]);
+  const {
+    voiceAvailable,
+    voiceHint,
+    isListening,
+    startVoiceCapture,
+    stopVoiceCapture,
+    toggleVoiceCapture,
+  } = useVoiceCapture(applyVoiceCommand);
 
-  const startVoiceCapture = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!speechRecognitionRef.current) {
-      setVoiceHint('Voice recognition is not supported in this browser.');
-      return;
-    }
-    if (voiceSessionActiveRef.current) return;
+  const beginVoiceCapture = (e) => {
     setActiveTab('log');
     setLogView('add');
-    voiceSessionActiveRef.current = true;
-    setVoiceHint('Starting microphone…');
-    try {
-      speechRecognitionRef.current.start();
-    } catch {
-      voiceSessionActiveRef.current = false;
-      setVoiceHint('Microphone busy — wait a moment and try again.');
-    }
+    startVoiceCapture(e);
   };
 
-  const stopVoiceCapture = (e) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-    if (!speechRecognitionRef.current) return;
-    try { speechRecognitionRef.current.stop(); } catch { /* ignore */ }
-    voiceSessionActiveRef.current = false;
-  };
-
-  const toggleVoiceCapture = () => {
-    if (isListening || voiceSessionActiveRef.current) {
-      stopVoiceCapture();
-    } else {
-      startVoiceCapture({ preventDefault: () => {}, stopPropagation: () => {} });
-    }
+  const beginVoiceToggle = () => {
+    setActiveTab('log');
+    setLogView('add');
+    toggleVoiceCapture();
   };
 
   const logTripMiles = (miles) => {
@@ -1208,23 +1119,30 @@ const Dashboard = ({ user, onLogout }) => {
           <div className="form-group">
             <label>Description</label>
             <input type="text" name="description" value={formData.description} onChange={handleFormChange} required />
-            {speechSupported && (
-              <div className="voice-controls">
-                <button
-                  type="button"
-                  className={clsx('btn-secondary voice-btn voice-btn-ptt', isListening && 'listening')}
-                  onPointerDown={startVoiceCapture}
-                  onPointerUp={stopVoiceCapture}
-                  onPointerLeave={stopVoiceCapture}
-                >
-                  {isListening ? 'Release To Finish' : 'Hold To Talk'}
-                </button>
-                <button type="button" className="btn-secondary voice-btn-tap" onClick={toggleVoiceCapture}>
-                  {isListening ? 'Stop' : 'Tap To Talk'}
-                </button>
-                {voiceHint && <small className="voice-hint">{voiceHint}</small>}
-              </div>
-            )}
+            <div className="voice-controls">
+              <button
+                type="button"
+                className={clsx('btn-secondary voice-btn voice-btn-ptt', isListening && 'listening')}
+                disabled={!voiceAvailable}
+                onPointerDown={beginVoiceCapture}
+                onPointerUp={stopVoiceCapture}
+                onPointerLeave={stopVoiceCapture}
+              >
+                {isListening ? 'Release To Finish' : 'Hold To Talk'}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary voice-btn-tap"
+                disabled={!voiceAvailable}
+                onClick={beginVoiceToggle}
+              >
+                {isListening ? 'Stop' : 'Tap To Talk'}
+              </button>
+              {voiceHint && <small className="voice-hint">{voiceHint}</small>}
+              {!voiceAvailable && !voiceHint && (
+                <small className="voice-hint">Allow microphone access to enable voice entry.</small>
+              )}
+            </div>
           </div>
           <div className="form-group">
             <label>Amount ($)</label>

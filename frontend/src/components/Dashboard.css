@@ -698,6 +698,12 @@ body.night-drive .dashboard-header {
   align-self: flex-start;
 }
 
+.voice-btn:disabled,
+.voice-btn-tap:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .voice-btn-ptt {
   min-height: 52px;
   min-width: 260px;
