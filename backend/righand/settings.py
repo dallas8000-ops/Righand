@@ -93,15 +93,21 @@ _database_url = os.environ.get('DATABASE_URL', f'sqlite:///{BASE_DIR / "righand.
 if _database_url.startswith('postgres://'):
     _database_url = _database_url.replace('postgres://', 'postgresql://', 1)
 
-if _is_production and _database_url.startswith('postgresql://'):
-    _db_host = urllib.parse.urlparse(_database_url).hostname or ''
-    if 'render.com' in _db_host:
+if _is_production:
+    if not os.environ.get('DATABASE_URL', '').strip():
         raise ImproperlyConfigured(
-            'DATABASE_URL points to Render Postgres (' + _db_host + '). '
-            'Railway cannot use that database reliably. In Railway → Righand → Variables, '
-            'delete the old Render URL and set DATABASE_URL=${{Postgres.DATABASE_URL}} '
-            'after linking a Railway Postgres service in the same project.'
+            'DATABASE_URL is not set on Railway. Link Postgres and set '
+            'DATABASE_URL=${{Postgres.DATABASE_URL}} on the Righand service.'
         )
+    if _database_url.startswith('postgresql://'):
+        _db_host = urllib.parse.urlparse(_database_url).hostname or ''
+        if 'render.com' in _db_host:
+            raise ImproperlyConfigured(
+                'DATABASE_URL points to Render Postgres (' + _db_host + '). '
+                'Railway cannot use that database reliably. In Railway → Righand → Variables, '
+                'delete the old Render URL and set DATABASE_URL=${{Postgres.DATABASE_URL}} '
+                'after linking a Railway Postgres service in the same project.'
+            )
 
 if _database_url.startswith('sqlite:///'):
     db_name = _database_url.replace('sqlite:///', '', 1)
@@ -141,6 +147,8 @@ elif _database_url.startswith('postgresql://'):
     }
     if db_options:
         db_config['OPTIONS'] = db_options
+    if _is_production:
+        db_config['CONN_MAX_AGE'] = int(os.environ.get('DB_CONN_MAX_AGE', '600'))
     DATABASES = {'default': db_config}
 else:
     DATABASES = {

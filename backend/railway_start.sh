@@ -22,4 +22,12 @@ if ! python3 manage.py migrate --noinput; then
 fi
 
 echo "RigHand Railway start: launching web server on port ${PORT:-8000}"
-exec gunicorn --bind "0.0.0.0:${PORT:-8000}" righand.wsgi:application
+exec gunicorn \
+  --bind "0.0.0.0:${PORT:-8000}" \
+  --workers "${WEB_CONCURRENCY:-2}" \
+  --timeout 120 \
+  --graceful-timeout 30 \
+  --keep-alive 5 \
+  --access-logfile - \
+  --error-logfile - \
+  righand.wsgi:application

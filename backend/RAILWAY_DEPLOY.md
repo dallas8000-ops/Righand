@@ -80,6 +80,29 @@ GET /                → React login page (HTML)
 GET /health/billing  → 200 (Stripe config status in JSON)
 ```
 
+## Keep production stable (do not change)
+
+Once login works, avoid these common regressions:
+
+| Do | Don't |
+|----|--------|
+| Keep **Postgres** in the same Railway project | Delete or suspend the Postgres service |
+| Use `DATABASE_URL=${{Postgres.DATABASE_URL}}` | Paste a Render URL or old external DB string |
+| Leave **Start command** empty (uses `railway.toml`) | Set `npm start` or any Node command |
+| Use **Dockerfile** builder from repo root | Switch to Nixpacks/Procfile-only (skips React build) |
+| Monitor `GET /health` → `"database": "ok"` | Ignore failed deploys / health check timeouts |
+| Suspend legacy **righand-frontend** service | Run two web services with different URLs |
+
+**Quick health check (weekly or after any Railway dashboard edit):**
+
+```powershell
+Invoke-RestMethod https://righand-production.up.railway.app/health
+```
+
+Expect: `status=healthy`, `database=ok`. If `database=unavailable` or login shows `render.com`, fix **Variables** before redeploying again.
+
+**Your data lives in Railway Postgres.** Back up from Railway → Postgres → Backups before major changes. User accounts created with `create_user.py` are stored there — not in git or the APK.
+
 ## Start command (important)
 
 The final Docker image is `python:3.11-slim` — Node.js is **not** installed at runtime (React is built in an earlier stage).
