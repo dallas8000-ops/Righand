@@ -19,6 +19,28 @@ EXPENSE_COLUMNS = {
     'fuel_state': 'VARCHAR(2)',
 }
 
+COMPLIANCE_DOCUMENT_COLUMNS = {
+    'extracted_fields': 'TEXT',
+}
+
+ADD_COLUMN_SQL = {
+    'expenses': {
+        'miles': 'ALTER TABLE expenses ADD COLUMN miles FLOAT',
+        'gallons': 'ALTER TABLE expenses ADD COLUMN gallons FLOAT',
+        'odometer': 'ALTER TABLE expenses ADD COLUMN odometer FLOAT',
+        'deadhead_miles': 'ALTER TABLE expenses ADD COLUMN deadhead_miles FLOAT',
+        'tolls_amount': 'ALTER TABLE expenses ADD COLUMN tolls_amount FLOAT',
+        'fuel_cost_alloc': 'ALTER TABLE expenses ADD COLUMN fuel_cost_alloc FLOAT',
+        'receipt_url': 'ALTER TABLE expenses ADD COLUMN receipt_url TEXT',
+        'broker': 'ALTER TABLE expenses ADD COLUMN broker VARCHAR(120)',
+        'customer': 'ALTER TABLE expenses ADD COLUMN customer VARCHAR(120)',
+        'fuel_state': 'ALTER TABLE expenses ADD COLUMN fuel_state VARCHAR(2)',
+    },
+    'compliance_documents': {
+        'extracted_fields': 'ALTER TABLE compliance_documents ADD COLUMN extracted_fields TEXT',
+    },
+}
+
 CREATE_USERS = """
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(50) PRIMARY KEY,
@@ -169,6 +191,52 @@ CREATE TABLE IF NOT EXISTS maintenance_items (
 )
 """
 
+CREATE_COMPLIANCE_DOCUMENTS = """
+CREATE TABLE IF NOT EXISTS compliance_documents (
+    id VARCHAR(50) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    jurisdiction_code VARCHAR(10) NOT NULL,
+    jurisdiction_label VARCHAR(120) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    mime_type VARCHAR(120),
+    extracted_text TEXT,
+    extracted_fields TEXT,
+    summary TEXT,
+    scan_status VARCHAR(30) DEFAULT 'reviewed',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+CREATE_COMPLIANCE_FINDINGS = """
+CREATE TABLE IF NOT EXISTS compliance_findings (
+    id VARCHAR(50) PRIMARY KEY,
+    document_id VARCHAR(50) NOT NULL,
+    user_id VARCHAR(50) NOT NULL,
+    jurisdiction_code VARCHAR(10) NOT NULL,
+    rule_id VARCHAR(80) NOT NULL,
+    title VARCHAR(160) NOT NULL,
+    severity VARCHAR(20) DEFAULT 'info',
+    finding_type VARCHAR(30) DEFAULT 'required',
+    detail TEXT,
+    matched_text TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+CREATE_COMPLIANCE_PROFILES = """
+CREATE TABLE IF NOT EXISTS compliance_profiles (
+    id VARCHAR(50) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    profile_type VARCHAR(30) NOT NULL,
+    jurisdiction_code VARCHAR(10) NOT NULL,
+    title VARCHAR(160) NOT NULL,
+    data_json TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
 
 def _subscriptions_create_sql():
     if connection.vendor == 'postgresql':
@@ -239,6 +307,14 @@ def _column_names(table):
         description = connection.introspection.get_table_description(cursor, table)
     return {col.name for col in description}
 
+def _add_missing_columns(table, columns):
+    existing = _column_names(table)
+    with connection.cursor() as cursor:
+        for column in columns:
+            if column in existing:
+                continue
+            cursor.execute(ADD_COLUMN_SQL[table][column])
+
 
 def ensure_core_schema():
     """Create application tables on a fresh database (models are unmanaged)."""
@@ -253,6 +329,9 @@ def ensure_core_schema():
         CREATE_SYNC_LOGS,
         CREATE_LOAD_PACKETS,
         CREATE_MAINTENANCE_ITEMS,
+        CREATE_COMPLIANCE_DOCUMENTS,
+        CREATE_COMPLIANCE_FINDINGS,
+        CREATE_COMPLIANCE_PROFILES,
         _subscriptions_create_sql(),
         _purchase_events_create_sql(),
         'CREATE INDEX IF NOT EXISTS ix_users_email ON users (email)',
@@ -266,6 +345,13 @@ def ensure_core_schema():
         'CREATE INDEX IF NOT EXISTS ix_sync_logs_user_id ON sync_logs (user_id)',
         'CREATE INDEX IF NOT EXISTS ix_load_packets_user_id ON load_packets (user_id)',
         'CREATE INDEX IF NOT EXISTS ix_maintenance_items_user_id ON maintenance_items (user_id)',
+        'CREATE INDEX IF NOT EXISTS ix_compliance_documents_user_id ON compliance_documents (user_id)',
+        'CREATE INDEX IF NOT EXISTS ix_compliance_documents_jurisdiction ON compliance_documents (jurisdiction_code)',
+        'CREATE INDEX IF NOT EXISTS ix_compliance_findings_document_id ON compliance_findings (document_id)',
+        'CREATE INDEX IF NOT EXISTS ix_compliance_findings_user_id ON compliance_findings (user_id)',
+        'CREATE INDEX IF NOT EXISTS ix_compliance_profiles_user_id ON compliance_profiles (user_id)',
+        'CREATE INDEX IF NOT EXISTS ix_compliance_profiles_type ON compliance_profiles (profile_type)',
+        'CREATE INDEX IF NOT EXISTS ix_compliance_profiles_jurisdiction ON compliance_profiles (jurisdiction_code)',
         'CREATE INDEX IF NOT EXISTS ix_purchase_events_subscriber_id ON purchase_events (subscriber_id)',
     ]
     with connection.cursor() as cursor:
@@ -280,11 +366,7 @@ def run_migrations():
     tables = _table_names()
 
     if 'expenses' in tables:
-        existing = _column_names('expenses')
-        with connection.cursor() as cursor:
-            for column, col_type in EXPENSE_COLUMNS.items():
-                if column not in existing:
-                    cursor.execute(f'ALTER TABLE expenses ADD COLUMN {column} {col_type}')
+        _add_missing_columns('expenses', EXPENSE_COLUMNS)
 
     if 'subscriptions' in tables:
         sub_cols = _column_names('subscriptions')
@@ -295,3 +377,6 @@ def run_migrations():
                 cursor.execute('DROP TABLE subscriptions')
                 cursor.execute(_subscriptions_create_sql())
                 cursor.execute(_purchase_events_create_sql())
+
+    if 'compliance_documents' in tables:
+        _add_missing_columns('compliance_documents', COMPLIANCE_DOCUMENT_COLUMNS)

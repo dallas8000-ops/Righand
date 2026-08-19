@@ -1,3 +1,5 @@
+import json
+
 from django.db import models
 
 
@@ -331,6 +333,109 @@ class MaintenanceItem(models.Model):
             'dueDate': self.due_date.isoformat() if self.due_date else '',
             'lastCompletedOdometer': self.last_completed_odometer if self.last_completed_odometer is not None else '',
             'notes': self.notes or '',
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class ComplianceDocument(models.Model):
+    id = models.CharField(max_length=50, primary_key=True)
+    user_id = models.CharField(max_length=50, db_index=True)
+    jurisdiction_code = models.CharField(max_length=10, db_index=True)
+    jurisdiction_label = models.CharField(max_length=120)
+    file_name = models.CharField(max_length=255)
+    mime_type = models.CharField(max_length=120, null=True, blank=True)
+    extracted_text = models.TextField(null=True, blank=True)
+    extracted_fields = models.TextField(null=True, blank=True)
+    summary = models.TextField(null=True, blank=True)
+    scan_status = models.CharField(max_length=30, default='reviewed')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'compliance_documents'
+        managed = False
+
+    def to_dict(self):
+        try:
+            fields = json.loads(self.extracted_fields or '{}')
+        except json.JSONDecodeError:
+            fields = {}
+        return {
+            'id': self.id,
+            'userId': self.user_id,
+            'jurisdictionCode': self.jurisdiction_code,
+            'jurisdictionLabel': self.jurisdiction_label,
+            'fileName': self.file_name,
+            'mimeType': self.mime_type or '',
+            'extractedText': self.extracted_text or '',
+            'extractedFields': fields,
+            'summary': self.summary or '',
+            'status': self.scan_status,
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class ComplianceFinding(models.Model):
+    id = models.CharField(max_length=50, primary_key=True)
+    document_id = models.CharField(max_length=50, db_index=True)
+    user_id = models.CharField(max_length=50, db_index=True)
+    jurisdiction_code = models.CharField(max_length=10, db_index=True)
+    rule_id = models.CharField(max_length=80)
+    title = models.CharField(max_length=160)
+    severity = models.CharField(max_length=20, default='info')
+    finding_type = models.CharField(max_length=30, default='required')
+    detail = models.TextField(null=True, blank=True)
+    matched_text = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'compliance_findings'
+        managed = False
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'documentId': self.document_id,
+            'userId': self.user_id,
+            'jurisdictionCode': self.jurisdiction_code,
+            'ruleId': self.rule_id,
+            'title': self.title,
+            'severity': self.severity,
+            'type': self.finding_type,
+            'detail': self.detail or '',
+            'matchedText': self.matched_text or '',
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class ComplianceProfile(models.Model):
+    id = models.CharField(max_length=50, primary_key=True)
+    user_id = models.CharField(max_length=50, db_index=True)
+    profile_type = models.CharField(max_length=30, db_index=True)
+    jurisdiction_code = models.CharField(max_length=10, db_index=True)
+    title = models.CharField(max_length=160)
+    data_json = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'compliance_profiles'
+        managed = False
+
+    def to_dict(self):
+        try:
+            data = json.loads(self.data_json or '{}')
+        except json.JSONDecodeError:
+            data = {}
+        return {
+            'id': self.id,
+            'userId': self.user_id,
+            'profileType': self.profile_type,
+            'jurisdictionCode': self.jurisdiction_code,
+            'title': self.title,
+            'data': data,
             'createdAt': self.created_at.isoformat() if self.created_at else None,
             'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
         }

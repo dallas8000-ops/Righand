@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import AuthForm from './components/AuthForm';
 import Dashboard from './components/Dashboard';
 import { AuthAPI, setAuthToken } from './services/api';
@@ -28,11 +28,16 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    checkAuth();
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('righandDeveloperMode');
+    setAuthToken(null);
+    setUser(null);
+    setIsAuthenticated(false);
   }, []);
 
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     const token = localStorage.getItem('authToken');
     const userId = localStorage.getItem('userId');
 
@@ -73,20 +78,15 @@ function App() {
       }
     }
     setLoading(false);
-  };
+  }, [handleLogout]);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   const handleAuthSuccess = (userData) => {
     setUser(userData);
     setIsAuthenticated(true);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('righandDeveloperMode');
-    setAuthToken(null);
-    setUser(null);
-    setIsAuthenticated(false);
   };
 
   if (loading) {

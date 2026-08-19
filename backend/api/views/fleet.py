@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
 
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from api.jwt_auth import jwt_required
@@ -107,7 +107,7 @@ def post_location(request):
             longitude=float(lng),
             speed=float(data.get('speed', 0)),
             heading=data.get('heading'),
-            recorded_at=datetime.utcnow(),
+            recorded_at=timezone.now(),
         )
         location.save()
     else:
@@ -115,7 +115,7 @@ def post_location(request):
         location.longitude = float(lng)
         location.speed = float(data.get('speed', 0))
         location.heading = data.get('heading')
-        location.recorded_at = datetime.utcnow()
+        location.recorded_at = timezone.now()
         if tenant_id:
             location.tenant_id = tenant_id
         location.save()
@@ -151,14 +151,14 @@ def hos_status(request):
 
     open_log = DutyLog.objects.filter(user_id=user_id, ended_at__isnull=True).first()
     if open_log:
-        open_log.ended_at = datetime.utcnow()
+        open_log.ended_at = timezone.now()
         open_log.save()
 
     DutyLog(
         id=str(uuid.uuid4()),
         user_id=user_id,
         status=status,
-        started_at=datetime.utcnow(),
+        started_at=timezone.now(),
         notes=data.get('notes'),
     ).save()
 

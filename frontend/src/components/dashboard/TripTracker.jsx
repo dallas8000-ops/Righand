@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { TripTracker as TripStore } from '../../utils/tripTracker';
 import { useGpsTrip } from '../../hooks/useGpsTrip';
 import { useObd } from '../../hooks/useObd';
@@ -12,6 +12,12 @@ const formatTime = (iso) => {
   if (!iso) return '';
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 };
+
+const TRIP_MODE_TABS = [
+  { id: 'manual', label: 'Manual', icon: 'Manual' },
+  { id: 'gps', label: 'GPS', icon: 'GPS' },
+  { id: 'obd', label: 'OBD', icon: 'OBD' }
+];
 
 const TripTracker = ({ userId, onLogMiles }) => {
   const [mode, setMode] = useState('manual');
@@ -28,17 +34,17 @@ const TripTracker = ({ userId, onLogMiles }) => {
 
   const tripInProgress = activeTrip?.active || gps.tripActive;
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     setActiveTrip(TripStore.getActiveTrip(userId));
     const lastEnd = TripStore.getLastEndMiles(userId);
     if (lastEnd != null && !TripStore.getActiveTrip(userId)) {
       setStartInput(String(lastEnd));
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     refresh();
-  }, [userId]);
+  }, [refresh]);
 
   useEffect(() => {
     if (obd.vehicleData.odometerMiles && !obdStartOdo) {
@@ -203,15 +209,11 @@ const TripTracker = ({ userId, onLogMiles }) => {
       </div>
 
       <div className="trip-mode-tabs">
-        {[
-          { id: 'manual', label: 'Manual', icon: '✏' },
-          { id: 'gps', label: 'GPS', icon: '📍' },
-          { id: 'obd', label: 'OBD', icon: '🔌' }
-        ].map(tab => (
+        {TRIP_MODE_TABS.map(tab => (
           <button
             key={tab.id}
             type="button"
-            className={`trip-mode-tab ${mode === tab.id ? 'active' : ''}`}
+            className={mode === tab.id ? 'trip-mode-tab active' : 'trip-mode-tab'}
             onClick={() => setMode(tab.id)}
             disabled={tripInProgress}
           >
@@ -222,9 +224,10 @@ const TripTracker = ({ userId, onLogMiles }) => {
 
       {!totalMiles && mode === 'manual' && !activeTrip?.active && (
         <div className="trip-idle">
-          <label className="trip-field">
-            <span>Beginning odometer</span>
+          <div className="trip-field">
+            <label htmlFor="trip-start-odometer">Beginning odometer</label>
             <input
+              id="trip-start-odometer"
               type="number"
               step="0.1"
               min="0"
@@ -233,7 +236,7 @@ const TripTracker = ({ userId, onLogMiles }) => {
               placeholder="e.g. 145230.5"
               className="trip-input"
             />
-          </label>
+          </div>
           <button type="button" className="btn-primary trip-start-btn" onClick={handleManualStart}>
             Start Trip
           </button>
@@ -249,9 +252,10 @@ const TripTracker = ({ userId, onLogMiles }) => {
               <small>Started {formatTime(activeTrip.startedAt)}</small>
             </div>
           </div>
-          <label className="trip-field">
-            <span>End odometer</span>
+          <div className="trip-field">
+            <label htmlFor="trip-end-odometer">End odometer</label>
             <input
+              id="trip-end-odometer"
               type="number"
               step="0.1"
               min={activeTrip.startMiles}
@@ -260,7 +264,7 @@ const TripTracker = ({ userId, onLogMiles }) => {
               placeholder="Enter when you arrive"
               className="trip-input"
             />
-          </label>
+          </div>
           {endInput && Number.parseFloat(endInput) >= activeTrip.startMiles && (
             <p className="trip-preview">
               Trip total: <strong>{formatMiles(Number.parseFloat(endInput) - activeTrip.startMiles)} mi</strong>

@@ -27,6 +27,11 @@ urlpatterns = [
     path('ops/load-packets', csrf(views.load_packets)),
     path('ops/maintenance/<str:item_id>', csrf(views.maintenance_item_detail)),
     path('ops/maintenance', csrf(views.maintenance_items)),
+    path('compliance/documents/<str:document_id>', csrf(views.compliance_document_detail)),
+    path('compliance/documents', csrf(views.compliance_documents)),
+    path('compliance/profiles/<str:profile_id>', csrf(views.compliance_profile_detail)),
+    path('compliance/profiles', csrf(views.compliance_profiles)),
+    path('compliance/summary', csrf(views.compliance_summary)),
     path('reports/metrics', csrf(views.get_metrics)),
     path('reports/weekly-summary', csrf(views.weekly_summary)),
     path('reports/export/csv', csrf(views.export_csv)),
@@ -46,4 +51,6 @@ urlpatterns = [
     path('subscriptions/cancel', csrf(views.cancel_subscription)),
     path('subscriptions/update-used', csrf(views.record_free_update)),
     path('billing/webhook', csrf(views.stripe_webhook)),
+    path('v1/billing/webhook/', csrf(views.stripe_webhook)),
+    path('v1/billing/webhook', csrf(views.stripe_webhook)),
 ]

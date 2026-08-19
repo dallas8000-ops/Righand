@@ -1,5 +1,12 @@
 from api.views.auth import login, logout, register, verify
 from api.views.categories import categories, delete_category
+from api.views.compliance import (
+    compliance_document_detail,
+    compliance_documents,
+    compliance_profile_detail,
+    compliance_profiles,
+    compliance_summary,
+)
 from api.views.expenses import (
     calculate_profit,
     create_expense,

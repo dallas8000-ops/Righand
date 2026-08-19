@@ -56,7 +56,7 @@ def billing_health(request):
     return JsonResponse({
         'status': 'ok' if required else 'missing_config',
         'billing': billing,
-        'webhook_url_path': '/api/billing/webhook',
+        'webhook_url_path': '/api/v1/billing/webhook/',
         'checkout_url_path': '/api/subscriptions/stripe-checkout',
         'required_webhook_events': [
             'checkout.session.completed',

@@ -1,7 +1,7 @@
 {
   "createdAt": "2026-06-12T05:13:18.728500+00:00",
-  "updatedAt": "2026-06-12T05:55:11.427861+00:00",
-  "accountId": "acct_1TVQpaRxznXvj6jh",
+  "updatedAt": "2026-07-05T06:51:23.115809+00:00",
+  "accountId": null,
   "products": [
     {
       "id": "prod_UgdnrglonWJRHJ",
@@ -57,13 +57,10 @@
     }
   ],
   "webhookEndpoint": {
-    "id": "we_1ThO3fRxznXvj6jhxY7d01my",
-    "url": "https://righand-production.up.railway.app/stripe/webhook",
+    "id": "we_1TpjteRxznXvj6jhkSUSUKNB",
+    "url": "https://righand-production.up.railway.app/api/v1/billing/webhook/",
     "reused": false
   },
-  "billingPortalConfig": {
-    "id": "bpc_1ThNP7RxznXvj6jh9yIk6Iyn",
-    "reused": true
-  },
+  "billingPortalConfig": null,
   "appUrl": "https://righand-production.up.railway.app"
 }

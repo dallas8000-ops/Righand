@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import clsx from 'clsx';
-import { ExpenseAPI, ReportsAPI, FleetAPI, CategoriesAPI, OpsAPI, SyncManager } from '../services/api';
+import { ComplianceAPI, ExpenseAPI, ReportsAPI, FleetAPI, CategoriesAPI, OpsAPI, SyncManager } from '../services/api';
 import {
   EMPTY_FORM,
   computeLocalMetrics,
@@ -34,6 +34,12 @@ import {
   emptyMaintenanceItem,
   latestOdometer
 } from '../utils/driverOps';
+import {
+  COMPLIANCE_JURISDICTIONS,
+  analyzeComplianceUpload,
+  getComplianceJurisdiction,
+  readComplianceFileText
+} from '../utils/transportCompliance';
 import './Dashboard.css';
 
 const DEFAULT_CATEGORIES = [
@@ -52,6 +58,14 @@ const USUAL_EXPENSE_TEMPLATES = [
   { label: 'Maintenance', description: 'Truck maintenance', category: 'maintenance', type: 'expense' },
   { label: 'Load Income', description: 'Load payment', category: 'load', type: 'income' }
 ];
+
+const nextCategoryForType = (type, currentCategory) => {
+  if (type === 'income') {
+    return currentCategory && currentCategory !== 'fuel' ? currentCategory : 'load';
+  }
+  if (currentCategory === 'load') return 'fuel';
+  return currentCategory || 'fuel';
+};
 
 const HOS_STATUSES = [
   { value: 'OFF_DUTY', label: 'Off Duty' },
@@ -130,6 +144,33 @@ const Dashboard = ({ user, onLogout }) => {
   const userId = localStorage.getItem('userId') || user?.id;
   const [openingIncome, setOpeningIncome] = useState(0);
   const isDemo = localStorage.getItem('authToken') === 'demo_token_12345';
+  const [selectedJurisdictionCode, setSelectedJurisdictionCode] = useState(() => localStorage.getItem(`righand:${userId || 'default'}:jurisdiction`) || 'UG');
+  const [complianceScans, setComplianceScans] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`righand:${userId || 'default'}:complianceScans`) || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [complianceProfiles, setComplianceProfiles] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`righand:${userId || 'default'}:complianceProfiles`) || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [complianceProfileForm, setComplianceProfileForm] = useState({
+    profileType: 'driver',
+    title: '',
+    licenceExpiry: '',
+    vehiclePlate: '',
+    inspectionExpiry: '',
+    routeCountries: '',
+    borderPosts: '',
+    notes: ''
+  });
+  const [complianceSummary, setComplianceSummary] = useState(null);
+  const [complianceSyncStatus, setComplianceSyncStatus] = useState('local');
   const { subscription, isPro, refresh: refreshSubscription } = useSubscription(isDemo);
 
   const handlePaidUnlock = async () => {
@@ -164,6 +205,61 @@ const Dashboard = ({ user, onLogout }) => {
   );
 
   const pendingCount = expenses.filter(expense => expense.offline || expense.synced === false).length;
+  const selectedJurisdiction = useMemo(
+    () => getComplianceJurisdiction(selectedJurisdictionCode),
+    [selectedJurisdictionCode]
+  );
+  const latestComplianceScan = complianceScans[0] || null;
+  const criticalComplianceCount = selectedJurisdiction.rules.filter(rule => rule.severity === 'critical').length;
+  const latestExtractedFields = Object.entries(latestComplianceScan?.extractedFields || {});
+  const profileCounts = useMemo(() => complianceProfiles.reduce((counts, profile) => {
+    counts[profile.profileType] = (counts[profile.profileType] || 0) + 1;
+    return counts;
+  }, {}), [complianceProfiles]);
+  const localReadinessAlerts = useMemo(() => {
+    const missingProfiles = ['driver', 'vehicle', 'route'].filter(profileType => !profileCounts[profileType]);
+    const alerts = [];
+    if (missingProfiles.length) {
+      alerts.push({
+        level: 'warning',
+        title: 'Profile coverage incomplete',
+        body: `Add ${missingProfiles.join(', ')} compliance profile records before dispatch review.`
+      });
+    }
+    if (latestComplianceScan?.reviewAlerts?.some(alert => alert.level === 'critical')) {
+      alerts.push({
+        level: 'critical',
+        title: 'Critical compliance findings open',
+        body: 'Review critical uploaded-document findings before releasing a load packet.'
+      });
+    }
+    if (alerts.length) return alerts;
+    return [{
+      level: 'info',
+      title: 'Dispatch profile baseline ready',
+      body: 'Driver, vehicle, and route profile records are available for the selected jurisdiction.'
+    }];
+  }, [latestComplianceScan, profileCounts]);
+  const complianceReadinessAlerts = complianceSummary?.readinessAlerts || localReadinessAlerts;
+  const dispatchBlockerCount = complianceReadinessAlerts.filter(alert => ['critical', 'warning'].includes(alert.level)).length;
+  const localDispatchPolicy = useMemo(() => {
+    const hasCriticalAlert = localReadinessAlerts.some(alert => alert.level === 'critical');
+    if (hasCriticalAlert) {
+      return {
+        mode: 'block',
+        blocked: true,
+        title: 'Dispatch blocked by critical compliance findings',
+        reasons: ['Resolve critical uploaded-document findings before releasing this load.']
+      };
+    }
+    return {
+      mode: 'warn',
+      blocked: false,
+      title: 'Dispatch allowed with compliance review',
+      reasons: []
+    };
+  }, [localReadinessAlerts]);
+  const dispatchPolicy = complianceSummary?.dispatchPolicy || localDispatchPolicy;
 
   const totalIncomeDisplay = (profit.totalIncome || 0) + openingIncome;
   const netProfitDisplay = totalIncomeDisplay - (profit.totalExpenses || 0);
@@ -223,30 +319,11 @@ const Dashboard = ({ user, onLogout }) => {
     if (!mpg) return null;
     return mpg * Number(driverTargets.tankGallons || 0) * (Number(driverTargets.fuelLevelPct) / 100);
   }, [expenses, driverTargets]);
-
-  useEffect(() => {
-    loadExpenses();
-    loadMetrics();
-    loadWeeklySummary();
-    loadCategories();
-    loadFleetStatus();
-    loadHosStatus();
-    setOpeningIncome(DriverSettings.getOpeningIncome(userId));
-    setDriverTargets(DriverOpsStore.getTargets(userId));
-    loadDriverOps();
-    SyncManager.enableAutoSync(userId, 30000);
-  }, [userId]);
-
-  useEffect(() => {
-    if (activeTab === 'reports') {
-      loadTaxReport();
-      loadIftaReport();
-    }
-  }, [activeTab, reportQuarter, reportYear]);
-
-  useEffect(() => {
-    calculateProfit();
-  }, [expenses]);
+  const fuelWatchText = useMemo(() => {
+    if (estimatedFuelRange) return `${estimatedFuelRange.toFixed(0)} mi range`;
+    if (displayMetrics.costPerGallon) return `${formatMoney(displayMetrics.costPerGallon)}/gal`;
+    return 'Add fuel stop';
+  }, [displayMetrics.costPerGallon, estimatedFuelRange]);
 
   useEffect(() => {
     localStorage.setItem('customCategories', JSON.stringify(customCategories));
@@ -266,7 +343,7 @@ const Dashboard = ({ user, onLogout }) => {
     DriverOpsStore.saveTargets(userId, driverTargets);
   }, [userId, driverTargets]);
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     const remote = await CategoriesAPI.list();
     if (remote?.length) {
       setSavedCategories(remote);
@@ -276,22 +353,22 @@ const Dashboard = ({ user, onLogout }) => {
         if (local) setCustomCategories(JSON.parse(local));
       } catch { /* ignore */ }
     }
-  };
+  }, []);
 
-  const loadWeeklySummary = async () => {
+  const loadWeeklySummary = useCallback(async () => {
     const data = await ReportsAPI.getWeeklySummary();
     if (data?.days) setWeeklySummary(data);
-  };
+  }, []);
 
-  const loadTaxReport = async () => {
+  const loadTaxReport = useCallback(async () => {
     const data = await ReportsAPI.getTaxQuarterly(reportYear, reportQuarter);
     if (data) setTaxReport(data);
-  };
+  }, [reportQuarter, reportYear]);
 
-  const loadIftaReport = async () => {
+  const loadIftaReport = useCallback(async () => {
     const data = await ReportsAPI.getIfta(reportYear, reportQuarter);
     if (data) setIftaReport(data);
-  };
+  }, [reportQuarter, reportYear]);
 
   const toggleNotifications = async () => {
     if (!notificationsOn && 'Notification' in window && Notification.permission === 'default') {
@@ -327,31 +404,31 @@ const Dashboard = ({ user, onLogout }) => {
     toastTimerRef.current = setTimeout(() => setToast({ message: '', type: '' }), 2600);
   }, []);
 
-  const loadExpenses = async () => {
+  const loadExpenses = useCallback(async () => {
     setLoading(true);
     try {
       setSyncStatus('syncing');
       const data = await ExpenseAPI.getExpenses(userId);
       setExpenses(data || []);
       setSyncStatus('synced');
-    } catch (error) {
+    } catch {
       setSyncStatus('offline');
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
-  const loadMetrics = async () => {
+  const loadMetrics = useCallback(async () => {
     const data = await ReportsAPI.getMetrics('monthly');
     if (data) setMetrics(data);
-  };
+  }, []);
 
-  const loadFleetStatus = async () => {
+  const loadFleetStatus = useCallback(async () => {
     const data = await FleetAPI.getStatus();
     setFleetStatus(data);
-  };
+  }, []);
 
-  const loadHosStatus = async () => {
+  const loadHosStatus = useCallback(async () => {
     if (isDemo) {
       const saved = localStorage.getItem(`hos_${userId}`);
       if (saved) {
@@ -370,9 +447,9 @@ const Dashboard = ({ user, onLogout }) => {
         setDrivingStartedAt(data.currentStartedAt);
       }
     }
-  };
+  }, [isDemo, userId]);
 
-  const loadDriverOps = async () => {
+  const loadDriverOps = useCallback(async () => {
     const localLoads = DriverOpsStore.getLoadPackets(userId);
     const localMaintenance = DriverOpsStore.getMaintenance(userId);
     setLoadPackets(localLoads);
@@ -395,9 +472,9 @@ const Dashboard = ({ user, onLogout }) => {
     } finally {
       setOpsLoaded(true);
     }
-  };
+  }, [isDemo, showToast, userId]);
 
-  const calculateProfit = async () => {
+  const calculateProfit = useCallback(async () => {
     const startDate = new Date();
     startDate.setDate(1);
     const endDate = new Date();
@@ -411,7 +488,31 @@ const Dashboard = ({ user, onLogout }) => {
         netProfit: localMetrics.netProfit
       });
     }
-  };
+  }, [localMetrics.netProfit, localMetrics.totalExpenses, localMetrics.totalIncome, userId]);
+
+  useEffect(() => {
+    loadExpenses();
+    loadMetrics();
+    loadWeeklySummary();
+    loadCategories();
+    loadFleetStatus();
+    loadHosStatus();
+    setOpeningIncome(DriverSettings.getOpeningIncome(userId));
+    setDriverTargets(DriverOpsStore.getTargets(userId));
+    loadDriverOps();
+    SyncManager.enableAutoSync(userId, 30000);
+  }, [loadCategories, loadDriverOps, loadExpenses, loadFleetStatus, loadHosStatus, loadMetrics, loadWeeklySummary, userId]);
+
+  useEffect(() => {
+    if (activeTab === 'reports') {
+      loadTaxReport();
+      loadIftaReport();
+    }
+  }, [activeTab, loadIftaReport, loadTaxReport]);
+
+  useEffect(() => {
+    calculateProfit();
+  }, [calculateProfit, expenses]);
 
   const resetForm = () => {
     setFormData({ ...EMPTY_FORM, date: new Date().toISOString().split('T')[0] });
@@ -446,7 +547,7 @@ const Dashboard = ({ user, onLogout }) => {
   const buildPayload = (data) => {
     const payload = {
       description: data.description,
-      amount: parseFloat(data.amount),
+      amount: Number.parseFloat(data.amount),
       category: data.category,
       type: data.type,
       date: data.date,
@@ -458,7 +559,7 @@ const Dashboard = ({ user, onLogout }) => {
     };
     ['miles', 'gallons', 'odometer', 'deadheadMiles', 'tollsAmount', 'fuelCostAlloc'].forEach((field) => {
       if (data[field] !== '' && data[field] !== null && data[field] !== undefined) {
-        payload[field] = parseFloat(data[field]);
+        payload[field] = Number.parseFloat(data[field]);
       }
     });
     return payload;
@@ -494,7 +595,7 @@ const Dashboard = ({ user, onLogout }) => {
       setSyncStatus('synced');
       setActiveTab('log');
       setLogView('history');
-    } catch (error) {
+    } catch {
       showToast('Failed to save entry.', 'error');
       setSyncStatus('error');
     }
@@ -550,9 +651,7 @@ const Dashboard = ({ user, onLogout }) => {
       setFormData(prev => ({
         ...prev,
         type: value,
-        category: value === 'income'
-          ? (prev.category && prev.category !== 'fuel' ? prev.category : 'load')
-          : (prev.category === 'load' ? 'fuel' : prev.category || 'fuel')
+        category: nextCategoryForType(value, prev.category)
       }));
       return;
     }
@@ -697,6 +796,206 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
+  const persistComplianceScans = useCallback((scans) => {
+    setComplianceScans(scans);
+    localStorage.setItem(`righand:${userId || 'default'}:complianceScans`, JSON.stringify(scans));
+  }, [userId]);
+
+  const persistComplianceProfiles = useCallback((profiles) => {
+    setComplianceProfiles(profiles);
+    localStorage.setItem(`righand:${userId || 'default'}:complianceProfiles`, JSON.stringify(profiles));
+  }, [userId]);
+
+  const loadComplianceScans = useCallback(async (jurisdictionCode = selectedJurisdictionCode) => {
+    if (isDemo) {
+      setComplianceSyncStatus('local');
+      return;
+    }
+    try {
+      const documents = await ComplianceAPI.getDocuments(jurisdictionCode);
+      if (documents.length) {
+        persistComplianceScans(documents);
+      }
+      setComplianceSyncStatus('synced');
+    } catch {
+      setComplianceSyncStatus('local');
+    }
+  }, [isDemo, persistComplianceScans, selectedJurisdictionCode]);
+
+  useEffect(() => {
+    loadComplianceScans();
+  }, [loadComplianceScans]);
+
+  const loadComplianceProfiles = useCallback(async (jurisdictionCode = selectedJurisdictionCode) => {
+    if (isDemo) return;
+    try {
+      const profiles = await ComplianceAPI.getProfiles(jurisdictionCode);
+      persistComplianceProfiles(profiles);
+      setComplianceSyncStatus('synced');
+    } catch {
+      setComplianceSyncStatus('local');
+    }
+  }, [isDemo, persistComplianceProfiles, selectedJurisdictionCode]);
+
+  useEffect(() => {
+    loadComplianceProfiles();
+  }, [loadComplianceProfiles]);
+
+  const loadComplianceSummary = useCallback(async (jurisdictionCode = selectedJurisdictionCode) => {
+    if (isDemo) {
+      setComplianceSummary(null);
+      return;
+    }
+    try {
+      const summary = await ComplianceAPI.getSummary(jurisdictionCode);
+      setComplianceSummary(summary);
+      setComplianceSyncStatus('synced');
+    } catch {
+      setComplianceSummary(null);
+      setComplianceSyncStatus('local');
+    }
+  }, [isDemo, selectedJurisdictionCode]);
+
+  useEffect(() => {
+    loadComplianceSummary();
+  }, [loadComplianceSummary]);
+
+  const handleJurisdictionChange = (code) => {
+    setSelectedJurisdictionCode(code);
+    localStorage.setItem(`righand:${userId || 'default'}:jurisdiction`, code);
+    loadComplianceScans(code);
+    loadComplianceProfiles(code);
+    loadComplianceSummary(code);
+  };
+
+  const handleComplianceProfileChange = (e) => {
+    const { name, value } = e.target;
+    setComplianceProfileForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const saveComplianceProfile = async (e) => {
+    e.preventDefault();
+    const title = complianceProfileForm.title.trim()
+      || `${complianceProfileForm.profileType.charAt(0).toUpperCase()}${complianceProfileForm.profileType.slice(1)} profile`;
+    const profile = {
+      profileType: complianceProfileForm.profileType,
+      jurisdictionCode: selectedJurisdictionCode,
+      title,
+      data: {
+        licenceExpiry: complianceProfileForm.licenceExpiry,
+        vehiclePlate: complianceProfileForm.vehiclePlate,
+        inspectionExpiry: complianceProfileForm.inspectionExpiry,
+        routeCountries: complianceProfileForm.routeCountries,
+        borderPosts: complianceProfileForm.borderPosts,
+        notes: complianceProfileForm.notes,
+      }
+    };
+    let savedProfile = { ...profile, id: `profile-${Date.now()}` };
+    if (!isDemo) {
+      try {
+        savedProfile = await ComplianceAPI.saveProfile(profile);
+        setComplianceSyncStatus('synced');
+      } catch {
+        setComplianceSyncStatus('local');
+        showToast('Saved locally. Compliance profile will sync when backend access returns.', 'warning');
+      }
+    }
+    persistComplianceProfiles([savedProfile, ...complianceProfiles].slice(0, 20));
+    loadComplianceSummary();
+    setComplianceProfileForm({
+      profileType: 'driver',
+      title: '',
+      licenceExpiry: '',
+      vehiclePlate: '',
+      inspectionExpiry: '',
+      routeCountries: '',
+      borderPosts: '',
+      notes: ''
+    });
+    showToast('Compliance profile saved.', 'success');
+  };
+
+  const deleteComplianceProfile = async (profileId) => {
+    if (!isDemo) {
+      try {
+        await ComplianceAPI.deleteProfile(profileId);
+        setComplianceSyncStatus('synced');
+      } catch {
+        setComplianceSyncStatus('local');
+        showToast('Removed locally. Backend profile deletion will need sync later.', 'warning');
+      }
+    }
+    persistComplianceProfiles(complianceProfiles.filter(profile => profile.id !== profileId));
+    loadComplianceSummary();
+  };
+
+  const firstExtractedValue = (field) => {
+    const value = latestComplianceScan?.extractedFields?.[field];
+    return Array.isArray(value) ? value[0] || '' : value || '';
+  };
+
+  const prefillComplianceProfileFromScan = () => {
+    if (!latestComplianceScan?.extractedFields) {
+      showToast('Upload a compliance document before prefilling a profile.', 'warning');
+      return;
+    }
+    const driverName = firstExtractedValue('driverNames');
+    const vehiclePlate = firstExtractedValue('vehiclePlates');
+    const borderPosts = latestComplianceScan.extractedFields.borderPosts || [];
+    const dates = latestComplianceScan.extractedFields.dates || [];
+    const nextDate = Array.isArray(dates) ? dates[0] || '' : dates;
+    setComplianceProfileForm(prev => ({
+      ...prev,
+      title: prev.title || driverName || vehiclePlate || `${selectedJurisdiction.label} route readiness`,
+      licenceExpiry: prev.profileType === 'driver' ? prev.licenceExpiry || nextDate : prev.licenceExpiry,
+      vehiclePlate: prev.vehiclePlate || vehiclePlate,
+      inspectionExpiry: prev.profileType === 'vehicle' ? prev.inspectionExpiry || nextDate : prev.inspectionExpiry,
+      routeCountries: prev.routeCountries || selectedJurisdiction.label,
+      borderPosts: prev.borderPosts || (Array.isArray(borderPosts) ? borderPosts.join(', ') : borderPosts),
+      notes: prev.notes || `Prefilled from ${latestComplianceScan.fileName}`
+    }));
+  };
+
+  const handleComplianceUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Compliance document must be under 5 MB.', 'error');
+      return;
+    }
+    let savedScan = null;
+    let remoteSaveFailed = false;
+    if (!isDemo) {
+      try {
+        savedScan = await ComplianceAPI.uploadDocument({
+          file,
+          jurisdictionCode: selectedJurisdictionCode,
+          jurisdictionLabel: selectedJurisdiction.label
+        });
+        setComplianceSyncStatus('synced');
+      } catch {
+        remoteSaveFailed = true;
+        setComplianceSyncStatus('local');
+        showToast('Saved locally. Compliance scan will stay on this device until sync returns.', 'warning');
+      }
+    }
+    if (!savedScan) {
+      const text = await readComplianceFileText(file);
+      savedScan = analyzeComplianceUpload({
+        jurisdictionCode: selectedJurisdictionCode,
+        fileName: file.name,
+        mimeType: file.type,
+        text
+      });
+    }
+    persistComplianceScans([savedScan, ...complianceScans].slice(0, 10));
+    loadComplianceSummary();
+    if (!remoteSaveFailed) {
+      showToast(savedScan.directHit ? 'Compliance scan matched regional rules.' : 'Compliance scan added the core checklist.', 'success');
+    }
+    e.target.value = '';
+  };
+
   const handleLoadFormChange = (e) => {
     const { name, value } = e.target;
     setLoadForm(prev => ({ ...prev, [name]: value }));
@@ -759,6 +1058,11 @@ const Dashboard = ({ user, onLogout }) => {
   const setLoadStatus = async (packetId, status) => {
     const current = loadPackets.find(packet => packet.id === packetId);
     if (!current) return;
+    if (status === 'delivered' && dispatchPolicy.blocked) {
+      showToast(dispatchPolicy.title || 'Dispatch blocked by compliance policy.', 'error');
+      setActiveTab('compliance');
+      return;
+    }
     const updated = { ...current, status, updatedAt: new Date().toISOString() };
     if (!isDemo) {
       try {
@@ -800,6 +1104,7 @@ const Dashboard = ({ user, onLogout }) => {
 
   const buildLoadPacketText = (packet) => {
     const decision = computeLoadDecision(packet, driverTargets);
+    const netPerMileText = decision.netPerMile ? `${formatMoney(decision.netPerMile)}/mi` : 'missing miles';
     return [
       'RigHand Load Packet',
       packet.loadNumber ? `Load: ${packet.loadNumber}` : '',
@@ -810,7 +1115,7 @@ const Dashboard = ({ user, onLogout }) => {
       packet.deliveryAddress ? `Delivery address: ${packet.deliveryAddress}` : '',
       `Rate: ${formatMoney(packet.rate || 0)}`,
       `Miles: ${decision.totalMiles || 0}`,
-      `Net: ${formatMoney(decision.net)} (${decision.netPerMile ? `${formatMoney(decision.netPerMile)}/mi` : 'missing miles'})`,
+      `Net: ${formatMoney(decision.net)} (${netPerMileText})`,
       packet.detentionTerms ? `Detention: ${packet.detentionTerms}` : '',
       packet.notes ? `Notes: ${packet.notes}` : ''
     ].filter(Boolean).join('\n');
@@ -886,9 +1191,12 @@ const Dashboard = ({ user, onLogout }) => {
   const handleHosChange = async (status) => {
     const now = new Date().toISOString();
     if (isDemo) {
-      const drivingStart = status === 'DRIVING'
-        ? now
-        : (hosStatus === 'DRIVING' ? drivingStartedAt : null);
+      let drivingStart = null;
+      if (status === 'DRIVING') {
+        drivingStart = now;
+      } else if (hosStatus === 'DRIVING') {
+        drivingStart = drivingStartedAt;
+      }
       const payload = {
         status,
         startedAt: now,
@@ -957,7 +1265,7 @@ const Dashboard = ({ user, onLogout }) => {
         </article>
         <article className="cockpit-card">
           <span className="metric-label">Fuel Watch</span>
-          <strong>{estimatedFuelRange ? `${estimatedFuelRange.toFixed(0)} mi range` : (displayMetrics.costPerGallon ? `${formatMoney(displayMetrics.costPerGallon)}/gal` : 'Add fuel stop')}</strong>
+          <strong>{fuelWatchText}</strong>
           <p>{displayMetrics.fuelCostPerMile ? `${formatMoney(displayMetrics.fuelCostPerMile)}/mile fuel cost` : 'Gallons, odometer, and state unlock MPG and IFTA checks.'}</p>
           <div className="fuel-watch-inputs">
             <input
@@ -986,8 +1294,9 @@ const Dashboard = ({ user, onLogout }) => {
         </article>
         <article className="cockpit-card">
           <span className="metric-label">Compliance Assistant</span>
-          <strong>{hosStatus.replace('_', ' ')}</strong>
-          <p>Recordkeeping support only. Not a certified ELD.</p>
+          <strong>{selectedJurisdiction.label}</strong>
+          <p>{criticalComplianceCount} critical checks active. {latestComplianceScan ? `Last scan: ${latestComplianceScan.fileName}` : 'Upload permits, inspection, customs, or driver files.'}</p>
+          <button type="button" className="link-btn" onClick={() => setActiveTab('compliance')}>Open compliance</button>
         </article>
       </section>
 
@@ -1094,10 +1403,14 @@ const Dashboard = ({ user, onLogout }) => {
 
   const showFuelFields = formData.category === 'fuel';
   const showLoadFields = formData.category === 'load' && formData.type === 'income';
+  const entryFormTitle = useMemo(() => {
+    if (!editingExpense) return 'New Entry';
+    return formData.type === 'income' ? 'Edit Income' : 'Edit Entry';
+  }, [editingExpense, formData.type]);
 
   const renderAddForm = () => (
     <section className="expense-form-section">
-      <h2>{editingExpense ? `Edit ${formData.type === 'income' ? 'Income' : 'Entry'}` : 'New Entry'}</h2>
+      <h2>{entryFormTitle}</h2>
       <div className="entry-type-toggle">
         <button
           type="button"
@@ -1117,8 +1430,8 @@ const Dashboard = ({ user, onLogout }) => {
       <form onSubmit={handleSaveExpense} className="expense-form">
         <div className="form-row">
           <div className="form-group">
-            <label>Description</label>
-            <input type="text" name="description" value={formData.description} onChange={handleFormChange} required />
+            <label htmlFor="expense-description">Description</label>
+            <input id="expense-description" type="text" name="description" value={formData.description} onChange={handleFormChange} required />
             <div className="voice-controls">
               <button
                 type="button"
@@ -1145,22 +1458,22 @@ const Dashboard = ({ user, onLogout }) => {
             </div>
           </div>
           <div className="form-group">
-            <label>Amount ($)</label>
-            <input type="number" name="amount" value={formData.amount} onChange={handleFormChange} step="0.01" min="0" required />
+            <label htmlFor="expense-amount">Amount ($)</label>
+            <input id="expense-amount" type="number" name="amount" value={formData.amount} onChange={handleFormChange} step="0.01" min="0" required />
           </div>
         </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label>Type</label>
-            <select name="type" value={formData.type} onChange={handleFormChange}>
+            <label htmlFor="expense-type">Type</label>
+            <select id="expense-type" name="type" value={formData.type} onChange={handleFormChange}>
               <option value="expense">Expense</option>
               <option value="income">Income</option>
             </select>
           </div>
           <div className="form-group">
-            <label>Category</label>
-            <select name="category" value={formData.category} onChange={handleFormChange}>
+            <label htmlFor="expense-category">Category</label>
+            <select id="expense-category" name="category" value={formData.category} onChange={handleFormChange}>
               <option value="">Select category</option>
               {allCategoryValues.map(category => (
                 <option key={category} value={category}>{getCatLabel(category)}</option>
@@ -1184,12 +1497,12 @@ const Dashboard = ({ user, onLogout }) => {
 
         <div className="form-row">
           <div className="form-group">
-            <label>Miles {showLoadFields ? '(loaded)' : '(optional)'}</label>
-            <input type="number" name="miles" value={formData.miles} onChange={handleFormChange} step="0.1" min="0" placeholder="Trip or loaded miles" />
+            <label htmlFor="expense-miles">Miles {showLoadFields ? '(loaded)' : '(optional)'}</label>
+            <input id="expense-miles" type="number" name="miles" value={formData.miles} onChange={handleFormChange} step="0.1" min="0" placeholder="Trip or loaded miles" />
           </div>
           <div className="form-group">
-            <label>Odometer (optional)</label>
-            <input type="number" name="odometer" value={formData.odometer} onChange={handleFormChange} step="0.1" min="0" />
+            <label htmlFor="expense-odometer">Odometer (optional)</label>
+            <input id="expense-odometer" type="number" name="odometer" value={formData.odometer} onChange={handleFormChange} step="0.1" min="0" />
           </div>
         </div>
 
@@ -1197,12 +1510,12 @@ const Dashboard = ({ user, onLogout }) => {
           <>
             <div className="form-row">
               <div className="form-group">
-                <label>Gallons (fuel log)</label>
-                <input type="number" name="gallons" value={formData.gallons} onChange={handleFormChange} step="0.01" min="0" placeholder="IRS fuel record" />
+                <label htmlFor="expense-gallons">Gallons (fuel log)</label>
+                <input id="expense-gallons" type="number" name="gallons" value={formData.gallons} onChange={handleFormChange} step="0.01" min="0" placeholder="IRS fuel record" />
               </div>
               <div className="form-group">
-                <label>Fuel State (IFTA)</label>
-                <select name="fuelState" value={formData.fuelState} onChange={handleFormChange}>
+                <label htmlFor="expense-fuel-state">Fuel State (IFTA)</label>
+                <select id="expense-fuel-state" name="fuelState" value={formData.fuelState} onChange={handleFormChange}>
                   <option value="">Select state</option>
                   {US_STATES.map(s => (
                     <option key={s.code} value={s.code}>{s.code} — {s.name}</option>
@@ -1212,15 +1525,15 @@ const Dashboard = ({ user, onLogout }) => {
             </div>
             <div className="form-row">
               <div className="form-group fuel-calc-preview">
-                <label>$/Gallon</label>
+                <span className="form-label">$/Gallon</span>
                 <p>
                   {formData.gallons && formData.amount
-                    ? formatMoney(parseFloat(formData.amount) / parseFloat(formData.gallons))
+                    ? formatMoney(Number.parseFloat(formData.amount) / Number.parseFloat(formData.gallons))
                     : '—'}
                 </p>
               </div>
               <div className="form-group fuel-calc-preview">
-                <label>MPG (auto-calc)</label>
+                <span className="form-label">MPG (auto-calc)</span>
                 <p>{fuelMpgPreview ? `${fuelMpgPreview.toFixed(1)} mpg` : 'Add gallons + miles or odometer'}</p>
                 {prevFuelOdometer ? <small>Prev odometer: {prevFuelOdometer}</small> : null}
               </div>
@@ -1232,31 +1545,31 @@ const Dashboard = ({ user, onLogout }) => {
           <>
             <div className="form-row">
               <div className="form-group">
-                <label>Broker</label>
-                <input type="text" name="broker" value={formData.broker} onChange={handleFormChange} placeholder="e.g. TQL, CH Robinson" />
+                <label htmlFor="expense-broker">Broker</label>
+                <input id="expense-broker" type="text" name="broker" value={formData.broker} onChange={handleFormChange} placeholder="e.g. TQL, CH Robinson" />
               </div>
               <div className="form-group">
-                <label>Customer / Shipper</label>
-                <input type="text" name="customer" value={formData.customer} onChange={handleFormChange} placeholder="Who you hauled for" />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Deadhead Miles</label>
-                <input type="number" name="deadheadMiles" value={formData.deadheadMiles} onChange={handleFormChange} step="0.1" min="0" />
-              </div>
-              <div className="form-group">
-                <label>Tolls ($)</label>
-                <input type="number" name="tollsAmount" value={formData.tollsAmount} onChange={handleFormChange} step="0.01" min="0" />
+                <label htmlFor="expense-customer">Customer / Shipper</label>
+                <input id="expense-customer" type="text" name="customer" value={formData.customer} onChange={handleFormChange} placeholder="Who you hauled for" />
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Fuel Cost for Load ($)</label>
-                <input type="number" name="fuelCostAlloc" value={formData.fuelCostAlloc} onChange={handleFormChange} step="0.01" min="0" />
+                <label htmlFor="expense-deadhead-miles">Deadhead Miles</label>
+                <input id="expense-deadhead-miles" type="number" name="deadheadMiles" value={formData.deadheadMiles} onChange={handleFormChange} step="0.1" min="0" />
+              </div>
+              <div className="form-group">
+                <label htmlFor="expense-tolls">Tolls ($)</label>
+                <input id="expense-tolls" type="number" name="tollsAmount" value={formData.tollsAmount} onChange={handleFormChange} step="0.01" min="0" />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="expense-fuel-cost-alloc">Fuel Cost for Load ($)</label>
+                <input id="expense-fuel-cost-alloc" type="number" name="fuelCostAlloc" value={formData.fuelCostAlloc} onChange={handleFormChange} step="0.01" min="0" />
               </div>
               <div className="form-group load-calc-preview">
-                <label>Load Net Profit</label>
+                <span className="form-label">Load Net Profit</span>
                 <p>{formatMoney(loadPreview.netLoadProfit)}</p>
                 <small>{loadPreview.profitPerMile ? `${formatMoney(loadPreview.profitPerMile)}/mi` : 'Add loaded miles'}</small>
               </div>
@@ -1266,20 +1579,20 @@ const Dashboard = ({ user, onLogout }) => {
 
         <div className="form-row">
           <div className="form-group">
-            <label>Date</label>
-            <input type="date" name="date" value={formData.date} onChange={handleFormChange} required />
+            <label htmlFor="expense-date">Date</label>
+            <input id="expense-date" type="date" name="date" value={formData.date} onChange={handleFormChange} required />
           </div>
           <div className="form-group">
-            <label>Receipt Photo</label>
-            <input ref={receiptInputRef} type="file" accept="image/*" capture="environment" onChange={handleReceiptUpload} />
+            <label htmlFor="expense-receipt">Receipt Photo</label>
+            <input id="expense-receipt" ref={receiptInputRef} type="file" accept="image/*" capture="environment" onChange={handleReceiptUpload} />
             {formData.receiptUrl && <span className="receipt-attached">Receipt attached</span>}
           </div>
         </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label>Notes</label>
-            <input type="text" name="notes" value={formData.notes} onChange={handleFormChange} placeholder="Optional" />
+            <label htmlFor="expense-notes">Notes</label>
+            <input id="expense-notes" type="text" name="notes" value={formData.notes} onChange={handleFormChange} placeholder="Optional" />
           </div>
         </div>
 
@@ -1293,31 +1606,13 @@ const Dashboard = ({ user, onLogout }) => {
     </section>
   );
 
-  const renderHistory = () => (
-    <section className="expenses-section">
-      <h2>History</h2>
-      <div className="filters">
-        <input type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Search" className="filter-input" />
-        <select value={filter.type} onChange={(e) => setFilter({ ...filter, type: e.target.value })} className="filter-select">
-          <option value="">All Types</option>
-          <option value="expense">Expenses</option>
-          <option value="income">Income</option>
-        </select>
-        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="filter-select">
-          <option value="date_desc">Newest</option>
-          <option value="date_asc">Oldest</option>
-          <option value="amount_desc">Amount High-Low</option>
-        </select>
-      </div>
-
-      {loading ? (
-        <p className="loading">Loading...</p>
-      ) : sortedExpenses.length === 0 ? (
-        <div className="no-data"><p>No entries yet.</p></div>
-      ) : (
-        <div className="expense-cards">
-          {sortedExpenses.map(expense => (
-            <article key={expense.id} className={clsx('expense-card', expense.offline && 'offline')}>
+  const renderHistoryContent = () => {
+    if (loading) return <p className="loading">Loading...</p>;
+    if (sortedExpenses.length === 0) return <div className="no-data"><p>No entries yet.</p></div>;
+    return (
+      <div className="expense-cards">
+        {sortedExpenses.map(expense => (
+          <article key={expense.id} className={clsx('expense-card', expense.offline && 'offline')}>
               <div className="expense-card-top">
                 <div>
                   <h3>{expense.description}</h3>
@@ -1341,12 +1636,104 @@ const Dashboard = ({ user, onLogout }) => {
                 <button type="button" className="btn-secondary small" onClick={() => handleEditExpense(expense)}>Edit</button>
                 <button type="button" className="btn-delete" onClick={() => handleDeleteExpense(expense)} title="Delete">Delete</button>
               </div>
+          </article>
+        ))}
+      </div>
+    );
+  };
+
+  const renderHistory = () => (
+    <section className="expenses-section">
+      <h2>History</h2>
+      <div className="filters">
+        <input type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Search" className="filter-input" />
+        <select value={filter.type} onChange={(e) => setFilter({ ...filter, type: e.target.value })} className="filter-select">
+          <option value="">All Types</option>
+          <option value="expense">Expenses</option>
+          <option value="income">Income</option>
+        </select>
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="filter-select">
+          <option value="date_desc">Newest</option>
+          <option value="date_asc">Oldest</option>
+          <option value="amount_desc">Amount High-Low</option>
+        </select>
+      </div>
+
+      {renderHistoryContent()}
+    </section>
+  );
+
+  const renderLoadCompliancePanel = () => {
+    const criticalRules = selectedJurisdiction.rules.filter(rule => rule.severity === 'critical');
+    const latestMatches = latestComplianceScan?.matches || [];
+    const routeProfiles = complianceProfiles.filter(profile => profile.profileType === 'route');
+    const extractedFields = latestComplianceScan?.extractedFields || {};
+    const routeText = routeProfiles.map(profile => Object.values(profile.data || {}).join(' ')).join(' ').toLowerCase();
+    const hasBorderEvidence = routeProfiles.length > 0 || (extractedFields.borderPosts || []).length > 0;
+    const shouldShowBorderChecklist = ['EAC', 'EU'].includes(selectedJurisdiction.code) || hasBorderEvidence;
+    const customsChecklist = selectedJurisdiction.code === 'EU'
+      ? ['Community licence', 'International carriage evidence', 'Cabotage operation records', 'Posting declaration', 'Tachograph or driver card evidence']
+      : ['Customs declaration', 'Cargo manifest', 'Bond or transit reference', 'Seal number', 'Border crossing record', 'Weighbridge or special-load evidence'];
+    const checklistEvidence = `${routeText} ${(extractedFields.permitIds || []).join(' ')} ${(extractedFields.sealNumbers || []).join(' ')} ${(extractedFields.borderPosts || []).join(' ')}`.toLowerCase();
+    return (
+      <section className="compliance-panel-block load-compliance-panel">
+        <div className="section-heading-row">
+          <div>
+            <span className="metric-label">Trip Compliance</span>
+            <h3>{selectedJurisdiction.label} readiness</h3>
+            <p className="section-help">These prompts follow the selected country or region and should be checked before dispatching a load.</p>
+          </div>
+          <button type="button" className="link-btn" onClick={() => setActiveTab('compliance')}>Upload evidence</button>
+        </div>
+        <div className="compliance-status-grid">
+          <div className="metric-card">
+            <span className="metric-label">Critical rules</span>
+            <strong>{criticalRules.length}</strong>
+          </div>
+          <div className="metric-card">
+            <span className="metric-label">Latest evidence</span>
+            <strong>{latestComplianceScan ? latestComplianceScan.fileName : 'None'}</strong>
+          </div>
+          <div className="metric-card">
+            <span className="metric-label">Matched topics</span>
+            <strong>{latestMatches.length}</strong>
+          </div>
+        </div>
+        <div className="compliance-rule-grid">
+          {criticalRules.map(rule => (
+            <article key={rule.id} className={clsx('compliance-rule-card', rule.severity)}>
+              <div className="compliance-rule-top">
+                <h4>{rule.title}</h4>
+                <span className="status-pill">{rule.severity}</span>
+              </div>
+              <p>{rule.summary}</p>
+              <div className="compliance-doc-tags">
+                {rule.requiredDocs.slice(0, 4).map(doc => <span key={doc}>{doc}</span>)}
+              </div>
             </article>
           ))}
         </div>
-      )}
-    </section>
-  );
+        {shouldShowBorderChecklist && (
+          <div className="cross-border-checklist">
+            <div className="section-heading-row compact-row">
+              <div>
+                <h4>{selectedJurisdiction.code === 'EU' ? 'EU Movement Evidence' : 'Cross-Border Customs Readiness'}</h4>
+                <p className="section-help">Pulled from route profiles and the latest extracted upload fields.</p>
+              </div>
+              <span className="status-pill">{routeProfiles.length} route profiles</span>
+            </div>
+            <div className="compliance-doc-tags checklist-tags">
+              {customsChecklist.map(item => {
+                const token = item.split(' ')[0].toLowerCase();
+                const ready = checklistEvidence.includes(token);
+                return <span key={item} className={clsx(ready && 'ready')}>{item}: {ready ? 'Ready' : 'Review'}</span>;
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+    );
+  };
 
   const renderLoads = () => (
     <section className="loads-workspace">
@@ -1363,15 +1750,17 @@ const Dashboard = ({ user, onLogout }) => {
         </button>
       </div>
 
+      {renderLoadCompliancePanel()}
+
       <form className="expense-form-section load-packet-form" onSubmit={saveLoadPacket}>
         <div className="form-row">
           <div className="form-group">
-            <label>Load #</label>
-            <input name="loadNumber" value={loadForm.loadNumber} onChange={handleLoadFormChange} placeholder="Broker / rate con #" />
+            <label htmlFor="load-number">Load #</label>
+            <input id="load-number" name="loadNumber" value={loadForm.loadNumber} onChange={handleLoadFormChange} placeholder="Broker / rate con #" />
           </div>
           <div className="form-group">
-            <label>Status</label>
-            <select name="status" value={loadForm.status} onChange={handleLoadFormChange}>
+            <label htmlFor="load-status">Status</label>
+            <select id="load-status" name="status" value={loadForm.status} onChange={handleLoadFormChange}>
               <option value="planned">Planned</option>
               <option value="active">Active</option>
               <option value="delivered">Delivered</option>
@@ -1381,74 +1770,74 @@ const Dashboard = ({ user, onLogout }) => {
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label>Broker</label>
-            <input name="broker" value={loadForm.broker} onChange={handleLoadFormChange} placeholder="Broker / dispatcher" />
+            <label htmlFor="load-broker">Broker</label>
+            <input id="load-broker" name="broker" value={loadForm.broker} onChange={handleLoadFormChange} placeholder="Broker / dispatcher" />
           </div>
           <div className="form-group">
-            <label>Shipper</label>
-            <input name="shipper" value={loadForm.shipper} onChange={handleLoadFormChange} placeholder="Pickup customer" />
+            <label htmlFor="load-shipper">Shipper</label>
+            <input id="load-shipper" name="shipper" value={loadForm.shipper} onChange={handleLoadFormChange} placeholder="Pickup customer" />
           </div>
           <div className="form-group">
-            <label>Receiver</label>
-            <input name="receiver" value={loadForm.receiver} onChange={handleLoadFormChange} placeholder="Delivery customer" />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label>Pickup Date</label>
-            <input type="date" name="pickupDate" value={loadForm.pickupDate} onChange={handleLoadFormChange} />
-          </div>
-          <div className="form-group">
-            <label>Delivery Date</label>
-            <input type="date" name="deliveryDate" value={loadForm.deliveryDate} onChange={handleLoadFormChange} />
+            <label htmlFor="load-receiver">Receiver</label>
+            <input id="load-receiver" name="receiver" value={loadForm.receiver} onChange={handleLoadFormChange} placeholder="Delivery customer" />
           </div>
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label>Rate ($)</label>
-            <input type="number" name="rate" value={loadForm.rate} onChange={handleLoadFormChange} step="0.01" min="0" />
+            <label htmlFor="load-pickup-date">Pickup Date</label>
+            <input id="load-pickup-date" type="date" name="pickupDate" value={loadForm.pickupDate} onChange={handleLoadFormChange} />
           </div>
           <div className="form-group">
-            <label>Loaded Miles</label>
-            <input type="number" name="loadedMiles" value={loadForm.loadedMiles} onChange={handleLoadFormChange} step="0.1" min="0" />
-          </div>
-          <div className="form-group">
-            <label>Deadhead Miles</label>
-            <input type="number" name="deadheadMiles" value={loadForm.deadheadMiles} onChange={handleLoadFormChange} step="0.1" min="0" />
+            <label htmlFor="load-delivery-date">Delivery Date</label>
+            <input id="load-delivery-date" type="date" name="deliveryDate" value={loadForm.deliveryDate} onChange={handleLoadFormChange} />
           </div>
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label>Fuel Estimate ($)</label>
-            <input type="number" name="fuelEstimate" value={loadForm.fuelEstimate} onChange={handleLoadFormChange} step="0.01" min="0" />
+            <label htmlFor="load-rate">Rate ($)</label>
+            <input id="load-rate" type="number" name="rate" value={loadForm.rate} onChange={handleLoadFormChange} step="0.01" min="0" />
           </div>
           <div className="form-group">
-            <label>Tolls ($)</label>
-            <input type="number" name="tolls" value={loadForm.tolls} onChange={handleLoadFormChange} step="0.01" min="0" />
+            <label htmlFor="load-loaded-miles">Loaded Miles</label>
+            <input id="load-loaded-miles" type="number" name="loadedMiles" value={loadForm.loadedMiles} onChange={handleLoadFormChange} step="0.1" min="0" />
           </div>
           <div className="form-group">
-            <label>Lumper ($)</label>
-            <input type="number" name="lumper" value={loadForm.lumper} onChange={handleLoadFormChange} step="0.01" min="0" />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label>Pickup Address</label>
-            <input name="pickupAddress" value={loadForm.pickupAddress} onChange={handleLoadFormChange} />
-          </div>
-          <div className="form-group">
-            <label>Delivery Address</label>
-            <input name="deliveryAddress" value={loadForm.deliveryAddress} onChange={handleLoadFormChange} />
+            <label htmlFor="load-deadhead-miles">Deadhead Miles</label>
+            <input id="load-deadhead-miles" type="number" name="deadheadMiles" value={loadForm.deadheadMiles} onChange={handleLoadFormChange} step="0.1" min="0" />
           </div>
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label>Detention Terms</label>
-            <input name="detentionTerms" value={loadForm.detentionTerms} onChange={handleLoadFormChange} placeholder="e.g. 2 hrs free, $75/hr" />
+            <label htmlFor="load-fuel-estimate">Fuel Estimate ($)</label>
+            <input id="load-fuel-estimate" type="number" name="fuelEstimate" value={loadForm.fuelEstimate} onChange={handleLoadFormChange} step="0.01" min="0" />
           </div>
           <div className="form-group">
-            <label>Notes / Document Links</label>
-            <input name="notes" value={loadForm.notes} onChange={handleLoadFormChange} placeholder="BOL, POD, rate con, accessorial notes" />
+            <label htmlFor="load-tolls">Tolls ($)</label>
+            <input id="load-tolls" type="number" name="tolls" value={loadForm.tolls} onChange={handleLoadFormChange} step="0.01" min="0" />
+          </div>
+          <div className="form-group">
+            <label htmlFor="load-lumper">Lumper ($)</label>
+            <input id="load-lumper" type="number" name="lumper" value={loadForm.lumper} onChange={handleLoadFormChange} step="0.01" min="0" />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="load-pickup-address">Pickup Address</label>
+            <input id="load-pickup-address" name="pickupAddress" value={loadForm.pickupAddress} onChange={handleLoadFormChange} />
+          </div>
+          <div className="form-group">
+            <label htmlFor="load-delivery-address">Delivery Address</label>
+            <input id="load-delivery-address" name="deliveryAddress" value={loadForm.deliveryAddress} onChange={handleLoadFormChange} />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="load-detention-terms">Detention Terms</label>
+            <input id="load-detention-terms" name="detentionTerms" value={loadForm.detentionTerms} onChange={handleLoadFormChange} placeholder="e.g. 2 hrs free, $75/hr" />
+          </div>
+          <div className="form-group">
+            <label htmlFor="load-notes">Notes / Document Links</label>
+            <input id="load-notes" name="notes" value={loadForm.notes} onChange={handleLoadFormChange} placeholder="BOL, POD, rate con, accessorial notes" />
           </div>
         </div>
 
@@ -1523,6 +1912,8 @@ const Dashboard = ({ user, onLogout }) => {
           </section>
         ) : loadPackets.map(packet => {
           const decision = computeLoadDecision(packet, driverTargets);
+          const dispatchAlert = complianceReadinessAlerts.find(alert => ['critical', 'warning'].includes(alert.level));
+          const dispatchBlocked = dispatchPolicy.blocked && packet.status !== 'delivered';
           return (
             <article key={packet.id} className="load-packet-card">
               <div className="load-card-top">
@@ -1538,13 +1929,25 @@ const Dashboard = ({ user, onLogout }) => {
                 <div><span>Net</span><strong>{formatMoney(decision.net)}</strong></div>
                 <div><span>Net/mi</span><strong>{decision.netPerMile ? formatMoney(decision.netPerMile) : 'N/A'}</strong></div>
               </div>
+              {dispatchAlert && (
+                <div className={clsx('load-dispatch-alert', dispatchAlert.level)}>
+                  <strong>{dispatchAlert.title}</strong>
+                  <span>{selectedJurisdiction.label}</span>
+                </div>
+              )}
               <div className="load-card-actions">
                 <button type="button" className="btn-secondary small" onClick={() => editLoadPacket(packet)}>Edit</button>
                 <button type="button" className="btn-secondary small" onClick={() => logLoadPacketIncome(packet)}>Log Income</button>
                 <button type="button" className="btn-secondary small" onClick={() => downloadLoadPacket(packet)}>Download</button>
                 <button type="button" className="btn-secondary small" onClick={() => shareLoadPacket(packet)}>Text</button>
                 {packet.status !== 'paid' && (
-                  <button type="button" className="btn-secondary small" onClick={() => setLoadStatus(packet.id, packet.status === 'delivered' ? 'paid' : 'delivered')}>
+                  <button
+                    type="button"
+                    className="btn-secondary small"
+                    disabled={dispatchBlocked}
+                    title={dispatchBlocked ? dispatchPolicy.title : undefined}
+                    onClick={() => setLoadStatus(packet.id, packet.status === 'delivered' ? 'paid' : 'delivered')}
+                  >
                     {packet.status === 'delivered' ? 'Mark Paid' : 'Delivered'}
                   </button>
                 )}
@@ -1588,22 +1991,18 @@ const Dashboard = ({ user, onLogout }) => {
       <h2>Tax & IFTA</h2>
 
       <div className="report-quarter-picker">
-        <label>
-          Year
-          <select value={reportYear} onChange={e => setReportYear(Number(e.target.value))}>
+        <label htmlFor="report-year">Year</label>
+        <select id="report-year" value={reportYear} onChange={e => setReportYear(Number(e.target.value))}>
             {[reportYear - 1, reportYear, reportYear + 1].map(y => (
               <option key={y} value={y}>{y}</option>
             ))}
-          </select>
-        </label>
-        <label>
-          Quarter
-          <select value={reportQuarter} onChange={e => setReportQuarter(Number(e.target.value))}>
+        </select>
+        <label htmlFor="report-quarter">Quarter</label>
+        <select id="report-quarter" value={reportQuarter} onChange={e => setReportQuarter(Number(e.target.value))}>
             {[1, 2, 3, 4].map(q => (
               <option key={q} value={q}>Q{q}</option>
             ))}
-          </select>
-        </label>
+        </select>
       </div>
 
       <div className="report-actions">
@@ -1707,6 +2106,229 @@ const Dashboard = ({ user, onLogout }) => {
     </section>
   );
 
+  const renderCompliance = () => (
+    <section className="compliance-workspace">
+      <div className="section-heading-row compliance-heading">
+        <div>
+          <h2>Regional Compliance</h2>
+          <p className="section-help">Selected regulations shape required documents, upload matching, route prompts, and driver or vehicle readiness checks.</p>
+        </div>
+        <span className="status-pill">{complianceSyncStatus === 'synced' ? 'Server synced' : 'Local mode'}</span>
+        <label className="jurisdiction-picker" htmlFor="compliance-jurisdiction">Country / region</label>
+        <select id="compliance-jurisdiction" value={selectedJurisdictionCode} onChange={(e) => handleJurisdictionChange(e.target.value)}>
+            {COMPLIANCE_JURISDICTIONS.map(jurisdiction => (
+              <option key={jurisdiction.code} value={jurisdiction.code}>{jurisdiction.label}</option>
+            ))}
+        </select>
+      </div>
+
+      <div className="compliance-hero-panel">
+        <div>
+          <span className="metric-label">{selectedJurisdiction.region}</span>
+          <h3>{selectedJurisdiction.label}</h3>
+          <p>{selectedJurisdiction.summary}</p>
+        </div>
+        <div className="compliance-authority-card">
+          <span className="metric-label">Authority map</span>
+          <strong>{selectedJurisdiction.regulator}</strong>
+          <a href={selectedJurisdiction.portal} target="_blank" rel="noreferrer">Open official source</a>
+        </div>
+      </div>
+
+      <div className="compliance-status-grid">
+        <article className="metric-card highlight">
+          <span className="metric-label">Critical Checks</span>
+          <strong>{criticalComplianceCount}</strong>
+        </article>
+        <article className="metric-card">
+          <span className="metric-label">Saved Scans</span>
+          <strong>{complianceScans.length}</strong>
+        </article>
+        <article className="metric-card">
+          <span className="metric-label">Fleet Context</span>
+          <strong>{fleetStatus?.hasFleet ? fleetStatus.role || 'fleet' : 'solo'}</strong>
+        </article>
+        <article className="metric-card">
+          <span className="metric-label">Load Packets</span>
+          <strong>{loadPackets.length}</strong>
+        </article>
+        <article className="metric-card">
+          <span className="metric-label">Profiles</span>
+          <strong>{complianceProfiles.length}</strong>
+        </article>
+        <article className={clsx('metric-card', dispatchBlockerCount && 'highlight')}>
+          <span className="metric-label">Dispatch Alerts</span>
+          <strong>{dispatchBlockerCount}</strong>
+        </article>
+      </div>
+
+      <section className="compliance-panel-block fleet-readiness-panel">
+        <div className="section-heading-row compact-row">
+          <div>
+            <h3>Fleet Dispatch Readiness</h3>
+            <p className="section-help">Rollup for the selected jurisdiction across uploaded findings and reusable driver, vehicle, and route profiles.</p>
+          </div>
+          <div className="compliance-profile-toolbar">
+            <span className={clsx('status-pill', dispatchPolicy.blocked && 'danger')}>{dispatchPolicy.blocked ? 'Dispatch blocked' : 'Dispatch review'}</span>
+            <span className="status-pill">{complianceSummary?.profileCount ?? complianceProfiles.length} profiles</span>
+          </div>
+        </div>
+        <div className="automation-alert-list compact-row">
+          {complianceReadinessAlerts.map(alert => (
+            <article key={`${alert.title}-${alert.body}`} className={clsx('automation-alert', alert.level)}>
+              <strong>{alert.title}</strong>
+              <p>{alert.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <div className="compliance-upload-panel">
+        <div>
+          <h3>Document Intake</h3>
+          <p className="section-help">Upload permits, inspection notes, customs entries, weighbridge tickets, tachograph summaries, PSV records, or route documents. Live accounts extract text/PDF content on the backend; image OCR is marked for review until OCR is connected.</p>
+        </div>
+        <input type="file" accept=".txt,.md,.csv,.json,.pdf,.doc,.docx,image/*" onChange={handleComplianceUpload} />
+      </div>
+
+      <section className="compliance-panel-block compliance-profile-panel">
+        <div className="section-heading-row compact-row">
+          <div>
+            <h3>Driver, Vehicle, Route Profiles</h3>
+            <p className="section-help">Save reusable readiness facts for the selected region so dispatch checks are not tied to a single upload.</p>
+          </div>
+          <div className="compliance-profile-toolbar">
+            <button type="button" className="btn-secondary small" onClick={prefillComplianceProfileFromScan}>Use Latest Scan</button>
+            <span className="status-pill">D {profileCounts.driver || 0} / V {profileCounts.vehicle || 0} / R {profileCounts.route || 0}</span>
+          </div>
+        </div>
+        <form className="compliance-profile-form" onSubmit={saveComplianceProfile}>
+          <select name="profileType" value={complianceProfileForm.profileType} onChange={handleComplianceProfileChange} aria-label="Profile type">
+            <option value="driver">Driver</option>
+            <option value="vehicle">Vehicle</option>
+            <option value="route">Route</option>
+          </select>
+          <input name="title" value={complianceProfileForm.title} onChange={handleComplianceProfileChange} placeholder="Profile title" />
+          <input name="licenceExpiry" value={complianceProfileForm.licenceExpiry} onChange={handleComplianceProfileChange} placeholder="Licence expiry" />
+          <input name="vehiclePlate" value={complianceProfileForm.vehiclePlate} onChange={handleComplianceProfileChange} placeholder="Vehicle plate" />
+          <input name="inspectionExpiry" value={complianceProfileForm.inspectionExpiry} onChange={handleComplianceProfileChange} placeholder="Inspection expiry" />
+          <input name="routeCountries" value={complianceProfileForm.routeCountries} onChange={handleComplianceProfileChange} placeholder="Countries / corridor" />
+          <input name="borderPosts" value={complianceProfileForm.borderPosts} onChange={handleComplianceProfileChange} placeholder="Border posts" />
+          <input name="notes" value={complianceProfileForm.notes} onChange={handleComplianceProfileChange} placeholder="Notes" />
+          <button type="submit" className="btn-primary">Save Profile</button>
+        </form>
+        {complianceProfiles.length > 0 && (
+          <div className="compliance-profile-grid">
+            {complianceProfiles.slice(0, 6).map(profile => (
+              <article key={profile.id} className="compliance-profile-card">
+                <div className="compliance-rule-top">
+                  <h4>{profile.title}</h4>
+                  <span className="status-pill">{profile.profileType}</span>
+                </div>
+                <div className="compliance-doc-tags">
+                  {Object.entries(profile.data || {}).filter(([, value]) => value).slice(0, 5).map(([key, value]) => (
+                    <span key={key}>{key.replace(/([A-Z])/g, ' $1')}: {value}</span>
+                  ))}
+                </div>
+                <div className="compliance-profile-actions">
+                  <button type="button" className="btn-secondary small" onClick={() => deleteComplianceProfile(profile.id)}>Remove</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {latestComplianceScan && (
+        <section className="compliance-findings-panel">
+          <div className="section-heading-row compact-row">
+            <div>
+              <h3>{latestComplianceScan.fileName}</h3>
+              <p className="section-help">{latestComplianceScan.directHit ? 'Matched against regional compliance topics.' : 'No strong keyword match, so core checklist is shown.'}</p>
+            </div>
+            <span className="status-pill">{latestComplianceScan.jurisdictionLabel}</span>
+          </div>
+          {latestExtractedFields.length > 0 && (
+            <div className="compliance-extracted-fields">
+              {latestExtractedFields.map(([field, values]) => (
+                <article key={field}>
+                  <span className="metric-label">{field.replace(/([A-Z])/g, ' $1')}</span>
+                  <strong>{Array.isArray(values) ? values.slice(0, 4).join(', ') : String(values)}</strong>
+                </article>
+              ))}
+            </div>
+          )}
+          {latestComplianceScan.reviewAlerts?.length > 0 && (
+            <div className="automation-alert-list compact-row">
+              {latestComplianceScan.reviewAlerts.map(alert => (
+                <article key={`${alert.title}-${alert.body}`} className={clsx('automation-alert', alert.level)}>
+                  <strong>{alert.title}</strong>
+                  <p>{alert.body}</p>
+                </article>
+              ))}
+            </div>
+          )}
+          <div className="compliance-rule-grid">
+            {latestComplianceScan.matches.map(rule => (
+              <article key={rule.id} className={clsx('compliance-rule-card', rule.severity)}>
+                <div className="compliance-rule-top">
+                  <h4>{rule.title}</h4>
+                  <span className="badge">{rule.hits.length ? `${rule.hits.length} hits` : rule.severity}</span>
+                </div>
+                <p>{rule.summary}</p>
+                <div className="compliance-doc-tags">
+                  {rule.requiredDocs.slice(0, 5).map(doc => <span key={doc}>{doc}</span>)}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div className="compliance-layout-grid">
+        <section className="compliance-panel-block">
+          <h3>Workflow Prompts</h3>
+          <div className="automation-alert-list">
+            {selectedJurisdiction.workflowPrompts.map((prompt, index) => (
+              <article key={prompt} className="automation-alert warning">
+                <strong>Step {index + 1}</strong>
+                <p>{prompt}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="compliance-panel-block">
+          <h3>Rule Pack</h3>
+          <div className="compliance-rule-list">
+            {selectedJurisdiction.rules.map(rule => (
+              <article key={rule.id} className={clsx('compliance-rule-card', rule.severity)}>
+                <div className="compliance-rule-top">
+                  <div>
+                    <span className="metric-label">{rule.group}</span>
+                    <h4>{rule.title}</h4>
+                  </div>
+                  <span className="status-pill">{rule.severity}</span>
+                </div>
+                <p>{rule.summary}</p>
+                <div className="compliance-doc-tags">
+                  {rule.requiredDocs.map(doc => <span key={doc}>{doc}</span>)}
+                </div>
+                <div className="compliance-sources">
+                  {rule.sources.map(item => (
+                    <a key={item.url} href={item.url} target="_blank" rel="noreferrer">{item.label}</a>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <p className="admin-hint warn">Operational reference only. Verify legal decisions against official sources and current local counsel guidance.</p>
+    </section>
+  );
+
   return (
     <div className={clsx('dashboard', `theme-${theme}`, isNight && 'night-drive')}>
       <div className="console-screensaver" aria-hidden="true">
@@ -1732,6 +2354,7 @@ const Dashboard = ({ user, onLogout }) => {
             { id: 'loads', label: 'Loads', icon: 'L', pro: false },
             { id: 'log', label: 'Money Log', icon: '$', pro: false },
             { id: 'reports', label: 'Tax & IFTA', icon: 'R', pro: true },
+            { id: 'compliance', label: 'Compliance', icon: 'C', pro: false },
             { id: 'hos', label: 'HOS', icon: '⏱', pro: true },
             { id: 'fleet', label: 'Dispatch', icon: 'D', pro: false },
             { id: 'admin', label: 'Admin', icon: '⚙', pro: true }
@@ -1754,7 +2377,7 @@ const Dashboard = ({ user, onLogout }) => {
 
       <main className="dashboard-main">
         {toast.message && (
-          <div className={`toast-banner ${toast.type}`} role="status">{toast.message}</div>
+          <output className={`toast-banner ${toast.type}`}>{toast.message}</output>
         )}
 
         {activeTab === 'home' && renderHome()}
@@ -1765,6 +2388,7 @@ const Dashboard = ({ user, onLogout }) => {
             {renderReports()}
           </UpgradeGate>
         )}
+        {activeTab === 'compliance' && renderCompliance()}
         {activeTab === 'hos' && (
           <UpgradeGate tier="pro" subscription={subscription} onUnlocked={handlePaidUnlock}>
             {renderHos()}

@@ -77,7 +77,7 @@ export const ExpenseAPI = {
           synced: true
         });
         return normalizeExpense(response.data.expense || response.data);
-      } catch (error) {
+      } catch {
         await SyncQueueDB.addToQueue(userId, 'CREATE_EXPENSE', {
           localId,
           ...expenseData
@@ -143,7 +143,7 @@ export const ExpenseAPI = {
       const response = await api.put(`/expenses/${expenseId}`, updates);
       await ExpenseDB.updateExpense(localId ?? expenseId, { ...updates, synced: true });
       return normalizeExpense(response.data.expense || response.data);
-    } catch (error) {
+    } catch {
       await SyncQueueDB.addToQueue(userId, 'UPDATE_EXPENSE', {
         expenseId,
         ...updates
@@ -166,7 +166,7 @@ export const ExpenseAPI = {
       await api.delete(`/expenses/${expenseId}`);
       await ExpenseDB.deleteExpense(localId ?? expenseId);
       return { success: true };
-    } catch (error) {
+    } catch {
       await SyncQueueDB.addToQueue(userId, 'DELETE_EXPENSE', { expenseId });
       await ExpenseDB.deleteExpense(localId ?? expenseId);
       return { success: true, offline: true };
@@ -183,14 +183,14 @@ export const ExpenseAPI = {
         }
       });
       return response.data;
-    } catch (error) {
+    } catch {
       const expenses = await ExpenseDB.getExpensesByDateRange(userId, startDate, endDate);
       const totalIncome = expenses
         .filter(e => e.type === 'income')
-        .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+        .reduce((sum, e) => sum + (Number.parseFloat(e.amount) || 0), 0);
       const totalExpenses = expenses
         .filter(e => e.type === 'expense')
-        .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+        .reduce((sum, e) => sum + (Number.parseFloat(e.amount) || 0), 0);
       return {
         totalIncome,
         totalExpenses,
@@ -205,7 +205,7 @@ export const ReportsAPI = {
     try {
       const response = await api.get('/reports/metrics', { params: { period } });
       return response.data;
-    } catch (error) {
+    } catch {
       return null;
     }
   },
@@ -321,6 +321,64 @@ export const OpsAPI = {
   }
 };
 
+export const ComplianceAPI = {
+  async getSummary(jurisdictionCode) {
+    const response = await api.get('/compliance/summary', {
+      params: jurisdictionCode ? { jurisdictionCode } : {}
+    });
+    return response.data;
+  },
+
+  async getDocuments(jurisdictionCode) {
+    const response = await api.get('/compliance/documents', {
+      params: jurisdictionCode ? { jurisdictionCode } : {}
+    });
+    return response.data.documents || [];
+  },
+
+  async saveDocument(scan) {
+    const response = await api.post('/compliance/documents', scan);
+    return response.data.document;
+  },
+
+  async uploadDocument({ file, jurisdictionCode, jurisdictionLabel }) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('jurisdictionCode', jurisdictionCode);
+    formData.append('jurisdictionLabel', jurisdictionLabel);
+    const response = await api.post('/compliance/documents', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
+    });
+    return response.data.document;
+  },
+
+  async deleteDocument(documentId) {
+    await api.delete(`/compliance/documents/${documentId}`);
+    return { success: true };
+  },
+
+  async getProfiles(jurisdictionCode, profileType) {
+    const params = {};
+    if (jurisdictionCode) params.jurisdictionCode = jurisdictionCode;
+    if (profileType) params.profileType = profileType;
+    const response = await api.get('/compliance/profiles', { params });
+    return response.data.profiles || [];
+  },
+
+  async saveProfile(profile) {
+    const response = profile.id
+      ? await api.put(`/compliance/profiles/${profile.id}`, profile)
+      : await api.post('/compliance/profiles', profile);
+    return response.data.profile;
+  },
+
+  async deleteProfile(profileId) {
+    await api.delete(`/compliance/profiles/${profileId}`);
+    return { success: true };
+  }
+};
+
 export const SubscriptionAPI = {
   async getMe() {
     const response = await api.get('/subscriptions/me');
@@ -356,7 +414,7 @@ export const FleetAPI = {
     try {
       const response = await api.get('/fleet/status');
       return response.data;
-    } catch (error) {
+    } catch {
       return { hasFleet: false, tier: 'solo' };
     }
   },
@@ -374,7 +432,7 @@ export const FleetAPI = {
     try {
       const response = await api.get('/fleet/hos/status');
       return response.data;
-    } catch (error) {
+    } catch {
       return null;
     }
   },
@@ -428,7 +486,7 @@ export const AuthAPI = {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
-    } catch (error) {
+    } catch {
       return null;
     }
   }

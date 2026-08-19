@@ -1,0 +1,7 @@
+{
+  "deployedAt": "2026-06-22T03:52:19.717661+00:00",
+  "platform": "railway",
+  "productionUrl": "https://righand-production.up.railway.app",
+  "postgresProvider": null,
+  "readinessScore": 91
+}
