@@ -368,6 +368,7 @@ Implemented as of 2026-08-19:
 - Compliance tab now shows fleet dispatch readiness rollups, and load packet cards surface selected-region compliance warnings before dispatch.
 - Compliance summary now returns a dispatch policy, and load packet release is blocked when critical compliance findings are open.
 - Load Packets now show a cross-border customs or EU movement-evidence checklist when EAC/EU is selected or route evidence exists.
+- Selected jurisdictions now drive operating currency displays and exports: UGX for Uganda, KES for Kenya, RWF for Rwanda, EUR for EU, and configurable USD fallback for EAC cross-border work.
 
 Still pending:
 

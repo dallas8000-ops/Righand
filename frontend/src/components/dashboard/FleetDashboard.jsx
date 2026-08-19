@@ -2,8 +2,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { FleetAPI } from '../../services/api';
 import { useFleetLocation } from '../../hooks/useFleetLocation';
 import UpgradeGate from './UpgradeGate';
+import { formatCurrency } from '../../utils/currency';
 
-const formatMoney = (v) => `$${Number(v || 0).toFixed(2)}`;
+const defaultFormatMoney = (value) => formatCurrency(value, 'USD');
 
 const formatTime = (iso) => {
   if (!iso) return '—';
@@ -13,7 +14,7 @@ const formatTime = (iso) => {
 const mapsUrl = (lat, lng) =>
   `https://www.google.com/maps?q=${lat},${lng}`;
 
-const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked }) => {
+const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked, formatMoney = defaultFormatMoney }) => {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

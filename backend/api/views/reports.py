@@ -5,11 +5,25 @@ from datetime import datetime, timedelta
 from io import BytesIO
 
 from django.http import HttpResponse, JsonResponse
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from api.jwt_auth import jwt_required
 from api.models import Expense
 from api.tier_guard import require_pro
+
+SUPPORTED_CURRENCIES = {'USD', 'UGX', 'KES', 'RWF', 'EUR'}
+
+
+def _currency_code(request):
+    code = request.GET.get('currency', 'USD').upper()[:3]
+    return code if code in SUPPORTED_CURRENCIES else 'USD'
+
+
+def _format_money(value, currency_code, decimals=2):
+    if value is None:
+        return 'N/A'
+    return f'{currency_code} {value:.{decimals}f}'
 
 
 def _parse_date(value, default=None):
@@ -19,7 +33,7 @@ def _parse_date(value, default=None):
 
 
 def _period_range(period):
-    end = datetime.utcnow().date()
+    end = timezone.localdate()
     if period == 'weekly':
         start = end - timedelta(days=6)
     else:
@@ -34,6 +48,22 @@ def _user_expenses(user_id, start_date, end_date):
     if end_date:
         query = query.filter(expense_date__lte=end_date)
     return list(query.order_by('-expense_date'))
+
+
+def _load_profit_summary(entry):
+    deductions = (entry.fuel_cost_alloc or 0) + (entry.tolls_amount or 0)
+    profit = entry.amount - deductions
+    return {
+        'id': entry.id,
+        'description': entry.description,
+        'rate': entry.amount,
+        'miles': entry.miles,
+        'deadheadMiles': entry.deadhead_miles,
+        'fuelCostAlloc': entry.fuel_cost_alloc,
+        'tollsAmount': entry.tolls_amount,
+        'netLoadProfit': profit,
+        'profitPerMile': (profit / entry.miles) if entry.miles else None,
+    }
 
 
 def _compute_metrics(expenses):
@@ -52,22 +82,11 @@ def _compute_metrics(expenses):
     total_gallons = sum(e.gallons or 0 for e in fuel_entries)
     total_fuel_cost = sum(e.amount for e in fuel_entries)
 
-    load_entries = [e for e in expenses if e.category == 'load' and e.expense_type == 'income']
-    load_profits = []
-    for entry in load_entries:
-        deductions = (entry.fuel_cost_alloc or 0) + (entry.tolls_amount or 0)
-        profit = entry.amount - deductions
-        load_profits.append({
-            'id': entry.id,
-            'description': entry.description,
-            'rate': entry.amount,
-            'miles': entry.miles,
-            'deadheadMiles': entry.deadhead_miles,
-            'fuelCostAlloc': entry.fuel_cost_alloc,
-            'tollsAmount': entry.tolls_amount,
-            'netLoadProfit': profit,
-            'profitPerMile': (profit / entry.miles) if entry.miles else None,
-        })
+    load_profits = [
+        _load_profit_summary(entry)
+        for entry in expenses
+        if entry.category == 'load' and entry.expense_type == 'income'
+    ]
 
     return {
         'totalIncome': round(total_income, 2),
@@ -114,6 +133,7 @@ def export_csv(request):
         start_date = _parse_date(request.GET.get('startDate'))
         end_date = _parse_date(request.GET.get('endDate'))
         period = request.GET.get('period', 'monthly')
+        currency_code = _currency_code(request)
 
         if not start_date:
             start_date, end_date = _period_range(period)
@@ -122,7 +142,7 @@ def export_csv(request):
         output = BytesIO()
         writer = csv.writer(output)
         writer.writerow([
-            'Date', 'Type', 'Category', 'Description', 'Amount',
+            'Date', 'Type', 'Category', 'Description', 'Currency', 'Amount',
             'Miles', 'Gallons', 'Odometer', 'Deadhead Miles',
             'Tolls', 'Fuel Cost Alloc', 'Notes',
         ])
@@ -132,6 +152,7 @@ def export_csv(request):
                 e.expense_type,
                 e.category,
                 e.description,
+                currency_code,
                 f'{e.amount:.2f}',
                 e.miles or '',
                 e.gallons or '',
@@ -162,6 +183,7 @@ def export_pdf(request):
 
         user_id = request.righand_user_id
         period = request.GET.get('period', 'monthly')
+        currency_code = _currency_code(request)
         start_date, end_date = _period_range(period)
 
         expenses = _user_expenses(user_id, start_date, end_date)
@@ -182,12 +204,12 @@ def export_pdf(request):
 
         summary_data = [
             ['Metric', 'Value'],
-            ['Total Income', f"${metrics['totalIncome']:.2f}"],
-            ['Total Expenses', f"${metrics['totalExpenses']:.2f}"],
-            ['Net Profit', f"${metrics['netProfit']:.2f}"],
-            ['Profit Per Mile', f"${metrics['profitPerMile']:.2f}" if metrics['profitPerMile'] is not None else 'N/A'],
-            ['Fuel Cost Per Mile', f"${metrics['fuelCostPerMile']:.3f}" if metrics['fuelCostPerMile'] is not None else 'N/A'],
-            ['Cost Per Gallon', f"${metrics['costPerGallon']:.3f}" if metrics['costPerGallon'] is not None else 'N/A'],
+            ['Total Income', _format_money(metrics['totalIncome'], currency_code)],
+            ['Total Expenses', _format_money(metrics['totalExpenses'], currency_code)],
+            ['Net Profit', _format_money(metrics['netProfit'], currency_code)],
+            ['Profit Per Mile', _format_money(metrics['profitPerMile'], currency_code) if metrics['profitPerMile'] is not None else 'N/A'],
+            ['Fuel Cost Per Mile', _format_money(metrics['fuelCostPerMile'], currency_code, 3) if metrics['fuelCostPerMile'] is not None else 'N/A'],
+            ['Cost Per Gallon', _format_money(metrics['costPerGallon'], currency_code, 3) if metrics['costPerGallon'] is not None else 'N/A'],
             ['Loaded Miles', str(metrics['loadedMiles'])],
             ['Total Gallons', str(metrics['totalGallons'])],
         ]
@@ -209,7 +231,7 @@ def export_pdf(request):
                 e.expense_type,
                 e.category,
                 e.description[:28],
-                f'${e.amount:.2f}',
+                _format_money(e.amount, currency_code),
             ])
         entry_table = Table(rows, colWidths=[55, 55, 70, 180, 60])
         entry_table.setStyle(TableStyle([
@@ -246,7 +268,7 @@ def _quarter_range(year, quarter):
 def weekly_summary(request):
     try:
         user_id = request.righand_user_id
-        end = datetime.utcnow().date()
+        end = timezone.localdate()
         start = end - timedelta(days=6)
         expenses = _user_expenses(user_id, start, end)
 
@@ -283,8 +305,9 @@ def weekly_summary(request):
 def tax_quarterly(request):
     try:
         user_id = request.righand_user_id
-        year = int(request.GET.get('year', datetime.utcnow().year))
-        quarter = int(request.GET.get('quarter', ((datetime.utcnow().month - 1) // 3) + 1))
+        today = timezone.localdate()
+        year = int(request.GET.get('year', today.year))
+        quarter = int(request.GET.get('quarter', ((today.month - 1) // 3) + 1))
         quarter = max(1, min(4, quarter))
         start, end = _quarter_range(year, quarter)
         expenses = _user_expenses(user_id, start, end)
@@ -332,8 +355,9 @@ def tax_quarterly(request):
 def ifta_report(request):
     try:
         user_id = request.righand_user_id
-        year = int(request.GET.get('year', datetime.utcnow().year))
-        quarter = int(request.GET.get('quarter', ((datetime.utcnow().month - 1) // 3) + 1))
+        today = timezone.localdate()
+        year = int(request.GET.get('year', today.year))
+        quarter = int(request.GET.get('quarter', ((today.month - 1) // 3) + 1))
         quarter = max(1, min(4, quarter))
         start, end = _quarter_range(year, quarter)
 

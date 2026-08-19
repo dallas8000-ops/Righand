@@ -1,8 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { formatCurrency } from '../utils/currency';
 
 const STORAGE_KEY = 'righandNotifications';
 
-export function useNotifications({ enabled, pendingCount, netProfit, profitMilestone = 1000 }) {
+export function useNotifications({ enabled, pendingCount, netProfit, profitMilestone = 1000, formatMoney = (value) => formatCurrency(value, 'USD', { maximumFractionDigits: 0 }) }) {
   const lastMilestoneRef = useRef(0);
   const lastPendingRef = useRef(0);
 
@@ -38,10 +39,10 @@ export function useNotifications({ enabled, pendingCount, netProfit, profitMiles
 
     const milestone = Math.floor(netProfit / profitMilestone) * profitMilestone;
     if (milestone > 0 && milestone > lastMilestoneRef.current) {
-      notify('RigHand — Profit Milestone', `Net profit reached $${milestone.toLocaleString()} this month!`);
+      notify('RigHand — Profit Milestone', `Net profit reached ${formatMoney(milestone)} this month!`);
       lastMilestoneRef.current = milestone;
     }
-  }, [enabled, pendingCount, netProfit, profitMilestone, notify]);
+  }, [enabled, pendingCount, netProfit, profitMilestone, notify, formatMoney]);
 
   return { notify, requestPermission };
 }

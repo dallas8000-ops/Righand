@@ -210,17 +210,17 @@ export const ReportsAPI = {
     }
   },
 
-  async downloadPdf(period = 'monthly') {
+  async downloadPdf(period = 'monthly', currencyCode = 'USD') {
     const response = await api.get('/reports/export/pdf', {
-      params: { period },
+      params: { period, currency: currencyCode },
       responseType: 'blob'
     });
     return response.data;
   },
 
-  async downloadCsv(period = 'monthly') {
+  async downloadCsv(period = 'monthly', currencyCode = 'USD') {
     const response = await api.get('/reports/export/csv', {
-      params: { period },
+      params: { period, currency: currencyCode },
       responseType: 'blob'
     });
     return response.data;

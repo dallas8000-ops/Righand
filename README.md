@@ -206,6 +206,7 @@ Supported jurisdiction packs:
 
 Compliance capabilities:
 - Jurisdiction selector changes rule cards, required-document prompts, load-packet readiness, and cross-border checklists.
+- Operating money labels and summaries follow the selected jurisdiction: UGX for Uganda, KES for Kenya, RWF for Rwanda, EUR for EU, and configurable USD fallback for EAC cross-border work.
 - Text and selectable-text PDF uploads are scanned by the backend for matching rules and structured evidence.
 - Extracted fields include dates, permit/reference IDs, vehicle plates, seal numbers, weights, driver names, and border posts.
 - Review alerts flag expired or soon-expiring dates and weight records missing vehicle linkage.
@@ -216,6 +217,7 @@ Compliance capabilities:
 Current limitations:
 - Image OCR and scanned-PDF OCR are not connected yet.
 - AI-assisted extraction beyond deterministic matching is planned, but the current release uses rule packs, keyword matching, and structured pattern extraction.
+- PDF/CSV report exports include the selected currency code so local-currency views are preserved outside the app.
 - Axle-load limits, special-load thresholds, and COMESA Yellow Card digitization status can change by country. Store the verified source/date in the profile instead of relying on a baked-in number.
 - Compliance guidance is an operational assistant, not legal advice. Official sources are tracked in [docs/TRANSPORT_COMPLIANCE_PLAN.md](docs/TRANSPORT_COMPLIANCE_PLAN.md).
 
@@ -588,10 +590,11 @@ After deployment, verify:
 7. **Dev: simulate payment** or `POST /verify-purchase` unlocks Pro tabs
 8. **Trip Miles** — Manual, GPS, and OBD modes work (Android for OBD)
 9. **Compliance** — select Uganda/Kenya/Rwanda/EAC/EU and confirm checklist cards update
-10. **Compliance upload** — text or selectable PDF upload returns findings and extracted fields
-11. **Compliance profiles** — driver, vehicle, and route profiles save and appear in readiness rollups
-12. **Load dispatch** — open critical compliance findings block delivered/release flow
-13. No browser CORS errors on production frontend
+10. **Currency localization** — Uganda shows UGX, Kenya shows KES, Rwanda shows RWF, EU shows EUR, and PDF/CSV exports include the selected currency
+11. **Compliance upload** — text or selectable PDF upload returns findings and extracted fields
+12. **Compliance profiles** — driver, vehicle, and route profiles save and appear in readiness rollups
+13. **Load dispatch** — open critical compliance findings block delivered/release flow
+14. No browser CORS errors on production frontend
 
 **Android app checklist:**
 1. App installs and opens on device/tablet

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { formatCurrency } from '../../utils/currency';
 
-const formatMoney = (v) => `$${Number(v || 0).toFixed(2)}`;
+const defaultFormatMoney = (value) => formatCurrency(value, 'USD');
 
 const AdminPanel = ({
   expenses,
@@ -10,7 +11,8 @@ const AdminPanel = ({
   onDelete,
   onAddIncome,
   onAddExpense,
-  onReload
+  onReload,
+  formatMoney = defaultFormatMoney
 }) => {
   const [draftOpening, setDraftOpening] = useState(String(openingIncome || ''));
 
@@ -18,7 +20,7 @@ const AdminPanel = ({
     setDraftOpening(String(openingIncome || ''));
   }, [openingIncome]);
   const handleSaveOpening = () => {
-    const val = parseFloat(draftOpening) || 0;
+    const val = Number.parseFloat(draftOpening) || 0;
     onSaveOpeningIncome(val);
   };
 

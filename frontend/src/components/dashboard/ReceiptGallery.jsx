@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
+import { formatCurrency } from '../../utils/currency';
 
-const ReceiptGallery = ({ expenses, onSelect }) => {
+const defaultFormatMoney = (value) => formatCurrency(value, 'USD');
+
+const ReceiptGallery = ({ expenses, onSelect, formatMoney = defaultFormatMoney }) => {
   const withReceipts = expenses.filter(e => e.receiptUrl);
   const [preview, setPreview] = useState(null);
 
@@ -26,26 +29,26 @@ const ReceiptGallery = ({ expenses, onSelect }) => {
           >
             <img src={expense.receiptUrl} alt={expense.description} />
             <span className="receipt-thumb-meta">
-              {new Date(expense.date).toLocaleDateString()} · ${Number(expense.amount).toFixed(2)}
+              {new Date(expense.date).toLocaleDateString()} · {formatMoney(expense.amount)}
             </span>
           </button>
         ))}
       </div>
 
       {preview && (
-        <div className="receipt-modal" role="dialog" onClick={() => setPreview(null)}>
-          <div className="receipt-modal-content" onClick={e => e.stopPropagation()}>
+        <dialog className="receipt-modal" open aria-label="Receipt preview">
+          <div className="receipt-modal-content">
             <img src={preview.receiptUrl} alt={preview.description} />
             <div className="receipt-modal-info">
               <strong>{preview.description}</strong>
-              <p>{new Date(preview.date).toLocaleDateString()} · ${Number(preview.amount).toFixed(2)}</p>
+              <p>{new Date(preview.date).toLocaleDateString()} · {formatMoney(preview.amount)}</p>
               <div className="receipt-modal-actions">
                 <button type="button" className="btn-secondary small" onClick={() => onSelect?.(preview)}>Edit Entry</button>
                 <button type="button" className="btn-secondary small" onClick={() => setPreview(null)}>Close</button>
               </div>
             </div>
           </div>
-        </div>
+        </dialog>
       )}
     </section>
   );

@@ -1,3 +1,5 @@
+import { formatCurrency } from './currency';
+
 const readJson = (key, fallback) => {
   try {
     const raw = localStorage.getItem(key);
@@ -112,7 +114,95 @@ export const latestOdometer = (expenses) => expenses
   .filter(Boolean)
   .sort((a, b) => b - a)[0] || null;
 
-export const analyzeDriverOps = ({ expenses, loadPackets, maintenanceItems, targets, weeklyDays }) => {
+const maintenanceOdometerAlert = (item, odometer, warningMiles) => {
+  const dueOdo = Number(item.dueOdometer) || 0;
+  if (!odometer || !dueOdo) return null;
+
+  const milesLeft = dueOdo - odometer;
+  if (milesLeft <= 0) {
+    return {
+      type: 'maintenance',
+      level: 'danger',
+      title: `${item.name} overdue`,
+      body: `${item.name} is overdue by ${Math.abs(milesLeft).toFixed(0)} miles.`,
+    };
+  }
+  if (milesLeft <= warningMiles) {
+    return {
+      type: 'maintenance',
+      level: 'warning',
+      title: `${item.name} due soon`,
+      body: `${item.name} due in ${milesLeft.toFixed(0)} miles.`,
+    };
+  }
+  return null;
+};
+
+const maintenanceDateAlert = (item) => {
+  if (!item.dueDate) return null;
+
+  const daysLeft = Math.ceil((new Date(item.dueDate).getTime() - Date.now()) / 86400000);
+  if (daysLeft > 14) return null;
+
+  const dateStatus = daysLeft < 0 ? 'overdue' : 'coming up';
+  const dateBody = daysLeft < 0
+    ? `${Math.abs(daysLeft)} days overdue`
+    : `due in ${daysLeft} days`;
+  return {
+    type: 'maintenance',
+    level: daysLeft < 0 ? 'danger' : 'warning',
+    title: `${item.name} date ${dateStatus}`,
+    body: `${item.name} is ${dateBody}.`,
+  };
+};
+
+const collectMaintenanceAlerts = (maintenanceItems, odometer, warningMiles) => (
+  maintenanceItems.flatMap(item => [
+    maintenanceOdometerAlert(item, odometer, warningMiles),
+    maintenanceDateAlert(item),
+  ].filter(Boolean))
+);
+
+const collectLoadAlerts = (loadPackets, targets, formatMoney) => {
+  const followUpAlerts = loadPackets
+    .filter(packet => packet.status !== 'paid' && packet.deliveryDate)
+    .filter(packet => Math.floor((Date.now() - new Date(packet.deliveryDate).getTime()) / 86400000) >= 5)
+    .map(packet => {
+      const daysSinceDelivery = Math.floor((Date.now() - new Date(packet.deliveryDate).getTime()) / 86400000);
+      return {
+        type: 'load',
+        level: 'warning',
+        title: 'Broker payment follow-up',
+        body: `${packet.broker || 'Broker'} payment is ${daysSinceDelivery} days past delivery on load ${packet.loadNumber || packet.shipper || 'packet'}.`,
+      };
+    });
+
+  const packetAlerts = loadPackets.flatMap(packet => {
+    const alerts = [];
+    const decision = computeLoadDecision(packet, targets);
+    if (decision.netPerMile !== null && decision.netPerMile < decision.target) {
+      alerts.push({
+        type: 'load',
+        level: decision.score === 'Pass' ? 'danger' : 'warning',
+        title: `Load pays ${formatMoney(decision.netPerMile)}/mi`,
+        body: `Target is ${formatMoney(decision.target)}/mi after fuel, tolls, deadhead, and lumper.`,
+      });
+    }
+    if (packet.pickupDate && packet.deliveryDate && new Date(packet.deliveryDate) < new Date(packet.pickupDate)) {
+      alerts.push({
+        type: 'load',
+        level: 'danger',
+        title: 'Delivery before pickup',
+        body: 'Check pickup and delivery dates on the load packet.',
+      });
+    }
+    return alerts;
+  });
+
+  return [...followUpAlerts, ...packetAlerts];
+};
+
+export const analyzeDriverOps = ({ expenses, loadPackets, maintenanceItems, targets, weeklyDays, formatMoney = (value) => formatCurrency(value, 'USD') }) => {
   const alerts = [];
   const fuelEntries = expenses
     .filter(e => e.type === 'expense' && e.category === 'fuel')
@@ -187,82 +277,19 @@ export const analyzeDriverOps = ({ expenses, loadPackets, maintenanceItems, targ
     }
   }
 
-  maintenanceItems.forEach(item => {
-    const dueOdo = Number(item.dueOdometer) || 0;
-    if (odometer && dueOdo) {
-      const milesLeft = dueOdo - odometer;
-      if (milesLeft <= 0) {
-        alerts.push({
-          type: 'maintenance',
-          level: 'danger',
-          title: `${item.name} overdue`,
-          body: `${item.name} is overdue by ${Math.abs(milesLeft).toFixed(0)} miles.`,
-        });
-      } else if (milesLeft <= targets.maintenanceWarningMiles) {
-        alerts.push({
-          type: 'maintenance',
-          level: 'warning',
-          title: `${item.name} due soon`,
-          body: `${item.name} due in ${milesLeft.toFixed(0)} miles.`,
-        });
-      }
-    }
-    if (item.dueDate) {
-      const daysLeft = Math.ceil((new Date(item.dueDate) - new Date()) / 86400000);
-      if (daysLeft <= 14) {
-        alerts.push({
-          type: 'maintenance',
-          level: daysLeft < 0 ? 'danger' : 'warning',
-          title: `${item.name} date ${daysLeft < 0 ? 'overdue' : 'coming up'}`,
-          body: `${item.name} is ${daysLeft < 0 ? `${Math.abs(daysLeft)} days overdue` : `due in ${daysLeft} days`}.`,
-        });
-      }
-    }
-  });
-
-  loadPackets
-    .filter(packet => packet.status !== 'paid' && packet.deliveryDate)
-    .forEach(packet => {
-      const daysSinceDelivery = Math.floor((new Date() - new Date(packet.deliveryDate)) / 86400000);
-      if (daysSinceDelivery >= 5) {
-        alerts.push({
-          type: 'load',
-          level: 'warning',
-          title: 'Broker payment follow-up',
-          body: `${packet.broker || 'Broker'} payment is ${daysSinceDelivery} days past delivery on load ${packet.loadNumber || packet.shipper || 'packet'}.`,
-        });
-      }
-    });
-
-  loadPackets.forEach(packet => {
-    const decision = computeLoadDecision(packet, targets);
-    if (decision.netPerMile !== null && decision.netPerMile < decision.target) {
-      alerts.push({
-        type: 'load',
-        level: decision.score === 'Pass' ? 'danger' : 'warning',
-        title: `Load pays $${decision.netPerMile.toFixed(2)}/mi`,
-        body: `Target is $${decision.target.toFixed(2)}/mi after fuel, tolls, deadhead, and lumper.`,
-      });
-    }
-    if (packet.pickupDate && packet.deliveryDate && new Date(packet.deliveryDate) < new Date(packet.pickupDate)) {
-      alerts.push({
-        type: 'load',
-        level: 'danger',
-        title: 'Delivery before pickup',
-        body: 'Check pickup and delivery dates on the load packet.',
-      });
-    }
-  });
-
   const weeklyProfit = weeklyDays.reduce((sum, day) => sum + (Number(day.net) || 0), 0);
   if (weeklyProfit < targets.targetWeeklyProfit) {
     alerts.push({
       type: 'profit',
       level: 'info',
       title: 'Weekly profit target',
-      body: `You are at $${weeklyProfit.toFixed(0)} this week against a $${targets.targetWeeklyProfit} target.`,
+      body: `You are at ${formatMoney(weeklyProfit)} this week against a ${formatMoney(targets.targetWeeklyProfit)} target.`,
     });
   }
 
-  return alerts.slice(0, 8);
+  return [
+    ...alerts,
+    ...collectMaintenanceAlerts(maintenanceItems, odometer, targets.maintenanceWarningMiles),
+    ...collectLoadAlerts(loadPackets, targets, formatMoney),
+  ].slice(0, 8);
 };

@@ -1,8 +1,9 @@
 import React from 'react';
+import { formatCurrency } from '../../utils/currency';
 
-const formatMoney = (v) => `$${Number(v || 0).toFixed(0)}`;
+const defaultFormatMoney = (value) => formatCurrency(value, 'USD', { maximumFractionDigits: 0 });
 
-const WeeklyChart = ({ days, title = 'Weekly Summary' }) => {
+const WeeklyChart = ({ days, title = 'Weekly Summary', formatMoney = defaultFormatMoney }) => {
   if (!days?.length) return null;
   const maxVal = Math.max(...days.map(d => Math.max(d.income, d.expenses, Math.abs(d.net))), 1);
 

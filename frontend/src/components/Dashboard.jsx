@@ -40,6 +40,7 @@ import {
   getComplianceJurisdiction,
   readComplianceFileText
 } from '../utils/transportCompliance';
+import { getCurrencyForJurisdiction, makeMoneyFormatter } from '../utils/currency';
 import './Dashboard.css';
 
 const DEFAULT_CATEGORIES = [
@@ -93,11 +94,6 @@ const getCategoryLabel = (value) => {
     .filter(Boolean)
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
-};
-
-const formatMoney = (value) => {
-  if (value === null || value === undefined || Number.isNaN(value)) return '—';
-  return `$${Number(value).toFixed(2)}`;
 };
 
 const Dashboard = ({ user, onLogout }) => {
@@ -212,6 +208,11 @@ const Dashboard = ({ user, onLogout }) => {
     () => getComplianceJurisdiction(selectedJurisdictionCode),
     [selectedJurisdictionCode]
   );
+  const currencyCode = useMemo(
+    () => getCurrencyForJurisdiction(selectedJurisdiction.code),
+    [selectedJurisdiction.code]
+  );
+  const formatMoney = useMemo(() => makeMoneyFormatter(currencyCode), [currencyCode]);
   const latestComplianceScan = complianceScans[0] || null;
   const criticalComplianceCount = selectedJurisdiction.rules.filter(rule => rule.severity === 'critical').length;
   const latestExtractedFields = Object.entries(latestComplianceScan?.extractedFields || {});
@@ -271,7 +272,8 @@ const Dashboard = ({ user, onLogout }) => {
   useNotifications({
     enabled: notificationsOn,
     pendingCount,
-    netProfit: profit.netProfit
+    netProfit: profit.netProfit,
+    formatMoney
   });
 
   const prevFuelOdometer = useMemo(
@@ -293,8 +295,9 @@ const Dashboard = ({ user, onLogout }) => {
     loadPackets,
     maintenanceItems,
     targets: driverTargets,
-    weeklyDays
-  }), [expenses, loadPackets, maintenanceItems, driverTargets, weeklyDays]);
+    weeklyDays,
+    formatMoney
+  }), [expenses, loadPackets, maintenanceItems, driverTargets, weeklyDays, formatMoney]);
 
   const currentOdometer = useMemo(() => latestOdometer(expenses), [expenses]);
   const nextMaintenance = useMemo(() => {
@@ -326,7 +329,7 @@ const Dashboard = ({ user, onLogout }) => {
     if (estimatedFuelRange) return `${estimatedFuelRange.toFixed(0)} mi range`;
     if (displayMetrics.costPerGallon) return `${formatMoney(displayMetrics.costPerGallon)}/gal`;
     return 'Add fuel stop';
-  }, [displayMetrics.costPerGallon, estimatedFuelRange]);
+  }, [displayMetrics.costPerGallon, estimatedFuelRange, formatMoney]);
 
   useEffect(() => {
     localStorage.setItem('customCategories', JSON.stringify(customCategories));
@@ -788,8 +791,8 @@ const Dashboard = ({ user, onLogout }) => {
     try {
       setExporting(`${type}-${period}`);
       const blob = type === 'pdf'
-        ? await ReportsAPI.downloadPdf(period)
-        : await ReportsAPI.downloadCsv(period);
+        ? await ReportsAPI.downloadPdf(period, currencyCode)
+        : await ReportsAPI.downloadCsv(period, currencyCode);
       downloadBlob(blob, `righand-${period}-report.${type === 'pdf' ? 'pdf' : 'csv'}`);
       showToast(`${period} ${type.toUpperCase()} downloaded.`, 'success');
     } catch {
@@ -1341,7 +1344,7 @@ const Dashboard = ({ user, onLogout }) => {
           <p className="hero-label">Net Profit This Month</p>
           <p className={clsx('hero-value', profitStatus)}>{formatMoney(netProfitDisplay)}</p>
           {openingIncome > 0 && (
-            <p className="hero-opening">Includes ${openingIncome.toFixed(2)} starting income</p>
+            <p className="hero-opening">Includes {formatMoney(openingIncome)} starting income</p>
           )}
         </div>
       </section>
@@ -1369,11 +1372,11 @@ const Dashboard = ({ user, onLogout }) => {
           <strong>{formatMoney(displayMetrics.profitPerMile)}</strong>
         </div>
         <div className="metric-card">
-          <span className="metric-label">Fuel $ / Mile</span>
+          <span className="metric-label">Fuel {currencyCode} / Mile</span>
           <strong>{formatMoney(displayMetrics.fuelCostPerMile)}</strong>
         </div>
         <div className="metric-card">
-          <span className="metric-label">$/Gallon</span>
+          <span className="metric-label">{currencyCode} / Gallon</span>
           <strong>{formatMoney(displayMetrics.costPerGallon)}</strong>
         </div>
         <div className="metric-card">
@@ -1382,7 +1385,7 @@ const Dashboard = ({ user, onLogout }) => {
         </div>
       </section>
 
-      <WeeklyChart days={weeklyDays} title="This Week" />
+      <WeeklyChart days={weeklyDays} title="This Week" formatMoney={formatMoney} />
 
       <section className="feature-banner theme-banner compact-banner">
         <strong>Theme</strong>
@@ -1467,7 +1470,7 @@ const Dashboard = ({ user, onLogout }) => {
             </div>
           </div>
           <div className="form-group">
-            <label htmlFor="expense-amount">Amount ($)</label>
+            <label htmlFor="expense-amount">Amount ({currencyCode})</label>
             <input id="expense-amount" type="number" name="amount" value={formData.amount} onChange={handleFormChange} step="0.01" min="0" required />
           </div>
         </div>
@@ -1534,7 +1537,7 @@ const Dashboard = ({ user, onLogout }) => {
             </div>
             <div className="form-row">
               <div className="form-group fuel-calc-preview">
-                <span className="form-label">$/Gallon</span>
+                <span className="form-label">{currencyCode} / Gallon</span>
                 <p>
                   {formData.gallons && formData.amount
                     ? formatMoney(Number.parseFloat(formData.amount) / Number.parseFloat(formData.gallons))
@@ -1568,13 +1571,13 @@ const Dashboard = ({ user, onLogout }) => {
                 <input id="expense-deadhead-miles" type="number" name="deadheadMiles" value={formData.deadheadMiles} onChange={handleFormChange} step="0.1" min="0" />
               </div>
               <div className="form-group">
-                <label htmlFor="expense-tolls">Tolls ($)</label>
+                <label htmlFor="expense-tolls">Tolls ({currencyCode})</label>
                 <input id="expense-tolls" type="number" name="tollsAmount" value={formData.tollsAmount} onChange={handleFormChange} step="0.01" min="0" />
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="expense-fuel-cost-alloc">Fuel Cost for Load ($)</label>
+                <label htmlFor="expense-fuel-cost-alloc">Fuel Cost for Load ({currencyCode})</label>
                 <input id="expense-fuel-cost-alloc" type="number" name="fuelCostAlloc" value={formData.fuelCostAlloc} onChange={handleFormChange} step="0.01" min="0" />
               </div>
               <div className="form-group load-calc-preview">
@@ -1803,7 +1806,7 @@ const Dashboard = ({ user, onLogout }) => {
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label htmlFor="load-rate">Rate ($)</label>
+            <label htmlFor="load-rate">Rate ({currencyCode})</label>
             <input id="load-rate" type="number" name="rate" value={loadForm.rate} onChange={handleLoadFormChange} step="0.01" min="0" />
           </div>
           <div className="form-group">
@@ -1817,15 +1820,15 @@ const Dashboard = ({ user, onLogout }) => {
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label htmlFor="load-fuel-estimate">Fuel Estimate ($)</label>
+            <label htmlFor="load-fuel-estimate">Fuel Estimate ({currencyCode})</label>
             <input id="load-fuel-estimate" type="number" name="fuelEstimate" value={loadForm.fuelEstimate} onChange={handleLoadFormChange} step="0.01" min="0" />
           </div>
           <div className="form-group">
-            <label htmlFor="load-tolls">Tolls ($)</label>
+            <label htmlFor="load-tolls">Tolls ({currencyCode})</label>
             <input id="load-tolls" type="number" name="tolls" value={loadForm.tolls} onChange={handleLoadFormChange} step="0.01" min="0" />
           </div>
           <div className="form-group">
-            <label htmlFor="load-lumper">Lumper ($)</label>
+            <label htmlFor="load-lumper">Lumper ({currencyCode})</label>
             <input id="load-lumper" type="number" name="lumper" value={loadForm.lumper} onChange={handleLoadFormChange} step="0.01" min="0" />
           </div>
         </div>
@@ -1842,7 +1845,7 @@ const Dashboard = ({ user, onLogout }) => {
         <div className="form-row">
           <div className="form-group">
             <label htmlFor="load-detention-terms">Detention Terms</label>
-            <input id="load-detention-terms" name="detentionTerms" value={loadForm.detentionTerms} onChange={handleLoadFormChange} placeholder="e.g. 2 hrs free, $75/hr" />
+            <input id="load-detention-terms" name="detentionTerms" value={loadForm.detentionTerms} onChange={handleLoadFormChange} placeholder={`e.g. 2 hrs free, ${currencyCode} 75/hr`} />
           </div>
           <div className="form-group">
             <label htmlFor="load-notes">Notes / Document Links</label>
@@ -1990,7 +1993,7 @@ const Dashboard = ({ user, onLogout }) => {
       {logView === 'add' && renderAddForm()}
       {logView === 'history' && renderHistory()}
       {logView === 'receipts' && (
-        <ReceiptGallery expenses={expenses} onSelect={(expense) => handleEditExpense(expense)} />
+        <ReceiptGallery expenses={expenses} onSelect={(expense) => handleEditExpense(expense)} formatMoney={formatMoney} />
       )}
     </>
   );
@@ -2026,7 +2029,7 @@ const Dashboard = ({ user, onLogout }) => {
         </button>
       </div>
 
-      <WeeklyChart days={weeklyDays} title="Weekly Summary" />
+      <WeeklyChart days={weeklyDays} title="Weekly Summary" formatMoney={formatMoney} />
 
       {taxReport && (
         <div className="report-block">
@@ -2076,7 +2079,7 @@ const Dashboard = ({ user, onLogout }) => {
 
       <div className="metrics-grid compact">
         <div className="metric-card"><span className="metric-label">Profit / Mile</span><strong>{formatMoney(displayMetrics.profitPerMile)}</strong></div>
-        <div className="metric-card"><span className="metric-label">Fuel $ / Mile</span><strong>{formatMoney(displayMetrics.fuelCostPerMile)}</strong></div>
+        <div className="metric-card"><span className="metric-label">Fuel {currencyCode} / Mile</span><strong>{formatMoney(displayMetrics.fuelCostPerMile)}</strong></div>
         <div className="metric-card"><span className="metric-label">Total Gallons</span><strong>{displayMetrics.totalGallons || '—'}</strong></div>
         <div className="metric-card"><span className="metric-label">Net Profit</span><strong>{formatMoney(displayMetrics.netProfit)}</strong></div>
       </div>
@@ -2364,7 +2367,7 @@ const Dashboard = ({ user, onLogout }) => {
           {[
             { id: 'home', label: 'Home', icon: 'H', pro: false },
             { id: 'loads', label: 'Loads', icon: 'L', pro: false },
-            { id: 'log', label: 'Money Log', icon: '$', pro: false },
+            { id: 'log', label: 'Money Log', icon: 'M', pro: false },
             { id: 'reports', label: 'Tax & IFTA', icon: 'R', pro: true },
             { id: 'compliance', label: 'Compliance', icon: 'C', pro: false },
             { id: 'hos', label: 'HOS', icon: '⏱', pro: true },
@@ -2413,6 +2416,7 @@ const Dashboard = ({ user, onLogout }) => {
             userId={userId}
             subscription={subscription}
             onUnlocked={handlePaidUnlock}
+            formatMoney={formatMoney}
           />
         )}
         {activeTab === 'admin' && (
@@ -2426,6 +2430,7 @@ const Dashboard = ({ user, onLogout }) => {
             onAddIncome={() => startQuickEntry('income')}
             onAddExpense={() => startQuickEntry('expense')}
             onReload={loadExpenses}
+            formatMoney={formatMoney}
           />
           </UpgradeGate>
         )}
