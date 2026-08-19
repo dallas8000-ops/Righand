@@ -4,6 +4,9 @@ VEHICLE_REGISTRATION = 'Vehicle registration'
 DRIVER_LICENCE = 'Driver licence'
 CARGO_MANIFEST = 'Cargo manifest'
 SEAL_NUMBER = 'Seal number'
+COMESA_INSURANCE = 'COMESA Yellow Card or cross-border insurance evidence'
+AXLE_LOAD_REFERENCE = 'Country-specific axle/load reference'
+YELLOW_CARD_KEYWORD = 'yellow card'
 
 
 COMPLIANCE_RULES = {
@@ -14,8 +17,8 @@ COMPLIANCE_RULES = {
                 'id': 'ug-vehicle-load-control-2026',
                 'title': '2026 vehicle dimensions and load-control regulations',
                 'severity': 'critical',
-                'summary': 'Check axle load, gross mass, dimensions, weighbridge tickets, overload notices, and special-load permits before dispatch.',
-                'requiredDocs': [VEHICLE_REGISTRATION, 'Motor vehicle inspection', 'Weighbridge ticket', 'Special-load permit when applicable', 'Overload notice response when applicable'],
+                'summary': 'Check axle load, gross mass, dimensions, weighbridge tickets, overload notices, and special-load permits before dispatch. Store numeric limits as current country-specific references instead of hardcoded law.',
+                'requiredDocs': [VEHICLE_REGISTRATION, 'Motor vehicle inspection', 'Weighbridge ticket', AXLE_LOAD_REFERENCE, 'Special-load permit when applicable', 'Overload notice response when applicable'],
                 'keywords': ['axle', 'weighbridge', 'overload', 'gross', 'weight', 'dimension', 'special load', 'permit', 'gvm', 'vehicle load'],
             },
             {
@@ -30,9 +33,9 @@ COMPLIANCE_RULES = {
                 'id': 'ug-customs-transit',
                 'title': 'URA and EAC customs transit readiness',
                 'severity': 'warning',
-                'summary': 'Keep customs entries, manifests, transit or bond references, seal numbers, and border dates with the load packet.',
-                'requiredDocs': ['URA customs entry', CARGO_MANIFEST, 'Transit or bond reference', SEAL_NUMBER, 'Border crossing record'],
-                'keywords': ['ura', 'customs', 'manifest', 'seal', 'bond', 'transit', 'border', 'import', 'export'],
+                'summary': 'Keep customs entries, manifests, transit or bond references, COMESA Yellow Card or current insurance evidence, seal numbers, and border dates with the load packet.',
+                'requiredDocs': ['URA customs entry', CARGO_MANIFEST, 'Transit or bond reference', COMESA_INSURANCE, SEAL_NUMBER, 'Border crossing record'],
+                'keywords': ['ura', 'customs', 'manifest', 'seal', 'bond', 'transit', 'border', 'import', 'export', 'comesa', YELLOW_CARD_KEYWORD, 'insurance'],
             },
         ],
     },
@@ -51,17 +54,17 @@ COMPLIANCE_RULES = {
                 'id': 'ke-axle-weighbridge',
                 'title': 'Axle-load, weighbridge, and abnormal-load checks',
                 'severity': 'critical',
-                'summary': 'Track gross weight, axle-load records, weighbridge tickets, overload notices, and abnormal-load permits.',
-                'requiredDocs': ['Weighbridge ticket', 'Axle-load record', 'Overload notice response', 'Abnormal-load permit when applicable'],
+                'summary': 'Track gross weight, axle-load records, weighbridge tickets, overload notices, and abnormal-load permits. Store numeric axle/load limits as verified country-specific references.',
+                'requiredDocs': ['Weighbridge ticket', 'Axle-load record', AXLE_LOAD_REFERENCE, 'Overload notice response', 'Abnormal-load permit when applicable'],
                 'keywords': ['axle', 'weighbridge', 'overload', 'gross weight', 'abnormal load', 'kenha', 'weight'],
             },
             {
                 'id': 'ke-kra-customs',
                 'title': 'KRA customs and iCMS cargo records',
                 'severity': 'warning',
-                'summary': 'Capture KRA/iCMS entries, declarations, manifests, bond references, seal numbers, and border dates.',
-                'requiredDocs': ['KRA or iCMS entry', CARGO_MANIFEST, 'Bond reference', SEAL_NUMBER, 'PIN or TCC reference when relevant'],
-                'keywords': ['kra', 'icms', 'customs', 'pin', 'tcc', 'bond', 'seal', 'manifest', 'advance cargo', 'import', 'export'],
+                'summary': 'Capture KRA/iCMS entries, declarations, manifests, bond references, COMESA Yellow Card or current insurance evidence, seal numbers, and border dates.',
+                'requiredDocs': ['KRA or iCMS entry', CARGO_MANIFEST, 'Bond reference', COMESA_INSURANCE, SEAL_NUMBER, 'PIN or TCC reference when relevant'],
+                'keywords': ['kra', 'icms', 'customs', 'pin', 'tcc', 'bond', 'seal', 'manifest', 'advance cargo', 'import', 'export', 'comesa', YELLOW_CARD_KEYWORD, 'insurance'],
             },
         ],
     },
@@ -80,9 +83,9 @@ COMPLIANCE_RULES = {
                 'id': 'rw-rra-customs-transit',
                 'title': 'RRA customs, Electronic Single Window, and transit records',
                 'severity': 'warning',
-                'summary': 'Capture RRA entries, Electronic Single Window references, tax clearance, cargo forms, seal numbers, and border dates.',
-                'requiredDocs': ['RRA customs entry', 'Electronic Single Window reference', 'Transit declaration', SEAL_NUMBER, 'Trade Portal procedure documents'],
-                'keywords': ['rra', 'single window', 'customs', 'transit', 'seal', 'tax clearance', 'trade portal', 'import', 'export'],
+                'summary': 'Capture RRA entries, Electronic Single Window references, tax clearance, cargo forms, COMESA Yellow Card or current insurance evidence, seal numbers, and border dates.',
+                'requiredDocs': ['RRA customs entry', 'Electronic Single Window reference', 'Transit declaration', COMESA_INSURANCE, SEAL_NUMBER, 'Trade Portal procedure documents'],
+                'keywords': ['rra', 'single window', 'customs', 'transit', 'seal', 'tax clearance', 'trade portal', 'import', 'export', 'comesa', YELLOW_CARD_KEYWORD, 'insurance'],
             },
         ],
     },
@@ -93,16 +96,16 @@ COMPLIANCE_RULES = {
                 'id': 'eac-customs-union',
                 'title': 'EAC customs documentation and border records',
                 'severity': 'critical',
-                'summary': 'Keep declarations, bonds, manifests, seal numbers, and border dates together for cross-border loads.',
-                'requiredDocs': ['Customs declaration', CARGO_MANIFEST, 'Bond reference', SEAL_NUMBER, 'Border crossing record'],
-                'keywords': ['eac', 'customs', 'bond', 'manifest', 'seal', 'border', 'declaration', 'single customs territory'],
+                'summary': 'Keep declarations, bonds, manifests, COMESA Yellow Card or current insurance evidence, seal numbers, and border dates together for cross-border loads.',
+                'requiredDocs': ['Customs declaration', CARGO_MANIFEST, 'Bond reference', COMESA_INSURANCE, SEAL_NUMBER, 'Border crossing record'],
+                'keywords': ['eac', 'customs', 'bond', 'manifest', 'seal', 'border', 'declaration', 'single customs territory', 'comesa', YELLOW_CARD_KEYWORD, 'insurance'],
             },
             {
                 'id': 'eac-corridor-load-control',
                 'title': 'Cross-border route, commodity, and load-control prompts',
                 'severity': 'warning',
-                'summary': 'Identify transit countries, border posts, commodity permit needs, weighbridge records, and special-load permits.',
-                'requiredDocs': ['Route countries', 'Border posts', 'Commodity permits when required', 'Weighbridge tickets', 'Special-load permits when required'],
+                'summary': 'Identify transit countries, border posts, commodity permit needs, weighbridge records, editable country-specific axle/load references, and special-load permits.',
+                'requiredDocs': ['Route countries', 'Border posts', 'Commodity permits when required', 'Weighbridge tickets', AXLE_LOAD_REFERENCE, 'Special-load permits when required'],
                 'keywords': ['route', 'transit country', 'commodity', 'permit', 'weighbridge', 'axle', 'special load', 'border post'],
             },
         ],

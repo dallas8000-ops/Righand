@@ -199,9 +199,9 @@ Supported jurisdiction packs:
 | Code | Region | Focus |
 |------|--------|-------|
 | `UG` | Uganda | 2026 vehicle load-control readiness, PSV driver monitoring, inspection/licence records, URA/EAC customs evidence |
-| `KE` | Kenya | NTSA driver/operator records, inspection and insurance evidence, axle-load/weighbridge readiness, KRA cargo/customs records |
-| `RW` | Rwanda | Driver/vehicle/authorisation records, RRA customs, Electronic Single Window, trade-portal procedure evidence |
-| `EAC` | Cross-border East Africa | Customs declarations, bonds, manifests, seal numbers, border posts, corridor/load-control prompts |
+| `KE` | Kenya | NTSA driver/operator records, inspection and insurance evidence, axle-load/weighbridge readiness, COMESA Yellow Card, KRA cargo/customs records |
+| `RW` | Rwanda | Driver/vehicle/authorisation records, RRA customs, Electronic Single Window, COMESA Yellow Card, trade-portal procedure evidence |
+| `EAC` | Cross-border East Africa | Customs declarations, bonds, manifests, COMESA Yellow Card or current insurance evidence, seal numbers, border posts, corridor/load-control prompts |
 | `EU` | European Union | Driving/rest/working-time prompts, tachograph/driver-card records, cabotage/posting evidence, weights/dimensions, ADR readiness |
 
 Compliance capabilities:
@@ -210,11 +210,13 @@ Compliance capabilities:
 - Extracted fields include dates, permit/reference IDs, vehicle plates, seal numbers, weights, driver names, and border posts.
 - Review alerts flag expired or soon-expiring dates and weight records missing vehicle linkage.
 - Driver, vehicle, and route compliance profiles persist for live accounts with local fallback for demo/offline use.
+- COMESA Yellow Card / cross-border insurance references and country-specific axle/load source references are editable profile fields, not hardcoded legal constants.
 - Load packet release is blocked when open critical compliance findings exist for the selected jurisdiction.
 
 Current limitations:
 - Image OCR and scanned-PDF OCR are not connected yet.
 - AI-assisted extraction beyond deterministic matching is planned, but the current release uses rule packs, keyword matching, and structured pattern extraction.
+- Axle-load limits, special-load thresholds, and COMESA Yellow Card digitization status can change by country. Store the verified source/date in the profile instead of relying on a baked-in number.
 - Compliance guidance is an operational assistant, not legal advice. Official sources are tracked in [docs/TRANSPORT_COMPLIANCE_PLAN.md](docs/TRANSPORT_COMPLIANCE_PLAN.md).
 
 ### 3.10 Authentication and Security

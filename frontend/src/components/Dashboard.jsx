@@ -165,6 +165,9 @@ const Dashboard = ({ user, onLogout }) => {
     licenceExpiry: '',
     vehiclePlate: '',
     inspectionExpiry: '',
+    insuranceReference: '',
+    comesaYellowCard: '',
+    axleLoadReference: '',
     routeCountries: '',
     borderPosts: '',
     notes: ''
@@ -885,6 +888,9 @@ const Dashboard = ({ user, onLogout }) => {
         licenceExpiry: complianceProfileForm.licenceExpiry,
         vehiclePlate: complianceProfileForm.vehiclePlate,
         inspectionExpiry: complianceProfileForm.inspectionExpiry,
+        insuranceReference: complianceProfileForm.insuranceReference,
+        comesaYellowCard: complianceProfileForm.comesaYellowCard,
+        axleLoadReference: complianceProfileForm.axleLoadReference,
         routeCountries: complianceProfileForm.routeCountries,
         borderPosts: complianceProfileForm.borderPosts,
         notes: complianceProfileForm.notes,
@@ -908,6 +914,9 @@ const Dashboard = ({ user, onLogout }) => {
       licenceExpiry: '',
       vehiclePlate: '',
       inspectionExpiry: '',
+      insuranceReference: '',
+      comesaYellowCard: '',
+      axleLoadReference: '',
       routeCountries: '',
       borderPosts: '',
       notes: ''
@@ -1673,7 +1682,7 @@ const Dashboard = ({ user, onLogout }) => {
     const shouldShowBorderChecklist = ['EAC', 'EU'].includes(selectedJurisdiction.code) || hasBorderEvidence;
     const customsChecklist = selectedJurisdiction.code === 'EU'
       ? ['Community licence', 'International carriage evidence', 'Cabotage operation records', 'Posting declaration', 'Tachograph or driver card evidence']
-      : ['Customs declaration', 'Cargo manifest', 'Bond or transit reference', 'Seal number', 'Border crossing record', 'Weighbridge or special-load evidence'];
+      : ['Customs declaration', 'Cargo manifest', 'Bond or transit reference', 'COMESA Yellow Card', 'Seal number', 'Border crossing record', 'Weighbridge evidence', 'Verified axle/load source'];
     const checklistEvidence = `${routeText} ${(extractedFields.permitIds || []).join(' ')} ${(extractedFields.sealNumbers || []).join(' ')} ${(extractedFields.borderPosts || []).join(' ')}`.toLowerCase();
     return (
       <section className="compliance-panel-block load-compliance-panel">
@@ -2212,6 +2221,9 @@ const Dashboard = ({ user, onLogout }) => {
           <input name="licenceExpiry" value={complianceProfileForm.licenceExpiry} onChange={handleComplianceProfileChange} placeholder="Licence expiry" />
           <input name="vehiclePlate" value={complianceProfileForm.vehiclePlate} onChange={handleComplianceProfileChange} placeholder="Vehicle plate" />
           <input name="inspectionExpiry" value={complianceProfileForm.inspectionExpiry} onChange={handleComplianceProfileChange} placeholder="Inspection expiry" />
+          <input name="insuranceReference" value={complianceProfileForm.insuranceReference} onChange={handleComplianceProfileChange} placeholder="Insurance policy / insurer" />
+          <input name="comesaYellowCard" value={complianceProfileForm.comesaYellowCard} onChange={handleComplianceProfileChange} placeholder="COMESA Yellow Card / digital ref" />
+          <input name="axleLoadReference" value={complianceProfileForm.axleLoadReference} onChange={handleComplianceProfileChange} placeholder="Verified axle/load source + date" />
           <input name="routeCountries" value={complianceProfileForm.routeCountries} onChange={handleComplianceProfileChange} placeholder="Countries / corridor" />
           <input name="borderPosts" value={complianceProfileForm.borderPosts} onChange={handleComplianceProfileChange} placeholder="Border posts" />
           <input name="notes" value={complianceProfileForm.notes} onChange={handleComplianceProfileChange} placeholder="Notes" />

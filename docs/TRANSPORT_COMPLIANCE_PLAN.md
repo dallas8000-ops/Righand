@@ -15,6 +15,7 @@ This feature is an operational compliance assistant, not legal advice. Each rule
 - Compliance additions must improve the day-to-day UI/UX. They should reduce driver/dispatcher uncertainty, surface the next required action, and fit into existing workflows for loads, vehicles, drivers, trips, expenses, reports, and fleet dispatch.
 - New compliance UI must be additive and contextual. Avoid replacing the existing dashboard with a legal document library; use checklists, status cards, upload findings, and workflow prompts that help users complete transport work faster.
 - Existing US-oriented features should remain available. Where a field is US-specific, such as IFTA state fuel tracking, the app should either preserve it for US-style use or adapt labels/options based on the selected jurisdiction without deleting historical data.
+- Do not hardcode numeric axle-load limits, special-load thresholds, or COMESA Yellow Card implementation status as permanent law. These vary by country and change over time, so the app should store verified source references, review dates, and editable profile fields instead of frozen constants.
 
 ## Region Selection Behavior
 
@@ -25,6 +26,8 @@ When the user selects a region, the app should update:
 - required driver fields
 - required vehicle fields
 - route and border prompts
+- editable country-specific axle/load source references
+- COMESA Yellow Card or equivalent cross-border insurance evidence
 - inspection, permit, and licence expiry alerts
 - load packet compliance prompts
 - fleet/dispatcher compliance summary cards
@@ -73,6 +76,7 @@ Confirmed official-source areas:
 - EAC Customs Union objectives include harmonised customs documentation, customs regulations, and procedures.
 - EAC Acts and customs documents include the East African Community Customs Management Act and amendments.
 - EAC Trade Information Portal and customs tools should be linked for cross-border cargo movement.
+- COMESA Yellow Card or equivalent cross-border third-party insurance evidence should be treated as editable evidence because digitization and country participation/status may change.
 
 This overlay should apply when routes cross Uganda, Kenya, Rwanda, or other EAC borders.
 
@@ -101,6 +105,7 @@ Track and validate:
 - vehicle dimensions
 - gross vehicle mass
 - axle-load records
+- verified source/date for the current country-specific axle/load limit or enforcement threshold
 - weighbridge tickets
 - overload notices
 - special-load permits
@@ -170,6 +175,7 @@ Track and validate:
 - inspection status
 - roadworthiness records
 - gross weight and axle-load records
+- verified source/date for the current country-specific axle/load limit or enforcement threshold
 - weighbridge tickets
 - overload notices and penalties
 - abnormal-load permits where required
@@ -227,11 +233,13 @@ Track and validate:
 - origin country, destination country, and transit countries
 - border posts and crossing dates
 - customs declaration numbers
+- COMESA Yellow Card or equivalent cross-border insurance references
 - regional customs bond or national bond references
 - cargo manifest and seal numbers
 - EAC customs procedure documents
 - import/export permits required by commodity
 - axle-load / weighbridge records across corridors
+- verified source/date for country-specific axle/load limits on each corridor segment
 - special-load or abnormal-load permits where countries require them
 - one-stop border post readiness notes where applicable
 
