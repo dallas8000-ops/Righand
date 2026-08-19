@@ -401,10 +401,10 @@ Required:
 - `DJANGO_ENV=production`
 - `SECRET_KEY=<your secret>`
 - `JWT_SECRET_KEY=<your secret>`
-- `DATABASE_URL=${{Postgres.DATABASE_URL}}` — **must be Railway Postgres**, not a pasted Render URL
+- `DATABASE_URL=${{Postgres.DATABASE_URL}}` — **must reference the Railway Postgres plugin**, not a manually pasted database URL
 - `PYTHON_VERSION=3.11` (optional; Docker image uses 3.11)
 
-**Important:** `DATABASE_URL` is **not** stored in this repo. It lives only in the Railway dashboard. If deploy logs show `dpg-….oregon-postgres.render.com`, delete that variable and use `${{Postgres.DATABASE_URL}}` after adding/linking a Postgres service in the same Railway project.
+**Important:** `DATABASE_URL` is **not** stored in this repo. It lives only in the Railway dashboard. Always reference the Railway Postgres plugin with `${{Postgres.DATABASE_URL}}` after adding/linking a Postgres service in the same Railway project - don't paste a database URL by hand.
 
 Optional (subscriptions + purchase tracking):
 
