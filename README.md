@@ -1,6 +1,6 @@
 # RigHand AI
 
-RigHand AI is a full-stack expense and profit tracking platform built for truck drivers. It supports online and offline workflows, voice entry, tax-ready reports, subscription tiers, and production deployment on **Railway**.
+RigHand AI is a full-stack expense, profit, fleet, and transport compliance platform built for truck drivers and small carriers. It supports online and offline workflows, voice entry, tax-ready reports, jurisdiction-specific transport compliance, subscription tiers, and production deployment on **Railway**.
 
 ## 1. Product Summary
 
@@ -10,6 +10,7 @@ Primary goals:
 - Fast entry of expenses and income while on the road
 - Offline-first operation with background sync
 - Trip tracking: manual odometer, live GPS, or OBD-II dongle (Android)
+- Country/region-based transport compliance for Uganda, Kenya, Rwanda, EAC cross-border routes, and the EU region
 - **Subscription tiers** — Free, Compliance Pro ($34.99/mo), Fleet Lite ($89/mo) with payment-triggered unlock
 - Admin tools to edit all data and set starting income (Pro)
 - Tax-ready exports (Schedule C, IFTA, PDF, CSV) (Pro)
@@ -70,6 +71,7 @@ window.RigHandBilling?.onPurchase({
 |-----|------|-------------|
 | **Home** | Free | Driver cockpit, Quiet Watch automation alerts, fuel range, maintenance, net profit, weekly chart, trip tracker |
 | **Loads** | Free | Load contract packets, rate/deadhead/fuel/toll scoring, trip packet text export, SMS share, log as income |
+| **Compliance** | Free | Select Uganda, Kenya, Rwanda, EAC, or EU; upload transport documents; manage driver/vehicle/route profiles; review dispatch readiness |
 | **Money Log** | Free | New Entry, History (search/filter/sort), Receipt gallery |
 | **Tax & IFTA** | Compliance Pro | PDF/CSV export, Schedule C quarterly, IFTA fuel by state |
 | **HOS** | Pro | Manual duty status with 11/14-hour countdown clocks (compliance assistant, not a certified ELD) |
@@ -162,7 +164,7 @@ Multi-driver P&amp;L and live GPS for carriers with up to 5 drivers.
 
 ```powershell
 cd backend
-$env:FLASK_ENV = "production"
+$env:DJANGO_ENV = "production"
 $env:DATABASE_URL = "postgresql://..."   # must be in quotes on PowerShell
 
 python setup_fleet.py list-users
@@ -188,7 +190,34 @@ Then log out and back in → open **Fleet** tab.
 4. Allow location when Android prompts
 5. Dispatcher/owner opens **Fleet** tab → **Refresh** → **Open in Maps** on driver card
 
-### 3.9 Authentication and Security
+### 3.9 Regional Transport Compliance
+
+The **Compliance** tab turns RigHand into a jurisdiction-aware transport compliance assistant. It is designed for operations in Uganda, Kenya, Rwanda, EAC cross-border corridors, and the EU region.
+
+Supported jurisdiction packs:
+
+| Code | Region | Focus |
+|------|--------|-------|
+| `UG` | Uganda | 2026 vehicle load-control readiness, PSV driver monitoring, inspection/licence records, URA/EAC customs evidence |
+| `KE` | Kenya | NTSA driver/operator records, inspection and insurance evidence, axle-load/weighbridge readiness, KRA cargo/customs records |
+| `RW` | Rwanda | Driver/vehicle/authorisation records, RRA customs, Electronic Single Window, trade-portal procedure evidence |
+| `EAC` | Cross-border East Africa | Customs declarations, bonds, manifests, seal numbers, border posts, corridor/load-control prompts |
+| `EU` | European Union | Driving/rest/working-time prompts, tachograph/driver-card records, cabotage/posting evidence, weights/dimensions, ADR readiness |
+
+Compliance capabilities:
+- Jurisdiction selector changes rule cards, required-document prompts, load-packet readiness, and cross-border checklists.
+- Text and selectable-text PDF uploads are scanned by the backend for matching rules and structured evidence.
+- Extracted fields include dates, permit/reference IDs, vehicle plates, seal numbers, weights, driver names, and border posts.
+- Review alerts flag expired or soon-expiring dates and weight records missing vehicle linkage.
+- Driver, vehicle, and route compliance profiles persist for live accounts with local fallback for demo/offline use.
+- Load packet release is blocked when open critical compliance findings exist for the selected jurisdiction.
+
+Current limitations:
+- Image OCR and scanned-PDF OCR are not connected yet.
+- AI-assisted extraction beyond deterministic matching is planned, but the current release uses rule packs, keyword matching, and structured pattern extraction.
+- Compliance guidance is an operational assistant, not legal advice. Official sources are tracked in [docs/TRANSPORT_COMPLIANCE_PLAN.md](docs/TRANSPORT_COMPLIANCE_PLAN.md).
+
+### 3.10 Authentication and Security
 
 - User registration and login
 - JWT token authentication
@@ -204,22 +233,22 @@ REACT_APP_API_URL=https://righand-production.up.railway.app/api
 
 The frontend auto-appends `/api` if omitted, but set it correctly on Railway to avoid login failures.
 
-### 3.10 Offline-First Experience
+### 3.11 Offline-First Experience
 
 - IndexedDB local persistence (Dexie)
 - Sync queue for offline changes
 - Automatic background sync when connection returns
 - **Demo mode** — full local CRUD without backend (use demo login; no paid tiers)
 
-### 3.11 Driver-Oriented UX
+### 3.12 Driver-Oriented UX
 
 - Header navigation (mobile-friendly)
 - Light, Dark, and **Night Drive** themes
-- Voice input: **Hold To Talk** and **Tap To Talk** on the expense form (see [Section 3.12](#312-voice-entry-hold--tap-to-talk))
+- Voice input: **Hold To Talk** and **Tap To Talk** on the expense form (see [Section 3.13](#313-voice-entry-hold--tap-to-talk))
 - Push notification toggle for sync reminders
 - Photorealistic truck console background on dashboard
 
-### 3.12 Voice Entry (Hold / Tap To Talk)
+### 3.13 Voice Entry (Hold / Tap To Talk)
 
 Voice fills the **Description** field on the expense form. Two buttons sit under that field:
 
@@ -283,6 +312,7 @@ Local-only settings (starting income, active trip, trip history) use browser `lo
 - PyJWT (API auth)
 - Gunicorn
 - ReportLab (PDF export)
+- pypdf (selectable-text PDF compliance uploads)
 
 **Data:**
 - SQLite (development)
@@ -325,6 +355,13 @@ Local-only settings (starting income, active trip, trip history) use browser `lo
 - GET `/drivers/summary`
 - POST `/location`
 - GET/POST `/hos/status` — **Pro required**
+
+### Compliance — `/api/compliance`
+- GET `/summary?jurisdictionCode=UG` — profile counts, readiness alerts, dispatch policy
+- GET/POST `/documents` — list or create/upload scanned compliance documents
+- DELETE `/documents/{document_id}` — remove a compliance document and findings
+- GET/POST `/profiles` — list or save driver, vehicle, and route compliance profiles
+- PUT/DELETE `/profiles/{profile_id}` — update or remove a compliance profile
 
 ### System
 - GET `/health`
@@ -401,12 +438,12 @@ REACT_APP_API_URL=https://righand-production.up.railway.app/api
 ```bash
 cd backend
 pip install -r requirements.txt
-python migrate.py                # add new columns to existing DB
-python migrate_subscriptions.py  # subscription tables
-python app.py
+python manage.py check
+python manage.py migrate --noinput
+python manage.py runserver 0.0.0.0:8000
 ```
 
-Run burn tests (demo income edit, API smoke):
+Run Railway/API smoke checks:
 
 ```bash
 python burn_test.py
@@ -415,7 +452,7 @@ python burn_test.py
 **Fleet admin CLI** (production Postgres):
 
 ```powershell
-$env:FLASK_ENV = "production"
+$env:DJANGO_ENV = "production"
 $env:DATABASE_URL = "postgresql://..."   # quotes required in PowerShell
 python setup_fleet.py list-users
 ```
@@ -450,7 +487,7 @@ Restart `npm start` after creating or changing `.env.local`.
 
 Local URLs:
 - Frontend: http://localhost:3000 (or 3001 if 3000 is busy)
-- Backend (optional): http://localhost:5000 — only needed if not using production proxy
+- Backend: http://localhost:8000 — preferred local app/API when running Django directly
 
 ## 9. Railway Deployment Reference
 
@@ -469,26 +506,40 @@ Full guide: **`backend/RAILWAY_DEPLOY.md`**
 ```
 RigHand/
 ├── backend/
-│   ├── app.py
-│   ├── models.py
-│   ├── migrate.py
+│   ├── manage.py
+│   ├── app.py                    # compatibility/entry helper
 │   ├── migrate_subscriptions.py
 │   ├── burn_test.py
 │   ├── setup_fleet.py           # Fleet Lite admin CLI
 │   ├── reset_password.py        # Password reset CLI
 │   ├── subscription_service.py  # Tier upgrades, Play product mapping
-│   ├── tier_guard.py            # @require_pro route decorator
 │   ├── fleet_service.py         # Auto-provision fleet on paid unlock
 │   ├── webhook_client.py        # dbops-api event emitter
-│   ├── routes_auth.py
-│   ├── routes_expenses.py
-│   ├── routes_categories.py
-│   ├── routes_reports.py
-│   ├── routes_fleet.py
-│   ├── routes_subscriptions.py
+│   ├── api/
+│   │   ├── models.py
+│   │   ├── schema_migrations.py
+│   │   ├── jwt_auth.py
+│   │   ├── tier_guard.py
+│   │   ├── compliance_rules.py
+│   │   ├── compliance_extractors.py
+│   │   ├── compliance_review.py
+│   │   └── views/
+│   │       ├── auth.py
+│   │       ├── categories.py
+│   │       ├── compliance.py
+│   │       ├── expenses.py
+│   │       ├── fleet.py
+│   │       ├── ops.py
+│   │       ├── reports.py
+│   │       └── subscriptions.py
+│   ├── righand/
+│   │   ├── settings.py
+│   │   ├── urls.py
+│   │   └── views.py
 │   └── requirements.txt
 ├── dbops-api/                   # Purchase tracking dashboard (separate service)
 ├── docs/
+│   ├── TRANSPORT_COMPLIANCE_PLAN.md
 │   └── capacitor-setup.md
 ├── frontend/
 │   ├── android/                  # Capacitor Android project (generated)
@@ -517,6 +568,7 @@ RigHand/
 │       │   └── useNotifications.js
 │       ├── services/
 │       └── utils/
+│           ├── transportCompliance.js
 │           ├── tripTracker.js
 │           └── driverSettings.js
 └── README.md
@@ -533,7 +585,11 @@ After deployment, verify:
 6. **Tax & IFTA / Admin / HOS** show upgrade screen on Free tier
 7. **Dev: simulate payment** or `POST /verify-purchase` unlocks Pro tabs
 8. **Trip Miles** — Manual, GPS, and OBD modes work (Android for OBD)
-9. No browser CORS errors on production frontend
+9. **Compliance** — select Uganda/Kenya/Rwanda/EAC/EU and confirm checklist cards update
+10. **Compliance upload** — text or selectable PDF upload returns findings and extracted fields
+11. **Compliance profiles** — driver, vehicle, and route profiles save and appear in readiness rollups
+12. **Load dispatch** — open critical compliance findings block delivered/release flow
+13. No browser CORS errors on production frontend
 
 **Android app checklist:**
 1. App installs and opens on device/tablet
@@ -672,5 +728,5 @@ Proprietary. All rights reserved.
 
 Production web app live on Railway. Android debug APK builds locally with Capacitor.
 
-**Latest:** subscription tiers (Free / Pro / Fleet) with payment-triggered unlock, Pro API enforcement, upgrade UI, fleet auto-provisioning on Fleet purchase, admin CLI tools (`setup_fleet.py`, `reset_password.py`), purchase tracking via dbops-api, trip tracking (Manual / GPS / OBD), tabbed dashboard, reports, HOS clocks, fleet GPS sharing, themes, and voice entry.
+**Latest:** subscription tiers (Free / Pro / Fleet) with payment-triggered unlock, Pro API enforcement, upgrade UI, fleet auto-provisioning on Fleet purchase, admin CLI tools (`setup_fleet.py`, `reset_password.py`), purchase tracking via dbops-api, trip tracking (Manual / GPS / OBD), tabbed dashboard, reports, HOS clocks, fleet GPS sharing, themes, voice entry, and regional transport compliance for Uganda, Kenya, Rwanda, EAC cross-border routes, and the EU region.
 
