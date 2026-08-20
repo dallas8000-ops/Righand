@@ -8,6 +8,7 @@ from api.jwt_auth import jwt_required
 from api.models import DutyLog, Expense, FleetMembership, Tenant, User, VehicleLocation
 from api.tier_guard import require_pro
 from api.utils import parse_json
+from fleet_service import FLEET_SEAT_ROLES
 
 
 def _membership_for(user_id):
@@ -25,11 +26,13 @@ def fleet_status(request):
             'success': True,
             'hasFleet': False,
             'tier': 'solo',
-            'message': 'Fleet Lite ($89/mo) supports up to 5 drivers with dispatcher view.',
+            'message': 'Fleet Lite ($89/mo) includes 1 billing owner plus up to 5 driver/dispatcher seats.',
         })
 
     tenant = Tenant.objects.filter(pk=membership.tenant_id).first()
     members = FleetMembership.objects.filter(tenant_id=tenant.id)
+    seat_count = members.filter(role__in=FLEET_SEAT_ROLES).count()
+    driver_count = members.filter(role='driver').count()
 
     return JsonResponse({
         'success': True,
@@ -39,7 +42,9 @@ def fleet_status(request):
             'id': tenant.id,
             'name': tenant.name,
             'maxDrivers': tenant.max_drivers,
-            'driverCount': members.count(),
+            'driverCount': driver_count,
+            'seatCount': seat_count,
+            'remainingSeats': max(tenant.max_drivers - seat_count, 0),
         },
         'role': membership.role,
     })

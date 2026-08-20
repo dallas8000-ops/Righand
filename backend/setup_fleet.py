@@ -9,14 +9,12 @@ Usage:
 import argparse
 import os
 import sys
-import uuid
 
 
 def setup_django():
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'righand.settings')
     import django
     django.setup()
-
 
 def list_users():
     from api.models import User
@@ -63,16 +61,21 @@ def create_fleet(owner_email: str, fleet_name: str, max_drivers: int = 5):
         print(f'User already in fleet "{tenant.name}" as {existing.role}.')
         return
 
-    tenant = ensure_fleet_for_owner(owner, fleet_name, max_drivers)
+    try:
+        tenant = ensure_fleet_for_owner(owner, fleet_name, max_drivers)
+    except ValueError as exc:
+        print(str(exc))
+        sys.exit(1)
     print(f'Fleet Lite enabled: "{fleet_name}"')
     print(f'  Owner: {owner.email} (role: owner)')
     print(f'  Tenant ID: {tenant.id}')
-    print(f'  Max drivers: {max_drivers}')
+    print(f'  Included fleet seats: {tenant.max_drivers} drivers/dispatchers')
     print('Log out and back in, then open the Dispatch tab.')
 
 
 def add_member(owner_email: str, member_email: str, role: str):
     from api.models import FleetMembership
+    from fleet_service import add_fleet_member
 
     owner = get_user_by_email(owner_email)
     member = get_user_by_email(member_email)
@@ -81,27 +84,17 @@ def add_member(owner_email: str, member_email: str, role: str):
         print(f'No fleet found for owner {owner_email}. Run create first.')
         sys.exit(1)
 
-    existing = FleetMembership.objects.filter(user_id=member.id).first()
-    if existing:
-        print(f'{member_email} is already in a fleet (role: {existing.role}).')
+    try:
+        add_fleet_member(tenant, member, role)
+    except ValueError as exc:
+        print(str(exc))
         sys.exit(1)
-
-    driver_count = FleetMembership.objects.filter(tenant_id=tenant.id, role='driver').count()
-    if role == 'driver' and driver_count >= tenant.max_drivers:
-        print(f'Fleet is at max drivers ({tenant.max_drivers}).')
-        sys.exit(1)
-
-    FleetMembership(
-        id=str(uuid.uuid4()),
-        tenant_id=tenant.id,
-        user_id=member.id,
-        role=role,
-    ).save()
     print(f'Added {member.email} as {role} to "{tenant.name}".')
 
 
 def show_status(owner_email: str):
     from api.models import FleetMembership, User
+    from fleet_service import FLEET_SEAT_ROLES
 
     owner = get_user_by_email(owner_email)
     tenant = get_tenant_for_owner(owner)
@@ -109,7 +102,8 @@ def show_status(owner_email: str):
         print(f'No fleet for {owner_email}.')
         return
     members = FleetMembership.objects.filter(tenant_id=tenant.id)
-    print(f'Fleet: {tenant.name} ({members.count()}/{tenant.max_drivers} slots)')
+    seat_count = members.filter(role__in=FLEET_SEAT_ROLES).count()
+    print(f'Fleet: {tenant.name} ({seat_count}/{tenant.max_drivers} fleet seats used)')
     for m in members:
         u = User.objects.filter(pk=m.user_id).first()
         print(f'  - {m.role:<12} {u.email if u else m.user_id}')

@@ -36,7 +36,7 @@ Production uses **one Railway service** (`Righand`) at `righand-production.up.ra
 |------|-------|---------|
 | **Free** | $0 | Home, Money Log (add/history/receipts), basic profit summary, trip miles, weekly chart |
 | **Compliance Pro** | $34.99/mo | Tax & IFTA reports, PDF/CSV export, HOS-lite, maintenance reminders, document/load packets, Admin panel, custom categories |
-| **Fleet Lite** | $89/mo | Everything in Compliance Pro + up to 5 drivers, dispatcher view, live GPS sharing |
+| **Fleet Lite** | $89/mo | Everything in Compliance Pro + 1 billing owner, up to 5 driver/dispatcher seats, dispatcher view, live GPS sharing |
 
 **How unlock works:**
 1. New users start on **Free** (`GET /api/subscriptions/me` creates a `free` row).
@@ -147,7 +147,15 @@ See [Section 12](#12-android-app-capacitor) for building and installing the Andr
 
 ### 3.8 Fleet Lite
 
-Multi-driver P&amp;L and live GPS for carriers with up to 5 drivers.
+Multi-driver P&amp;L and live GPS for carriers with 1 billing owner plus up to 5 driver/dispatcher seats. Additional users require upgrade or add-on pricing; Fleet Lite is not an unlimited company account.
+
+**Fleet governance policy:**
+- One paid Fleet Lite subscription creates one fleet tenant with one billing owner.
+- The owner account is included for billing/admin control.
+- Driver and dispatcher accounts consume fleet seats.
+- Fleet Lite includes 5 fleet seats by default (`FLEET_LITE_INCLUDED_USERS=5`).
+- Adding the 6th driver/dispatcher is blocked server-side and requires add-on or higher-tier pricing.
+- Any future invite or self-service user-management API must use the shared fleet member service so the limit cannot be bypassed.
 
 **Two ways to enable Fleet:**
 
@@ -535,7 +543,7 @@ Use this flow for a first real run, from launch through daily operation:
 8. **Use paid and fleet workflows when unlocked**
    - Free users can use core logging, trip tracking, loads, and compliance basics.
    - Compliance Pro unlocks Tax & IFTA, HOS, Admin, custom categories, and exports.
-   - Fleet Lite unlocks dispatcher view and live GPS sharing for up to 5 drivers. Drivers start sharing from **Dispatch/Fleet**, and owners refresh the dispatcher view to see current P&L and map links.
+   - Fleet Lite unlocks dispatcher view and live GPS sharing for 1 billing owner plus up to 5 driver/dispatcher seats. Drivers start sharing from **Dispatch/Fleet**, and owners refresh the dispatcher view to see current P&L and map links.
 
 9. **Operate offline when needed**
    - Keep using the app without a connection; IndexedDB stores entries and sync queue items locally.

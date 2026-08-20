@@ -73,7 +73,7 @@ const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked,
         <div>
           <h2>Dispatch</h2>
           <p className="admin-hint">
-            {fleetStatus.tenant?.name} · {fleetStatus.tenant?.driverCount}/{fleetStatus.tenant?.maxDrivers} drivers
+            {fleetStatus.tenant?.name} · {fleetStatus.tenant?.seatCount ?? fleetStatus.tenant?.driverCount}/{fleetStatus.tenant?.maxDrivers} Fleet Lite seats used
             {fleetStatus.role && ` · Your role: ${fleetStatus.role}`}
           </p>
         </div>

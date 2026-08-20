@@ -10,7 +10,7 @@ const TIER_COPY = {
   fleet: {
     title: 'Fleet Lite',
     price: 89,
-    blurb: 'Everything in Compliance Pro plus up to 5 drivers, dispatcher view, and live GPS sharing.',
+    blurb: 'Everything in Compliance Pro plus 1 billing owner, up to 5 driver/dispatcher seats, dispatch view, and live GPS sharing.',
   },
 };
 
