@@ -493,6 +493,54 @@ Local URLs:
 - Frontend: http://localhost:3000 (or 3001 if 3000 is busy)
 - Backend: http://localhost:8000 — preferred local app/API when running Django directly
 
+### 8.1 How to Use the App
+
+Use this flow for a first real run, from launch through daily operation:
+
+1. **Launch RigHand**
+   - Production web: open `https://righand-production.up.railway.app`.
+   - Local web: start the backend on `http://localhost:8000`, then start the frontend from `frontend/` with `npm start`.
+   - Android: install the APK, then open **RigHand AI** from the device launcher or run `adb shell am start -n com.righand.app/.MainActivity`.
+
+2. **Sign in or try demo mode**
+   - Register or log in with a real account when you need cloud sync, subscriptions, reports, fleet, or compliance profiles.
+   - Use demo mode for offline/local testing. Demo mode does not receive paid tiers.
+
+3. **Set your operating context**
+   - On the **Compliance** tab, choose Uganda, Kenya, Rwanda, EAC, or EU so checklists, readiness warnings, and currency labels match the work being done.
+   - Add driver, vehicle, and route profiles. Enter verified source/date values for cross-border insurance, axle/load rules, special-load notes, and other jurisdiction evidence instead of relying on hardcoded limits.
+   - Grant Android permissions when prompted: Location for GPS trips/fleet sharing, Nearby devices/Bluetooth for OBD, and Microphone for voice entry.
+
+4. **Log money while working**
+   - Open **Money Log** → **New Entry**.
+   - Choose income or expense, enter the amount, category, description, date, miles/odometer, fuel details, or load details.
+   - Attach receipt photos when needed. Entries save locally first and sync when the backend is available.
+   - Use quick templates for fuel stops, tolls, food/hotel, maintenance, and load income.
+
+5. **Track trips and miles**
+   - On **Home**, use **Manual** trip mode for beginning/end odometer capture.
+   - Use **GPS** mode for live mileage on web or Android.
+   - Use **OBD** mode on Android with an ELM327 BLE dongle for vehicle data when supported.
+   - End the trip, review the total, then use **Log Miles** to pre-fill a load income entry.
+
+6. **Prepare loads and compliance packets**
+   - Use **Loads** to evaluate rate, deadhead, fuel, tolls, and trip packet text.
+   - Use **Compliance** to upload text or selectable PDF documents, review extracted fields, and clear critical findings before dispatch or release.
+   - Critical open findings block load release for the selected jurisdiction.
+
+7. **Review profit and reports**
+   - Use **Home** for net profit, weekly chart, fuel range, maintenance prompts, and driver alerts.
+   - Use **Tax & IFTA** on Compliance Pro for PDF/CSV exports, Schedule C quarterly summaries, and IFTA fuel summaries. Exports include the selected currency code.
+
+8. **Use paid and fleet workflows when unlocked**
+   - Free users can use core logging, trip tracking, loads, and compliance basics.
+   - Compliance Pro unlocks Tax & IFTA, HOS, Admin, custom categories, and exports.
+   - Fleet Lite unlocks dispatcher view and live GPS sharing for up to 5 drivers. Drivers start sharing from **Dispatch/Fleet**, and owners refresh the dispatcher view to see current P&L and map links.
+
+9. **Operate offline when needed**
+   - Keep using the app without a connection; IndexedDB stores entries and sync queue items locally.
+   - When the connection returns, RigHand syncs pending changes in the background.
+
 ## 9. Railway Deployment Reference
 
 See **`backend/RAILWAY_DEPLOY.md`** for the full guide.
@@ -733,5 +781,5 @@ Proprietary. All rights reserved.
 
 Production web app live on Railway. Android debug APK builds locally with Capacitor.
 
-**Latest:** subscription tiers (Free / Pro / Fleet) with payment-triggered unlock, Pro API enforcement, upgrade UI, fleet auto-provisioning on Fleet purchase, admin CLI tools (`setup_fleet.py`, `reset_password.py`), purchase tracking via dbops-api, trip tracking (Manual / GPS / OBD), tabbed dashboard, reports, HOS clocks, fleet GPS sharing, themes, voice entry, and regional transport compliance for Uganda, Kenya, Rwanda, EAC cross-border routes, and the EU region.
+**Latest:** subscription tiers (Free / Pro / Fleet) with payment-triggered unlock, Pro API enforcement, upgrade UI, fleet auto-provisioning on Fleet purchase, admin CLI tools (`setup_fleet.py`, `reset_password.py`), purchase tracking via dbops-api, trip tracking (Manual / GPS / OBD), tabbed dashboard, reports, HOS clocks, fleet GPS sharing, themes, voice entry, jurisdiction-aware currency display in dashboards/exports, configurable cross-border compliance evidence fields, and regional transport compliance for Uganda, Kenya, Rwanda, EAC cross-border routes, and the EU region.
 
