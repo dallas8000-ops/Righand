@@ -14,9 +14,9 @@ const formatTime = (iso) => {
 };
 
 const TRIP_MODE_TABS = [
-  { id: 'manual', label: 'Manual', icon: 'Manual' },
-  { id: 'gps', label: 'GPS', icon: 'GPS' },
-  { id: 'obd', label: 'OBD', icon: 'OBD' }
+  { id: 'manual', label: 'Manual' },
+  { id: 'gps', label: 'GPS' },
+  { id: 'obd', label: 'OBD' }
 ];
 
 const TripTracker = ({ userId, onLogMiles }) => {
@@ -217,7 +217,7 @@ const TripTracker = ({ userId, onLogMiles }) => {
             onClick={() => setMode(tab.id)}
             disabled={tripInProgress}
           >
-            {tab.icon} {tab.label}
+            {tab.label}
           </button>
         ))}
       </div>
