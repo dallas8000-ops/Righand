@@ -172,6 +172,30 @@ const Dashboard = ({ user, onLogout }) => {
   const [complianceSyncStatus, setComplianceSyncStatus] = useState('local');
   const { subscription, isPro, refresh: refreshSubscription } = useSubscription(isDemo);
 
+  // Verify Flutterwave payment after redirect back from checkout
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('billing') !== 'success' || params.get('gateway') !== 'flutterwave') return;
+    const transactionId = params.get('transaction_id');
+    const txRef = params.get('tx_ref');
+    const tier = params.get('tier') || 'pro';
+    if (!transactionId) return;
+    // Remove billing params from URL without reload
+    const clean = window.location.pathname;
+    window.history.replaceState({}, '', clean);
+    (async () => {
+      try {
+        const { SubscriptionAPI } = await import('../services/api');
+        await SubscriptionAPI.verifyFlutterwavePayment({ transactionId, txRef, tier });
+        await refreshSubscription();
+        setToast({ message: 'Payment confirmed — features unlocked!', type: 'success' });
+      } catch {
+        setToast({ message: 'Payment received but verification failed. Contact support.', type: 'error' });
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handlePaidUnlock = async () => {
     await refreshSubscription();
     await loadFleetStatus();
@@ -2393,6 +2417,12 @@ const Dashboard = ({ user, onLogout }) => {
       <main className="dashboard-main">
         {toast.message && (
           <output className={`toast-banner ${toast.type}`}>{toast.message}</output>
+        )}
+        {subscription?.trialActive && (
+          <div className="trial-banner">
+            Free trial — {subscription.trialDaysLeft} day{subscription.trialDaysLeft !== 1 ? 's' : ''} remaining.
+            Subscribe to keep access after your trial ends.
+          </div>
         )}
 
         {activeTab === 'home' && renderHome()}

@@ -1,6 +1,9 @@
 import json
+from datetime import datetime, timedelta, timezone
 
 from django.db import models
+
+TRIAL_DAYS = 30
 
 
 class User(models.Model):
@@ -180,7 +183,26 @@ class Subscription(models.Model):
         db_table = 'subscriptions'
         managed = False
 
+    def _trial_metadata(self):
+        if not self.started_at:
+            return {'inTrial': False, 'trialExpired': False, 'trialExpiresAt': None, 'trialDaysLeft': 0}
+        now = datetime.now(timezone.utc)
+        started = self.started_at
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        expires_at = started + timedelta(days=TRIAL_DAYS)
+        in_trial = self.tier == 'free' and now < expires_at
+        trial_expired = self.tier == 'free' and now >= expires_at
+        days_left = max(0, (expires_at - now).days) if in_trial else 0
+        return {
+            'inTrial': in_trial,
+            'trialExpired': trial_expired,
+            'trialExpiresAt': expires_at.isoformat(),
+            'trialDaysLeft': days_left,
+        }
+
     def to_dict(self):
+        trial = self._trial_metadata()
         return {
             'id': self.id,
             'userId': self.user_id,
@@ -191,6 +213,10 @@ class Subscription(models.Model):
             'proStartedAt': self.pro_started_at.isoformat() if self.pro_started_at else None,
             'freeUpdatesUsed': self.free_updates_used,
             'milestoneNotified': self.milestone_notified,
+            'trialActive': trial['inTrial'],
+            'trialExpired': trial['trialExpired'],
+            'trialExpiresAt': trial['trialExpiresAt'],
+            'trialDaysLeft': trial['trialDaysLeft'],
         }
 
 

@@ -31,11 +31,13 @@ from api.views.reports import (
 from api.views.subscriptions import (
     activate_subscription,
     cancel_subscription,
+    create_flutterwave_checkout,
     create_stripe_checkout,
     my_purchase_events,
     my_subscription,
     record_free_update,
     renew_subscription,
     stripe_webhook,
+    verify_flutterwave_payment,
     verify_purchase,
 )

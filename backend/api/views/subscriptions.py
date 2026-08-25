@@ -1,4 +1,7 @@
 import os
+import uuid
+
+import requests as _requests
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -17,6 +20,7 @@ from subscription_service import (
     get_or_create_subscription,
     log_purchase_event,
     resolve_product,
+    utcnow,
 )
 
 
@@ -248,3 +252,138 @@ def record_free_update(request):
     sub.free_updates_used = (sub.free_updates_used or 0) + 1
     sub.save()
     return JsonResponse(sub.to_dict())
+
+
+@jwt_required
+@require_http_methods(['POST'])
+def create_flutterwave_checkout(request):
+    user_id = request.righand_user_id
+    user = User.objects.filter(pk=user_id).first()
+    if not user:
+        return JsonResponse({'error': 'User not found'}, status=404)
+
+    secret_key = os.environ.get('FLUTTERWAVE_SECRET_KEY', '').strip()
+    if not secret_key:
+        return JsonResponse({'error': 'Flutterwave is not configured on this server'}, status=503)
+
+    body = parse_json(request)
+    tier = body.get('tier', 'pro')
+    if tier not in ('pro', 'fleet'):
+        return JsonResponse({'error': 'Invalid tier - use pro or fleet'}, status=400)
+
+    sub = get_or_create_subscription(user_id)
+    amount = TIER_PRICES[tier]
+    currency = os.environ.get('FLUTTERWAVE_CURRENCY', 'USD')
+
+    frontend_url = (
+        body.get('frontendUrl')
+        or os.environ.get('RIGHAND_FRONTEND_URL')
+        or request.headers.get('Origin')
+        or request.build_absolute_uri('/').rstrip('/')
+    ).rstrip('/')
+
+    tx_ref = f'RH-{sub.subscriber_id}-{int(utcnow().timestamp())}-{uuid.uuid4().hex[:6]}'
+
+    payload = {
+        'tx_ref': tx_ref,
+        'amount': amount,
+        'currency': currency,
+        'redirect_url': f'{frontend_url}?billing=success&tier={tier}&gateway=flutterwave',
+        'customer': {
+            'email': user.email,
+            'name': user.name or user.email.split('@')[0],
+            'phonenumber': '',
+        },
+        'customizations': {
+            'title': f'RigHand {tier.capitalize()}',
+            'description': f'${amount:.2f}/month subscription',
+            'logo': f'{frontend_url}/logo192.png',
+        },
+        'meta': {
+            'user_id': user.id,
+            'tier': tier,
+            'subscriber_id': sub.subscriber_id,
+        },
+    }
+
+    try:
+        resp = _requests.post(
+            'https://api.flutterwave.com/v3/payments',
+            json=payload,
+            headers={'Authorization': f'Bearer {secret_key}'},
+            timeout=10,
+        )
+        result = resp.json()
+    except Exception as exc:
+        return JsonResponse({'error': f'Flutterwave request failed: {exc}'}, status=502)
+
+    if result.get('status') != 'success':
+        msg = result.get('message', 'Unknown Flutterwave error')
+        return JsonResponse({'error': f'Flutterwave error: {msg}'}, status=400)
+
+    checkout_url = result['data']['link']
+    return JsonResponse({
+        'mode': 'flutterwave',
+        'url': checkout_url,
+        'txRef': tx_ref,
+        'tier': tier,
+    })
+
+
+@jwt_required
+@require_http_methods(['POST'])
+def verify_flutterwave_payment(request):
+    """Verify a Flutterwave payment after redirect and activate subscription."""
+    user_id = request.righand_user_id
+    user = User.objects.filter(pk=user_id).first()
+    if not user:
+        return JsonResponse({'error': 'User not found'}, status=404)
+
+    secret_key = os.environ.get('FLUTTERWAVE_SECRET_KEY', '').strip()
+    if not secret_key:
+        return JsonResponse({'error': 'Flutterwave is not configured'}, status=503)
+
+    body = parse_json(request)
+    transaction_id = body.get('transactionId') or body.get('transaction_id')
+
+    if not transaction_id:
+        return JsonResponse({'error': 'transactionId required'}, status=400)
+
+    try:
+        resp = _requests.get(
+            f'https://api.flutterwave.com/v3/transactions/{transaction_id}/verify',
+            headers={'Authorization': f'Bearer {secret_key}'},
+            timeout=10,
+        )
+        result = resp.json()
+    except Exception as exc:
+        return JsonResponse({'error': f'Flutterwave verification failed: {exc}'}, status=502)
+
+    if result.get('status') != 'success':
+        msg = result.get('message', 'Payment not verified')
+        return JsonResponse({'error': f'Flutterwave: {msg}', 'verified': False}, status=400)
+
+    data = result.get('data', {})
+    if data.get('status') != 'successful':
+        return JsonResponse({'error': 'Payment was not successful', 'verified': False}, status=400)
+
+    meta = data.get('meta') or {}
+    tier = meta.get('tier') or body.get('tier', 'pro')
+    if tier not in ('pro', 'fleet'):
+        tier = 'pro'
+
+    amount = float(data.get('amount', TIER_PRICES[tier]))
+    google_order_id = str(transaction_id)
+
+    try:
+        sub = apply_tier_upgrade(user, tier, amount, google_order_id=google_order_id,
+                                  google_product_id=f'flutterwave_{tier}')
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+
+    return JsonResponse({
+        'message': 'Payment verified — features unlocked',
+        'verified': True,
+        'tier': sub.tier,
+        **sub.to_dict(),
+    })

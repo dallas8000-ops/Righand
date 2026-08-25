@@ -53,6 +53,9 @@ export function useSubscription(isDemo) {
   const tier = subscription?.tier || 'free';
   const isPro = isDemo ? false : PAID_TIERS.has(tier);
   const isFleetPaid = isDemo ? false : tier === 'fleet';
+  const isInTrial = !isDemo && Boolean(subscription?.trialActive);
+  const trialExpired = !isDemo && Boolean(subscription?.trialExpired);
+  const trialDaysLeft = subscription?.trialDaysLeft ?? 0;
 
-  return { subscription, loading, isPro, isFleetPaid, refresh, tier };
+  return { subscription, loading, isPro, isFleetPaid, refresh, tier, isInTrial, trialExpired, trialDaysLeft };
 }

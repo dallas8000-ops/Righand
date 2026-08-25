@@ -407,6 +407,23 @@ export const SubscriptionAPI = {
     });
     return response.data;
   },
+
+  async startFlutterwaveCheckout(tier = 'pro') {
+    const response = await api.post('/subscriptions/flutterwave-checkout', {
+      tier,
+      frontendUrl: typeof window !== 'undefined' ? window.location.origin : undefined,
+    });
+    return response.data;
+  },
+
+  async verifyFlutterwavePayment({ transactionId, txRef, tier }) {
+    const response = await api.post('/subscriptions/flutterwave-verify', {
+      transactionId,
+      txRef,
+      tier,
+    });
+    return response.data;
+  },
 };
 
 export const FleetAPI = {

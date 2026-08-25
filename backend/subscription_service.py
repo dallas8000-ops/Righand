@@ -15,6 +15,9 @@ TIER_PRICES = {
     'fleet': 89.0,
 }
 
+TRIAL_DAYS = 30
+TRIAL_SEAT_LIMIT = 5
+
 TIER_RANK = {'free': 0, 'pro': 1, 'fleet': 2}
 
 WEBHOOK_EVENT_MAP = {
@@ -69,6 +72,16 @@ def resolve_stripe_price(price_id: str):
 
 def utcnow():
     return datetime.now(timezone.utc)
+
+
+def is_trial_active(sub) -> bool:
+    """True if the account is in its 30-day free trial window."""
+    if not sub or sub.tier != 'free' or not sub.started_at:
+        return False
+    started = sub.started_at
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=timezone.utc)
+    return utcnow() < started + timedelta(days=TRIAL_DAYS)
 
 
 def next_subscriber_id() -> str:

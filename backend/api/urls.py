@@ -47,6 +47,8 @@ urlpatterns = [
     path('subscriptions/verify-purchase', csrf(views.verify_purchase)),
     path('subscriptions/activate', csrf(views.activate_subscription)),
     path('subscriptions/stripe-checkout', csrf(views.create_stripe_checkout)),
+    path('subscriptions/flutterwave-checkout', csrf(views.create_flutterwave_checkout)),
+    path('subscriptions/flutterwave-verify', csrf(views.verify_flutterwave_payment)),
     path('subscriptions/renew', csrf(views.renew_subscription)),
     path('subscriptions/cancel', csrf(views.cancel_subscription)),
     path('subscriptions/update-used', csrf(views.record_free_update)),

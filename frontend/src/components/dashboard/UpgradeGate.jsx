@@ -21,10 +21,14 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
 
   const productId = subscription?.products?.[tier]?.productId;
   const stripeConfigured = Boolean(subscription?.stripeConfigured);
+  const trialActive = Boolean(subscription?.trialActive);
+  const trialExpired = Boolean(subscription?.trialExpired);
+
   const alreadyUnlocked =
-    tier === 'fleet'
+    trialActive ||
+    (tier === 'fleet'
       ? subscription?.tier === 'fleet'
-      : subscription?.tier === 'pro' || subscription?.tier === 'fleet';
+      : subscription?.tier === 'pro' || subscription?.tier === 'fleet');
 
   const handlePurchaseComplete = async (orderId, product) => {
     setBusy(true);
@@ -59,6 +63,23 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
     }
   };
 
+  const handleFlutterwaveCheckout = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const session = await SubscriptionAPI.startFlutterwaveCheckout(tier);
+      if (session?.url) {
+        window.location.assign(session.url);
+        return;
+      }
+      setError('Flutterwave checkout did not return a URL.');
+    } catch (err) {
+      setError(err?.error || err?.message || 'Flutterwave checkout failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   useEffect(() => {
     window.RigHandBilling = window.RigHandBilling || {};
     window.RigHandBilling.onPurchase = (purchase) => {
@@ -79,13 +100,22 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
   return (
     <section className="upgrade-gate">
       <div className="upgrade-gate-card">
-        <p className="upgrade-badge">Upgrade</p>
+        {trialExpired ? (
+          <p className="upgrade-badge upgrade-badge--expired">Trial Ended</p>
+        ) : (
+          <p className="upgrade-badge">Upgrade</p>
+        )}
         <h2>{copy.title}</h2>
         <p className="upgrade-price">${copy.price}/mo</p>
+        {trialExpired && (
+          <p className="admin-hint upgrade-trial-note">
+            Your 30-day free trial has ended. Subscribe to keep access to all features.
+          </p>
+        )}
         <p className="admin-hint">{copy.blurb}</p>
         <p className="admin-hint">
-          Subscribe with Stripe on web or in the <strong>Google Play</strong> app on Android.
-          After payment, features unlock automatically.
+          Pay via Flutterwave (mobile money &amp; cards) or Stripe on web.
+          Features unlock automatically after payment.
         </p>
         {productId && (
           <p className="upgrade-product-id">
@@ -93,10 +123,18 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
           </p>
         )}
         {error && <p className="error-message">{error}</p>}
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={busy}
+          onClick={handleFlutterwaveCheckout}
+        >
+          {busy ? 'Opening checkout...' : 'Subscribe with Flutterwave'}
+        </button>
         {stripeConfigured && (
           <button
             type="button"
-            className="btn-primary"
+            className="btn-secondary"
             disabled={busy}
             onClick={handleStripeCheckout}
           >
