@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import AuthForm from './components/AuthForm';
 import Dashboard from './components/Dashboard';
+import LandingPage from './components/LandingPage';
 import { AuthAPI, setAuthToken } from './services/api';
 import { UserDB } from './services/offlineDB';
 import './App.css';
@@ -27,6 +28,8 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isLoginView, setIsLoginView] = useState(true);
+  const [showAuth, setShowAuth] = useState(false);
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem('authToken');
@@ -89,6 +92,23 @@ function App() {
     setIsAuthenticated(true);
   };
 
+  const handleDemoFromLanding = async () => {
+    try {
+      const demoUser = {
+        id: 'demo_user_001',
+        email: 'demo@righand.ai',
+        name: 'Demo Trucker',
+        truckerLicense: 'DEMO123'
+      };
+      await UserDB.saveUserSession(demoUser.id, demoUser.email, demoUser);
+      localStorage.setItem('authToken', 'demo_token_12345');
+      localStorage.setItem('userId', demoUser.id);
+      handleAuthSuccess(demoUser);
+    } catch (error) {
+      console.error('Demo mode failed:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -105,12 +125,32 @@ function App() {
     );
   }
 
+  const renderUnauthenticated = () => {
+    if (!showAuth) {
+      return (
+        <LandingPage
+          onLogin={() => { setIsLoginView(true); setShowAuth(true); }}
+          onSignUp={() => { setIsLoginView(false); setShowAuth(true); }}
+          onTryDemo={handleDemoFromLanding}
+        />
+      );
+    }
+    return (
+      <AuthForm
+        onAuthSuccess={handleAuthSuccess}
+        isLogin={isLoginView}
+        onToggleMode={() => setIsLoginView((prev) => !prev)}
+        onBack={() => setShowAuth(false)}
+      />
+    );
+  };
+
   return (
     <div className="App">
       {isAuthenticated ? (
         <Dashboard user={user} onLogout={handleLogout} />
       ) : (
-        <AuthForm onAuthSuccess={handleAuthSuccess} isLogin={true} />
+        renderUnauthenticated()
       )}
     </div>
   );

@@ -7,12 +7,12 @@ const DEV_LOGIN_EMAIL = process.env.REACT_APP_DEV_LOGIN_EMAIL;
 const DEV_LOGIN_PASSWORD = process.env.REACT_APP_DEV_LOGIN_PASSWORD;
 const DEVELOPER_BUILD = process.env.REACT_APP_DEVELOPER_BUILD === 'true';
 
-const AuthForm = ({ onAuthSuccess, isLogin = true }) => {
+const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    name: isLogin ? '' : '',
-    truckerLicense: isLogin ? '' : ''
+    name: '',
+    truckerLicense: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,6 +21,12 @@ const AuthForm = ({ onAuthSuccess, isLogin = true }) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     setError('');
+  };
+
+  const handleToggleMode = () => {
+    setError('');
+    setFormData({ email: '', password: '', name: '', truckerLicense: '' });
+    if (onToggleMode) onToggleMode();
   };
 
   const handleDemoLogin = async () => {
@@ -113,6 +119,11 @@ const AuthForm = ({ onAuthSuccess, isLogin = true }) => {
         className="auth-truck-bg"
       />
       <div className="auth-card">
+        {onBack && (
+          <button type="button" className="auth-back-link" onClick={onBack} aria-label="Back to home">
+            ← Back to home
+          </button>
+        )}
         <h1>🚚 RigHand AI</h1>
         <h2>{isLogin ? 'Driver Login' : 'Register'}</h2>
         
@@ -194,7 +205,21 @@ const AuthForm = ({ onAuthSuccess, isLogin = true }) => {
         )}
 
         <p className="auth-footer">
-          {isLogin ? "Don't have an account? Contact RigHand AI support." : 'Already registered? Please login.'}
+          {isLogin ? (
+            <>
+              Don't have an account?{' '}
+              <button type="button" className="auth-link-btn" onClick={handleToggleMode}>
+                Sign up
+              </button>
+            </>
+          ) : (
+            <>
+              Already registered?{' '}
+              <button type="button" className="auth-link-btn" onClick={handleToggleMode}>
+                Log in
+              </button>
+            </>
+          )}
         </p>
       </div>
     </div>
