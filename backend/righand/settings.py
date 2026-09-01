@@ -21,6 +21,25 @@ else:
     _env = os.environ.get('DJANGO_ENV', os.environ.get('FLASK_ENV', 'development'))
 DEBUG = _env == 'development'
 
+# --- Error/performance monitoring (Sentry) ---
+# SENTRY_DSN is set as a Railway environment variable, not hardcoded here.
+# No-ops safely if unset (e.g. local dev), so it's always safe to leave in.
+_sentry_dsn = os.environ.get('SENTRY_DSN', '').strip()
+if _sentry_dsn:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        integrations=[DjangoIntegration()],
+        environment=_env,
+        release=os.environ.get('RAILWAY_DEPLOYMENT_ID', 'unknown'),
+        # Keep trace/profile sampling modest by default; tune from the Sentry
+        # dashboard rather than raising this blindly.
+        traces_sample_rate=float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0.1')),
+        send_default_pii=False,
+    )
+
 
 def _build_allowed_hosts():
     hosts = [
