@@ -116,12 +116,13 @@ const LandingPage = ({ onLogin, onSignUp, onTryDemo }) => {
             aria-hidden="true"
           />
           <div className="landing-hero-content">
-            <span className="landing-eyebrow">Built for truck drivers & small carriers</span>
-            <h1>Know your real profit on every load, every mile.</h1>
+            <span className="landing-eyebrow">Fleet operations and dispatch readiness</span>
+            <h1>Keep every driver, vehicle, and load ready for the road.</h1>
             <p className="landing-hero-sub">
-              RigHand AI is an offline-first expense, profit, and compliance tracker for drivers and
-              small fleets — log costs from the cab, track trips automatically, and stay
-              audit-ready across Uganda, Kenya, Rwanda, the EAC, and the EU.
+              RigHand AI is an offline-first fleet operations platform with jurisdiction-aware compliance,
+              dispatch readiness, HOS assistance, and GPS or OBD-II trip logging. Drivers and small fleets
+              stay audit-ready across Uganda, Kenya, Rwanda, the EAC, and the EU while tracking the real
+              profit on every load.
             </p>
             <div className="landing-hero-actions">
               <button type="button" className="btn-hero-primary" onClick={onSignUp}>
