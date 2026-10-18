@@ -23,7 +23,7 @@ const FEATURES = [
   {
     icon: '🛣️',
     title: 'Trip Tracking',
-    desc: 'Manual odometer, live GPS, or an OBD-II dongle on Android — pick the mode that fits the cab and log miles automatically.',
+    desc: 'Manual odometer, live GPS, or an OBD-II dongle on Android — pick the mode that fits the cab and log kilometres automatically.',
   },
   {
     icon: '🌍',
@@ -32,8 +32,8 @@ const FEATURES = [
   },
   {
     icon: '📊',
-    title: 'Tax & IFTA Reports',
-    desc: 'Schedule C quarterly breakdowns, IFTA fuel summaries by state, and PDF/CSV exports that are ready for your accountant.',
+    title: 'Tax & Fuel Reports',
+    desc: 'Quarterly income and expense breakdowns, cross-border fuel summaries by country in litres, and PDF/CSV exports that are ready for your accountant.',
   },
   {
     icon: '🚛',
@@ -52,7 +52,7 @@ const TIERS = [
       'Home dashboard & weekly profit chart',
       'Money Log — add, search, and filter entries',
       'Receipt photo capture',
-      'Trip miles (manual, GPS, or OBD)',
+      'Trip distance (manual, GPS, or OBD)',
     ],
     cta: 'Start Free',
     highlight: false,
@@ -64,7 +64,7 @@ const TIERS = [
     tagline: 'For drivers who need tax-ready records and compliance tools.',
     features: [
       'Everything in Free',
-      'Tax & IFTA reports (PDF/CSV export)',
+      'Tax & fuel reports (PDF/CSV export)',
       'HOS countdown (11/14-hour clocks)',
       'Maintenance reminders & document packets',
       'Admin panel & custom categories',
@@ -161,12 +161,12 @@ const LandingPage = ({ onLogin, onSignUp, onTryDemo }) => {
             <div className="landing-step">
               <span className="landing-step-num">2</span>
               <h3>Track every trip</h3>
-              <p>Start and end trips manually, from live GPS, or from an OBD-II dongle on Android. Miles roll straight into your reports.</p>
+              <p>Start and end trips manually, from live GPS, or from an OBD-II dongle on Android. Kilometres roll straight into your reports.</p>
             </div>
             <div className="landing-step">
               <span className="landing-step-num">3</span>
               <h3>See what you actually made</h3>
-              <p>Net profit, profit per mile, and fuel cost per mile update automatically — plus tax-ready exports when you need them.</p>
+              <p>Net profit, profit per km, and fuel cost per km update automatically — plus tax-ready exports when you need them.</p>
             </div>
           </div>
         </section>
@@ -242,7 +242,7 @@ const LandingPage = ({ onLogin, onSignUp, onTryDemo }) => {
         </section>
 
         <section className="landing-final-cta">
-          <h2>Ready to see your real profit per mile?</h2>
+          <h2>Ready to see your real profit per km?</h2>
           <div className="landing-hero-actions">
             <button type="button" className="btn-hero-primary" onClick={onSignUp}>
               Get Started Free

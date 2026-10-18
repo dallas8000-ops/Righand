@@ -165,12 +165,12 @@ const TripTracker = ({ userId, onLogMiles }) => {
             </div>
           </div>
           <p className="trip-total">
-            Total: <strong>{formatMiles(lastCompleted.totalMiles)} mi</strong>
+            Total: <strong>{formatMiles(lastCompleted.totalMiles)} km</strong>
           </p>
           <div className="trip-actions">
             <button type="button" className="btn-primary" onClick={handleNewManualTrip}>Start New Trip</button>
             {onLogMiles && (
-              <button type="button" className="btn-secondary" onClick={handleLogMiles}>Log Miles</button>
+              <button type="button" className="btn-secondary" onClick={handleLogMiles}>Log Distance</button>
             )}
           </div>
         </div>
@@ -181,18 +181,18 @@ const TripTracker = ({ userId, onLogMiles }) => {
       <div className="trip-completed">
         <p className="trip-completed-label">Trip complete</p>
         <p className="trip-total trip-result-miles">
-          <strong>{formatMiles(totalMiles)} mi</strong>
+          <strong>{formatMiles(totalMiles)} km</strong>
           {gpsResult?.durationMinutes != null && (
             <span className="trip-duration"> · {gpsResult.durationMinutes} min</span>
           )}
         </p>
         {gpsResult?.source === 'obd' && (
-          <p className="admin-hint">Miles from OBD odometer</p>
+          <p className="admin-hint">Distance from OBD odometer</p>
         )}
         <div className="trip-actions">
           <button type="button" className="btn-primary" onClick={clearResults}>New Trip</button>
           {onLogMiles && (
-            <button type="button" className="btn-secondary" onClick={handleLogMiles}>Log Miles</button>
+            <button type="button" className="btn-secondary" onClick={handleLogMiles}>Log Distance</button>
           )}
         </div>
       </div>
@@ -202,7 +202,7 @@ const TripTracker = ({ userId, onLogMiles }) => {
   return (
     <section className="trip-tracker">
       <div className="trip-tracker-header">
-        <h2>Trip Miles</h2>
+        <h2>Trip Distance</h2>
         {tripInProgress && (
           <span className="trip-status-badge active">In progress</span>
         )}
@@ -247,7 +247,7 @@ const TripTracker = ({ userId, onLogMiles }) => {
         <div className="trip-active">
           <div className="trip-odometer-display">
             <div className="trip-odometer-block start">
-              <span className="trip-odometer-label">Start miles</span>
+              <span className="trip-odometer-label">Start odometer</span>
               <strong>{formatMiles(activeTrip.startMiles)}</strong>
               <small>Started {formatTime(activeTrip.startedAt)}</small>
             </div>
@@ -267,7 +267,7 @@ const TripTracker = ({ userId, onLogMiles }) => {
           </div>
           {endInput && Number.parseFloat(endInput) >= activeTrip.startMiles && (
             <p className="trip-preview">
-              Trip total: <strong>{formatMiles(Number.parseFloat(endInput) - activeTrip.startMiles)} mi</strong>
+              Trip total: <strong>{formatMiles(Number.parseFloat(endInput) - activeTrip.startMiles)} km</strong>
             </p>
           )}
           <div className="trip-actions">
@@ -284,13 +284,13 @@ const TripTracker = ({ userId, onLogMiles }) => {
             <>
               <div className="trip-live-stat">
                 <div>
-                  <span className="trip-odometer-label">Live miles</span>
+                  <span className="trip-odometer-label">Live km</span>
                   <strong className="trip-live-miles">{formatMiles(gps.tripMiles)}</strong>
                 </div>
                 {gps.currentSpeed !== null && (
                   <div>
                     <span className="trip-odometer-label">Speed</span>
-                    <strong className="trip-live-speed">{gps.currentSpeed} mph</strong>
+                    <strong className="trip-live-speed">{gps.currentSpeed} km/h</strong>
                   </div>
                 )}
               </div>
@@ -298,7 +298,7 @@ const TripTracker = ({ userId, onLogMiles }) => {
             </>
           ) : (
             <>
-              <p className="admin-hint">GPS tracks miles automatically while you drive. Works in browser and Android app.</p>
+              <p className="admin-hint">GPS tracks distance automatically while you drive. Works in browser and Android app.</p>
               <button type="button" className="btn-primary trip-start-btn" onClick={handleGpsStart}>Start GPS Trip</button>
             </>
           )}
@@ -320,7 +320,7 @@ const TripTracker = ({ userId, onLogMiles }) => {
             <div className="obd-gauges">
               <div className="obd-gauge">
                 <span className="trip-odometer-label">Speed</span>
-                <strong>{obd.vehicleData.speedMph ?? '—'} mph</strong>
+                <strong>{obd.vehicleData.speedMph ?? '—'} km/h</strong>
               </div>
               <div className="obd-gauge">
                 <span className="trip-odometer-label">RPM</span>
@@ -334,14 +334,14 @@ const TripTracker = ({ userId, onLogMiles }) => {
                 <span className="trip-odometer-label">Odometer</span>
                 <strong>
                   {obd.vehicleData.odometerMiles
-                    ? `${obd.vehicleData.odometerMiles.toLocaleString()} mi`
+                    ? `${obd.vehicleData.odometerMiles.toLocaleString()} km`
                     : 'N/A'}
                 </strong>
               </div>
             </div>
           )}
           {gps.tripActive && (
-            <p className="trip-preview">GPS backup: <strong>{formatMiles(gps.tripMiles)} mi</strong></p>
+            <p className="trip-preview">GPS backup: <strong>{formatMiles(gps.tripMiles)} km</strong></p>
           )}
           <div className="trip-actions">
             {!gps.tripActive ? (

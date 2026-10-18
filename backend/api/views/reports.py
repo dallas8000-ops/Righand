@@ -2,7 +2,7 @@ import csv
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
-from io import BytesIO
+from io import BytesIO, StringIO
 
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
@@ -139,11 +139,11 @@ def export_csv(request):
             start_date, end_date = _period_range(period)
 
         expenses = _user_expenses(user_id, start_date, end_date)
-        output = BytesIO()
+        output = StringIO()
         writer = csv.writer(output)
         writer.writerow([
             'Date', 'Type', 'Category', 'Description', 'Currency', 'Amount',
-            'Miles', 'Gallons', 'Odometer', 'Deadhead Miles',
+            'Distance (km)', 'Litres', 'Odometer', 'Deadhead (km)',
             'Tolls', 'Fuel Cost Alloc', 'Notes',
         ])
         for e in expenses:
@@ -164,7 +164,7 @@ def export_csv(request):
             ])
 
         filename = f'righand-export-{start_date.isoformat()}-to-{end_date.isoformat()}.csv'
-        response = HttpResponse(output.getvalue(), content_type='text/csv')
+        response = HttpResponse(output.getvalue().encode('utf-8'), content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
     except Exception as e:
@@ -207,11 +207,11 @@ def export_pdf(request):
             ['Total Income', _format_money(metrics['totalIncome'], currency_code)],
             ['Total Expenses', _format_money(metrics['totalExpenses'], currency_code)],
             ['Net Profit', _format_money(metrics['netProfit'], currency_code)],
-            ['Profit Per Mile', _format_money(metrics['profitPerMile'], currency_code) if metrics['profitPerMile'] is not None else 'N/A'],
-            ['Fuel Cost Per Mile', _format_money(metrics['fuelCostPerMile'], currency_code, 3) if metrics['fuelCostPerMile'] is not None else 'N/A'],
-            ['Cost Per Gallon', _format_money(metrics['costPerGallon'], currency_code, 3) if metrics['costPerGallon'] is not None else 'N/A'],
-            ['Loaded Miles', str(metrics['loadedMiles'])],
-            ['Total Gallons', str(metrics['totalGallons'])],
+            ['Profit Per km', _format_money(metrics['profitPerMile'], currency_code) if metrics['profitPerMile'] is not None else 'N/A'],
+            ['Fuel Cost Per km', _format_money(metrics['fuelCostPerMile'], currency_code, 3) if metrics['fuelCostPerMile'] is not None else 'N/A'],
+            ['Cost Per Litre', _format_money(metrics['costPerGallon'], currency_code, 3) if metrics['costPerGallon'] is not None else 'N/A'],
+            ['Loaded km', str(metrics['loadedMiles'])],
+            ['Total Litres', str(metrics['totalGallons'])],
         ]
         summary_table = Table(summary_data, colWidths=[220, 220])
         summary_table.setStyle(TableStyle([

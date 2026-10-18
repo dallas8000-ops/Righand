@@ -2,14 +2,18 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 
 const WEB_ERROR_MESSAGES = {
-  'not-allowed': 'Microphone blocked — allow mic access in device settings.',
+  'not-allowed': 'Microphone blocked — allow mic access for this site in the browser address bar.',
   'no-speech': 'No speech detected. Hold button and speak clearly.',
+  'audio-capture': 'No microphone found — in Windows Sound settings choose your headset as the input device, then try again.',
   aborted: '',
-  network: 'Voice requires an internet connection.',
 };
 
-export function useVoiceCapture(onTranscript) {
+const EMBEDDED_BROWSER_HINT = 'Voice entry does not work inside this built-in browser. Open the app in Chrome or Edge, or use the Android app. You can type the entry instead.';
+const SPEECH_SERVICE_HINT = 'This browser cannot reach its speech service, so voice is turned off. Use Chrome or Edge, or the Android app, or type the entry.';
+
+export function useVoiceCapture(onTranscript, onUnavailable) {
   const onTranscriptRef = useRef(onTranscript);
+  const onUnavailableRef = useRef(onUnavailable);
   const speechRecognitionRef = useRef(null);
   const voiceSessionActiveRef = useRef(false);
   const latestTranscriptRef = useRef('');
@@ -22,7 +26,8 @@ export function useVoiceCapture(onTranscript) {
 
   useEffect(() => {
     onTranscriptRef.current = onTranscript;
-  }, [onTranscript]);
+    onUnavailableRef.current = onUnavailable;
+  }, [onTranscript, onUnavailable]);
 
   const applyTranscript = useCallback((text) => {
     const transcript = String(text || '').trim();
@@ -74,6 +79,11 @@ export function useVoiceCapture(onTranscript) {
       setVoiceHint('Voice entry works in Chrome or the RigHand Android app with mic permission.');
       return undefined;
     }
+    // Embedded Chromium (e.g. the VS Code browser) exposes the API but has no speech service behind it.
+    if (/Electron\//i.test(navigator.userAgent)) {
+      setVoiceHint(EMBEDDED_BROWSER_HINT);
+      return undefined;
+    }
 
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
@@ -93,12 +103,17 @@ export function useVoiceCapture(onTranscript) {
     recognition.onerror = (event) => {
       voiceSessionActiveRef.current = false;
       setIsListening(false);
-      let msg = WEB_ERROR_MESSAGES[event.error] || `Voice error: ${event.error}`;
-      if (event.error === 'network') {
-        msg = navigator.onLine === false
-          ? 'You are offline. Voice needs a connection - type the entry instead.'
-          : 'This browser cannot reach its speech service (common in Brave, Edge or embedded browsers). Use Chrome or the RigHand Android app, or type the entry.';
+      if (event.error === 'network' || event.error === 'service-not-allowed') {
+        if (navigator.onLine === false) {
+          setVoiceHint('You are offline. Voice needs a connection - type the entry instead.');
+        } else {
+          setVoiceHint(SPEECH_SERVICE_HINT);
+          setVoiceAvailable(false);
+        }
+        onUnavailableRef.current?.();
+        return;
       }
+      const msg = WEB_ERROR_MESSAGES[event.error] || `Voice error: ${event.error}`;
       if (msg) setVoiceHint(msg);
     };
     recognition.onresult = (event) => {

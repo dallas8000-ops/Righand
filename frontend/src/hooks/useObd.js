@@ -33,7 +33,7 @@ function parsePid(pid, responseHex) {
     case '0D': {
       if (data.length < 2) return null;
       const kmh = Number.parseInt(data.slice(0, 2), 16);
-      return Math.round(kmh * 0.621371);
+      return kmh;
     }
     case '11': {
       if (data.length < 2) return null;
@@ -50,7 +50,7 @@ function parsePid(pid, responseHex) {
         (Number.parseInt(data.slice(2, 4), 16) << 16) +
         (Number.parseInt(data.slice(4, 6), 16) << 8) +
         Number.parseInt(data.slice(6, 8), 16);
-      return Math.round(km * 0.621371);
+      return km;
     }
     default:
       return null;

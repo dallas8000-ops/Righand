@@ -6,10 +6,11 @@ const WATCH_OPTIONS = {
   timeout: 10000
 };
 
-const MIN_DELTA_MILES = 0.02;
+// Trip distances are kilometres; property names still say "miles" so stored trips keep working.
+const MIN_DELTA_MILES = 0.03;
 
 function haversineMiles(lat1, lon1, lat2, lon2) {
-  const R = 3958.8;
+  const R = 6371.0088;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
@@ -25,7 +26,7 @@ function processPosition(position, lastCoordRef, accumulatedMilesRef, setters) {
   const { setCurrentSpeed, setCurrentCoords, setTripMiles } = setters;
 
   if (speed !== null && speed >= 0) {
-    setCurrentSpeed(Math.round(speed * 2.237));
+    setCurrentSpeed(Math.round(speed * 3.6));
   }
 
   setCurrentCoords({ lat: latitude, lng: longitude });

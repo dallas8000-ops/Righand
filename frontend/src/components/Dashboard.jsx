@@ -358,9 +358,9 @@ const Dashboard = ({ user, onLogout }) => {
   }, [expenses, driverTargets]);
   const fuelWatchText = useMemo(() => {
     if (estimatedFuelRange) return `${estimatedFuelRange.toFixed(0)} ${region.distanceUnit} range`;
-    if (displayMetrics.costPerGallon) return `${formatMoney(displayMetrics.costPerGallon)}/gal`;
+    if (displayMetrics.costPerGallon) return `${formatMoney(displayMetrics.costPerGallon)}/${region.fuelUnitShort}`;
     return 'Add fuel stop';
-  }, [displayMetrics.costPerGallon, estimatedFuelRange, formatMoney]);
+  }, [displayMetrics.costPerGallon, estimatedFuelRange, formatMoney, region.distanceUnit, region.fuelUnitShort]);
 
   useEffect(() => {
     localStorage.setItem('customCategories', JSON.stringify(customCategories));
@@ -767,6 +767,10 @@ const Dashboard = ({ user, onLogout }) => {
     showToast(`Voice captured: "${spokenText}"`, 'success');
   }, [showToast]);
 
+  const focusDescriptionField = useCallback(() => {
+    document.getElementById('expense-description')?.focus();
+  }, []);
+
   const {
     voiceAvailable,
     voiceHint,
@@ -774,7 +778,7 @@ const Dashboard = ({ user, onLogout }) => {
     startVoiceCapture,
     stopVoiceCapture,
     toggleVoiceCapture,
-  } = useVoiceCapture(applyVoiceCommand);
+  } = useVoiceCapture(applyVoiceCommand, focusDescriptionField);
 
   const beginVoiceCapture = (e) => {
     // Keep the gesture on the button so drifting or browser long-press handling can't end it early.
@@ -802,7 +806,7 @@ const Dashboard = ({ user, onLogout }) => {
     });
     setActiveTab('log');
     setLogView('add');
-    showToast(`Trip miles (${miles} mi) ready to log.`, 'success');
+    showToast(`Trip distance (${miles} ${region.distanceUnit}) ready to log.`, 'success');
   };
 
   const applyUsualTemplate = (template) => {
@@ -1149,7 +1153,7 @@ const Dashboard = ({ user, onLogout }) => {
 
   const buildLoadPacketText = (packet) => {
     const decision = computeLoadDecision(packet, driverTargets);
-    const netPerMileText = decision.netPerMile ? `${formatMoney(decision.netPerMile)}/mi` : 'missing miles';
+    const netPerMileText = decision.netPerMile ? `${formatMoney(decision.netPerMile)}/${region.distanceUnit}` : 'missing distance';
     return [
       'RigHand Load Packet',
       packet.loadNumber ? `Load: ${packet.loadNumber}` : '',
@@ -1159,7 +1163,7 @@ const Dashboard = ({ user, onLogout }) => {
       packet.pickupAddress ? `Pickup address: ${packet.pickupAddress}` : '',
       packet.deliveryAddress ? `Delivery address: ${packet.deliveryAddress}` : '',
       `Rate: ${formatMoney(packet.rate || 0)}`,
-      `Miles: ${decision.totalMiles || 0}`,
+      `Distance (${region.distanceUnit}): ${decision.totalMiles || 0}`,
       `Net: ${formatMoney(decision.net)} (${netPerMileText})`,
       packet.detentionTerms ? `Detention: ${packet.detentionTerms}` : '',
       packet.notes ? `Notes: ${packet.notes}` : ''
@@ -1335,7 +1339,7 @@ const Dashboard = ({ user, onLogout }) => {
         <article className="cockpit-card">
           <span className="metric-label">Next Maintenance</span>
           <strong>{nextMaintenance ? nextMaintenance.name : 'No reminders'}</strong>
-          <p>{nextMaintenance?.dueOdometer ? `Due at ${Number(nextMaintenance.dueOdometer).toLocaleString()} mi` : 'Add oil, tires, DOT, insurance, or registration reminders.'}</p>
+          <p>{nextMaintenance?.dueOdometer ? `Due at ${Number(nextMaintenance.dueOdometer).toLocaleString()} ${region.distanceUnit}` : 'Add oil, tires, DOT, insurance, or registration reminders.'}</p>
         </article>
         <article className="cockpit-card">
           <span className="metric-label">Compliance Assistant</span>
@@ -1542,8 +1546,8 @@ const Dashboard = ({ user, onLogout }) => {
 
         <div className="form-row">
           <div className="form-group">
-            <label htmlFor="expense-miles">Miles {showLoadFields ? '(loaded)' : '(optional)'}</label>
-            <input id="expense-miles" type="number" name="miles" value={formData.miles} onChange={handleFormChange} step="0.1" min="0" placeholder="Trip or loaded miles" />
+            <label htmlFor="expense-miles">Distance in {region.distanceUnit} {showLoadFields ? '(loaded)' : '(optional)'}</label>
+            <input id="expense-miles" type="number" name="miles" value={formData.miles} onChange={handleFormChange} step="0.1" min="0" placeholder="Trip or loaded distance" />
           </div>
           <div className="form-group">
             <label htmlFor="expense-odometer">Odometer (optional)</label>
@@ -1591,7 +1595,7 @@ const Dashboard = ({ user, onLogout }) => {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="expense-broker">Broker</label>
-                <input id="expense-broker" type="text" name="broker" value={formData.broker} onChange={handleFormChange} placeholder="e.g. TQL, CH Robinson" />
+                <input id="expense-broker" type="text" name="broker" value={formData.broker} onChange={handleFormChange} placeholder="e.g. freight agent or broker" />
               </div>
               <div className="form-group">
                 <label htmlFor="expense-customer">Customer / Shipper</label>
@@ -1600,7 +1604,7 @@ const Dashboard = ({ user, onLogout }) => {
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="expense-deadhead-miles">Deadhead Miles</label>
+                <label htmlFor="expense-deadhead-miles">Empty-run distance ({region.distanceUnit})</label>
                 <input id="expense-deadhead-miles" type="number" name="deadheadMiles" value={formData.deadheadMiles} onChange={handleFormChange} step="0.1" min="0" />
               </div>
               <div className="form-group">
@@ -1616,7 +1620,7 @@ const Dashboard = ({ user, onLogout }) => {
               <div className="form-group load-calc-preview">
                 <span className="form-label">Load Net Profit</span>
                 <p>{formatMoney(loadPreview.netLoadProfit)}</p>
-                <small>{loadPreview.profitPerMile ? `${formatMoney(loadPreview.profitPerMile)}/mi` : 'Add loaded miles'}</small>
+                <small>{loadPreview.profitPerMile ? `${formatMoney(loadPreview.profitPerMile)}/${region.distanceUnit}` : 'Add loaded distance'}</small>
               </div>
             </div>
           </>
@@ -1843,11 +1847,11 @@ const Dashboard = ({ user, onLogout }) => {
             <input id="load-rate" type="number" name="rate" value={loadForm.rate} onChange={handleLoadFormChange} step="0.01" min="0" />
           </div>
           <div className="form-group">
-            <label htmlFor="load-loaded-miles">Loaded Miles</label>
+            <label htmlFor="load-loaded-miles">Loaded distance ({region.distanceUnit})</label>
             <input id="load-loaded-miles" type="number" name="loadedMiles" value={loadForm.loadedMiles} onChange={handleLoadFormChange} step="0.1" min="0" />
           </div>
           <div className="form-group">
-            <label htmlFor="load-deadhead-miles">Deadhead Miles</label>
+            <label htmlFor="load-deadhead-miles">Empty-run distance ({region.distanceUnit})</label>
             <input id="load-deadhead-miles" type="number" name="deadheadMiles" value={loadForm.deadheadMiles} onChange={handleLoadFormChange} step="0.1" min="0" />
           </div>
         </div>
@@ -1900,8 +1904,8 @@ const Dashboard = ({ user, onLogout }) => {
                   <strong>{formatMoney(decision.net)}</strong>
                 </div>
                 <div>
-                  <span className="metric-label">Net / Mile</span>
-                  <strong>{decision.netPerMile ? `${formatMoney(decision.netPerMile)}/mi` : 'Add miles'}</strong>
+                  <span className="metric-label">Net / {region.distanceUnit}</span>
+                                    <strong>{decision.netPerMile ? `${formatMoney(decision.netPerMile)}/${region.distanceUnit}` : 'Add distance'}</strong>
                 </div>
               </>
             );
@@ -1941,7 +1945,7 @@ const Dashboard = ({ user, onLogout }) => {
             <article key={item.id} className="maintenance-item">
               <div>
                 <strong>{item.name}</strong>
-                <p>{item.dueOdometer ? `Due at ${Number(item.dueOdometer).toLocaleString()} mi` : 'No odometer due'}{item.dueDate ? ` | ${item.dueDate}` : ''}</p>
+                <p>{item.dueOdometer ? `Due at ${Number(item.dueOdometer).toLocaleString()} ${region.distanceUnit}` : 'No odometer due'}{item.dueDate ? ` | ${item.dueDate}` : ''}</p>
               </div>
               <button type="button" className="btn-secondary small" onClick={() => completeMaintenanceItem(item)}>Done</button>
             </article>
@@ -1972,7 +1976,7 @@ const Dashboard = ({ user, onLogout }) => {
               <div className="fleet-driver-metrics">
                 <div><span>Rate</span><strong>{formatMoney(packet.rate || 0)}</strong></div>
                 <div><span>Net</span><strong>{formatMoney(decision.net)}</strong></div>
-                <div><span>Net/mi</span><strong>{decision.netPerMile ? formatMoney(decision.netPerMile) : 'N/A'}</strong></div>
+                <div><span>Net/{region.distanceUnit}</span><strong>{decision.netPerMile ? formatMoney(decision.netPerMile) : 'N/A'}</strong></div>
               </div>
               {dispatchAlert && (
                 <div className={clsx('load-dispatch-alert', dispatchAlert.level)}>
