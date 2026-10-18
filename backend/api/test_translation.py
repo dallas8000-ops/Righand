@@ -49,6 +49,14 @@ class TranslationEndpointTests(TestCase):
         with mock.patch('api.views.translation.translate_to_luganda', side_effect=service.TranslationFailed()):
             self.assertEqual(self._post().status_code, 502)
 
+    def test_quota_and_auth_failures_get_clear_codes(self):
+        cases = {'429 insufficient_quota insufficient_quota': 'AI_QUOTA', '401 invalid_request_error invalid_api_key': 'AI_AUTH', '429 requests': 'AI_RATE_LIMIT'}
+        for reason, code in cases.items():
+            with mock.patch('api.views.translation.translate_to_luganda', side_effect=service.TranslationFailed(reason)):
+                response = self._post()
+            self.assertEqual(response.status_code, 502)
+            self.assertEqual(response.json()['code'], code, reason)
+
     def test_daily_limit_applies_only_to_new_translations(self):
         with mock.patch('api.views.translation.DAILY_NEW_TRANSLATIONS_PER_USER', 2), \
                 mock.patch('api.views.translation.translate_to_luganda', return_value=('L', 'E.')) as call:

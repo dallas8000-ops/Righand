@@ -31,6 +31,22 @@ class TranslationUnavailable(Exception):
 class TranslationFailed(Exception):
     """The AI provider could not produce a usable result."""
 
+    def __init__(self, reason=''):
+        super().__init__(reason)
+        self.reason = reason
+
+
+def _provider_error_reason(exc):
+    """Short, secret-free description of an OpenAI HTTP error (status, type, code)."""
+    response = getattr(exc, 'response', None)
+    if response is None:
+        return type(exc).__name__
+    try:
+        error = response.json().get('error') or {}
+    except ValueError:
+        error = {}
+    return f'{response.status_code} {error.get("type") or ""} {error.get("code") or ""}'.strip()
+
 
 def normalize_text(text):
     return ' '.join(str(text or '').split())[:MAX_SOURCE_CHARS]
@@ -66,8 +82,9 @@ def translate_to_luganda(text):
         luganda = str(data.get('luganda', '')).strip()
         summary = str(data.get('englishSummary', '')).strip()
     except Exception as exc:
-        logger.warning('Luganda translation failed: %s', exc)
-        raise TranslationFailed() from exc
+        reason = _provider_error_reason(exc)
+        logger.warning('Luganda translation failed: %s', reason)
+        raise TranslationFailed(reason) from exc
 
     if not luganda or not summary:
         raise TranslationFailed()

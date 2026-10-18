@@ -50,7 +50,16 @@ def translate_compliance_text(request):
         luganda, summary = translate_to_luganda(text)
     except TranslationUnavailable:
         return JsonResponse({'error': 'Luganda captions are not switched on yet.', 'code': 'AI_NOT_CONFIGURED'}, status=503)
-    except TranslationFailed:
+    except TranslationFailed as exc:
+        if 'insufficient_quota' in exc.reason:
+            return JsonResponse({
+                'error': 'The OpenAI account behind this key has no credit left. Add credit or a spending limit in the OpenAI billing page.',
+                'code': 'AI_QUOTA',
+            }, status=502)
+        if exc.reason.startswith('401'):
+            return JsonResponse({'error': 'The OpenAI key was rejected. Check OPENAI_API_KEY in Railway.', 'code': 'AI_AUTH'}, status=502)
+        if exc.reason.startswith('429'):
+            return JsonResponse({'error': 'OpenAI is rate limiting this key. Try again in a minute.', 'code': 'AI_RATE_LIMIT'}, status=502)
         return JsonResponse({'error': 'Translation is unavailable right now. Please try again.', 'code': 'AI_FAILED'}, status=502)
 
     row, _ = TranslationCache.objects.get_or_create(
