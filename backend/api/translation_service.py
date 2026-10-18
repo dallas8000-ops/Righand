@@ -52,8 +52,12 @@ def normalize_text(text):
     return ' '.join(str(text or '').split())[:MAX_SOURCE_CHARS]
 
 
+def model_name():
+    return os.environ.get('OPENAI_MODEL', '').strip() or 'gpt-4o-mini'
+
+
 def cache_key(text):
-    return hashlib.sha256(f'{PROMPT_VERSION}|{text}'.encode('utf-8')).hexdigest()
+    return hashlib.sha256(f'{PROMPT_VERSION}|{model_name()}|{text}'.encode('utf-8')).hexdigest()
 
 
 def translate_to_luganda(text):
@@ -66,7 +70,7 @@ def translate_to_luganda(text):
             'https://api.openai.com/v1/chat/completions',
             headers={'Authorization': f'Bearer {api_key}'},
             json={
-                'model': os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'),
+                'model': model_name(),
                 'temperature': 0,
                 'response_format': {'type': 'json_object'},
                 'messages': [

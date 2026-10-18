@@ -89,3 +89,10 @@ class TranslationServiceTests(TestCase):
     def test_text_is_capped_and_whitespace_normalised(self):
         self.assertEqual(service.normalize_text('a   b\n\nc'), 'a b c')
         self.assertEqual(len(service.normalize_text('x' * 5000)), service.MAX_SOURCE_CHARS)
+
+    def test_cache_key_changes_with_model(self):
+        with mock.patch.dict('os.environ', {'OPENAI_MODEL': 'gpt-4o-mini'}):
+            small = service.cache_key(RULE_TEXT)
+        with mock.patch.dict('os.environ', {'OPENAI_MODEL': 'gpt-4o'}):
+            large = service.cache_key(RULE_TEXT)
+        self.assertNotEqual(small, large)
