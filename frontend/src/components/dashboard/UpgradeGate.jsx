@@ -5,7 +5,7 @@ const TIER_COPY = {
   pro: {
     title: 'Compliance Pro',
     price: 34.99,
-    blurb: 'Tax reports, IFTA package, HOS-lite, maintenance reminders, document packets, exports, Admin, and custom categories.',
+    blurb: 'Tax and fuel reports, driving-hours clocks, maintenance reminders, trip files, exports, Admin and custom categories.',
   },
   fleet: {
     title: 'Fleet Lite',

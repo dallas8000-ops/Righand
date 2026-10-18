@@ -5,7 +5,7 @@ DRIVER_LICENCE = 'Driver licence'
 CARGO_MANIFEST = 'Cargo manifest'
 SEAL_NUMBER = 'Seal number'
 COMESA_INSURANCE = 'COMESA Yellow Card or cross-border insurance evidence'
-AXLE_LOAD_REFERENCE = 'Country-specific axle/load reference'
+AXLE_LOAD_REFERENCE = 'Current axle-load limits (from the official source)'
 YELLOW_CARD_KEYWORD = 'yellow card'
 
 
@@ -17,8 +17,8 @@ COMPLIANCE_RULES = {
                 'id': 'ug-vehicle-load-control-2026',
                 'title': '2026 vehicle dimensions and load-control regulations',
                 'severity': 'critical',
-                'summary': 'Check axle load, gross mass, dimensions, weighbridge tickets, overload notices, and special-load permits before dispatch. Store numeric limits as current country-specific references instead of hardcoded law.',
-                'requiredDocs': [VEHICLE_REGISTRATION, 'Motor vehicle inspection', 'Weighbridge ticket', AXLE_LOAD_REFERENCE, 'Special-load permit when applicable', 'Overload notice response when applicable'],
+                'summary': 'Before every trip, check your axle load, total weight and size at the weighbridge. Keep the weighbridge ticket, any overload notice and your special-load permit with you. Always confirm the exact weight limits with the ministry.',
+                'requiredDocs': [VEHICLE_REGISTRATION, 'Motor vehicle inspection', 'Weighbridge ticket', AXLE_LOAD_REFERENCE, 'Special-load permit if needed', 'Reply to overload notice if you received one'],
                 'keywords': ['axle', 'weighbridge', 'overload', 'gross', 'weight', 'dimension', 'special load', 'permit', 'gvm', 'vehicle load'],
             },
             {
@@ -46,16 +46,16 @@ COMPLIANCE_RULES = {
                 'id': 'ke-ntsa-operator-driver',
                 'title': 'NTSA operator, driver, and inspection records',
                 'severity': 'critical',
-                'summary': 'Keep driver licence class and expiry, inspection status, insurance, registration, and operator credentials ready.',
-                'requiredDocs': [DRIVER_LICENCE, VEHICLE_REGISTRATION, 'Inspection record', 'Insurance record', 'Operator credential when applicable'],
+                'summary': 'Keep your driving licence class and expiry date, vehicle inspection status, insurance, registration and operator licence ready.',
+                'requiredDocs': [DRIVER_LICENCE, VEHICLE_REGISTRATION, 'Inspection record', 'Insurance record', 'Operator licence if needed'],
                 'keywords': ['ntsa', 'driver licence', 'driving licence', 'inspection', 'insurance', 'registration', 'operator', 'road service'],
             },
             {
                 'id': 'ke-axle-weighbridge',
                 'title': 'Axle-load, weighbridge, and abnormal-load checks',
                 'severity': 'critical',
-                'summary': 'Track gross weight, axle-load records, weighbridge tickets, overload notices, and abnormal-load permits. Store numeric axle/load limits as verified country-specific references.',
-                'requiredDocs': ['Weighbridge ticket', 'Axle-load record', AXLE_LOAD_REFERENCE, 'Overload notice response', 'Abnormal-load permit when applicable'],
+                'summary': 'Keep your weighbridge tickets, axle-load records, overload notices and any permit for oversize loads. Always confirm the current weight limits with the official source.',
+                'requiredDocs': ['Weighbridge ticket', 'Axle-load record', AXLE_LOAD_REFERENCE, 'Reply to overload notice', 'Permit for oversize or abnormal load if needed'],
                 'keywords': ['axle', 'weighbridge', 'overload', 'gross weight', 'abnormal load', 'kenha', 'weight'],
             },
             {
@@ -104,7 +104,7 @@ COMPLIANCE_RULES = {
                 'id': 'eac-corridor-load-control',
                 'title': 'Cross-border route, commodity, and load-control prompts',
                 'severity': 'warning',
-                'summary': 'Identify transit countries, border posts, commodity permit needs, weighbridge records, editable country-specific axle/load references, and special-load permits.',
+                'summary': 'Write down the countries you pass through and the border posts, check whether your goods need a permit, and keep weighbridge tickets, the axle-load limits for each country and any special-load permits.',
                 'requiredDocs': ['Route countries', 'Border posts', 'Commodity permits when required', 'Weighbridge tickets', AXLE_LOAD_REFERENCE, 'Special-load permits when required'],
                 'keywords': ['route', 'transit country', 'commodity', 'permit', 'weighbridge', 'axle', 'special load', 'border post'],
             },

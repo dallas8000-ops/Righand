@@ -97,7 +97,7 @@ function App() {
       const demoUser = {
         id: 'demo_user_001',
         email: 'demo@righand.ai',
-        name: 'Demo Trucker',
+        name: 'Demo Driver',
         truckerLicense: 'DEMO123'
       };
       await UserDB.saveUserSession(demoUser.id, demoUser.email, demoUser);
@@ -119,7 +119,7 @@ function App() {
         />
         <div className="loader">
           <p>RigHand AI</p>
-          <p>Loading your cab console…</p>
+          <p>Loading RigHand…</p>
         </div>
       </div>
     );

@@ -38,6 +38,6 @@ def build_review_alerts(extracted_fields, today=None):
         alerts.append({
             'level': 'warning',
             'title': 'Weight found without vehicle ID',
-            'body': 'Link the weight or weighbridge record to a vehicle plate before using it for dispatch readiness.',
+            'body': 'Link the weight or weighbridge record to a vehicle plate number before you rely on it for the trip.',
         })
     return alerts[:5]

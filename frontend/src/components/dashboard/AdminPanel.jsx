@@ -29,8 +29,8 @@ const AdminPanel = ({
       <h2>Admin</h2>
 
       <div className="admin-block">
-        <h3>Starting Income</h3>
-        <p className="admin-hint">Opening balance for the month (added to load payments).</p>
+        <h3>Opening Balance</h3>
+                <p className="admin-hint">Money you start the month with (added to your load payments).</p>
         <div className="admin-row">
           <input
             type="number"

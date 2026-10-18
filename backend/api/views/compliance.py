@@ -168,20 +168,20 @@ def _fleet_readiness_alerts(profile_counts, severity_counts):
     if missing_profiles:
         alerts.append({
             'level': 'warning',
-            'title': 'Profile coverage incomplete',
-            'body': f"Add {', '.join(missing_profiles)} compliance profile records before dispatch review.",
+            'title': 'Details missing',
+            'body': f"Add your {', '.join(missing_profiles)} details before you dispatch.",
         })
     if severity_counts.get('critical', 0):
         alerts.append({
             'level': 'critical',
-            'title': 'Critical compliance findings open',
-            'body': 'Review critical uploaded-document findings before releasing a load packet.',
+            'title': 'Serious problems found in your upload',
+            'body': 'Fix the serious problems found in your uploaded document before you release a trip file.',
         })
     if not alerts:
         alerts.append({
             'level': 'info',
-            'title': 'Dispatch profile baseline ready',
-            'body': 'Driver, vehicle, and route profile records are available for the selected jurisdiction.',
+            'title': 'Details complete',
+            'body': 'Driver, vehicle and route details are saved for this country.',
         })
     return alerts
 
@@ -191,13 +191,13 @@ def _dispatch_policy(severity_counts):
         return {
             'mode': 'block',
             'blocked': True,
-            'title': 'Dispatch blocked by critical compliance findings',
-            'reasons': ['Resolve critical uploaded-document findings before releasing this load.'],
+            'title': 'Do not dispatch: serious compliance problems',
+            'reasons': ['Fix the serious problems found in your uploaded documents before you release this load.'],
         }
     return {
         'mode': 'warn',
         'blocked': False,
-        'title': 'Dispatch allowed with compliance review',
+        'title': 'You can dispatch, but check the warnings first',
         'reasons': [],
     }
 

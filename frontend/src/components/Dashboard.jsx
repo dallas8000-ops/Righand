@@ -6,6 +6,7 @@ import {
   computeLocalMetrics,
   computeLoadProfitPreview,
   computeHosClocks,
+  DEFAULT_DRIVING_LIMITS,
   computeFuelMpg,
   computeWeeklyFromExpenses,
   findPreviousFuelOdometer,
@@ -14,7 +15,7 @@ import {
   readFileAsDataUrl
 } from '../utils/proMetrics';
 import { getRegionProfile } from '../utils/regionProfile';
-import LugandaCaption from './dashboard/LugandaCaption';
+import LanguageCaption from './dashboard/LanguageCaption';
 import { useTheme } from '../hooks/useTheme';
 import { useNotifications, loadNotificationPref } from '../hooks/useNotifications';
 import WeeklyChart from './dashboard/WeeklyChart';
@@ -29,6 +30,7 @@ import { useVoiceCapture } from '../hooks/useVoiceCapture';
 import { DriverSettings } from '../utils/driverSettings';
 import {
   DriverOpsStore,
+  getEffectiveTargets,
   analyzeDriverOps,
   computeLoadDecision,
   emptyLoadPacket,
@@ -70,10 +72,10 @@ const nextCategoryForType = (type, currentCategory) => {
 };
 
 const HOS_STATUSES = [
-  { value: 'OFF_DUTY', label: 'Off Duty' },
-  { value: 'SLEEPER', label: 'Sleeper' },
+  { value: 'OFF_DUTY', label: 'Resting (off duty)' },
+  { value: 'SLEEPER', label: 'Sleeping in the cab' },
   { value: 'DRIVING', label: 'Driving' },
-  { value: 'ON_DUTY', label: 'On Duty (Not Driving)' }
+  { value: 'ON_DUTY', label: 'Working, not driving (loading, waiting)' }
 ];
 
 const CATEGORY_LABEL_MAP = DEFAULT_CATEGORIES.reduce((acc, category) => {
@@ -115,6 +117,14 @@ const Dashboard = ({ user, onLogout }) => {
   const [hosStartedAt, setHosStartedAt] = useState(null);
   const [drivingStartedAt, setDrivingStartedAt] = useState(null);
   const [hosClocks, setHosClocks] = useState(null);
+  const [drivingLimits, setDrivingLimits] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`righand:${userId || 'default'}:drivingLimits`) || 'null');
+      return saved ? { ...DEFAULT_DRIVING_LIMITS, ...saved } : DEFAULT_DRIVING_LIMITS;
+    } catch {
+      return DEFAULT_DRIVING_LIMITS;
+    }
+  });
   const { theme, setTheme, isNight } = useTheme();
   const [notificationsOn, setNotificationsOn] = useState(loadNotificationPref);
   const [profit, setProfit] = useState({ totalIncome: 0, totalExpenses: 0, netProfit: 0 });
@@ -252,22 +262,22 @@ const Dashboard = ({ user, onLogout }) => {
     if (missingProfiles.length) {
       alerts.push({
         level: 'warning',
-        title: 'Profile coverage incomplete',
-        body: `Add ${missingProfiles.join(', ')} compliance profile records before dispatch review.`
+        title: 'Details missing',
+        body: `Add your ${missingProfiles.join(', ')} details before you dispatch.`
       });
     }
     if (latestComplianceScan?.reviewAlerts?.some(alert => alert.level === 'critical')) {
       alerts.push({
         level: 'critical',
-        title: 'Critical compliance findings open',
-        body: 'Review critical uploaded-document findings before releasing a load packet.'
+        title: 'Serious problems found in your upload',
+        body: 'Fix the serious problems found in your uploaded document before you release a trip file.'
       });
     }
     if (alerts.length) return alerts;
     return [{
       level: 'info',
-      title: 'Dispatch profile baseline ready',
-      body: 'Driver, vehicle, and route profile records are available for the selected jurisdiction.'
+      title: 'Details complete',
+      body: 'Driver, vehicle and route details are saved for this country.'
     }];
   }, [latestComplianceScan, profileCounts]);
   const complianceReadinessAlerts = complianceSummary?.readinessAlerts || localReadinessAlerts;
@@ -278,14 +288,14 @@ const Dashboard = ({ user, onLogout }) => {
       return {
         mode: 'block',
         blocked: true,
-        title: 'Dispatch blocked by critical compliance findings',
-        reasons: ['Resolve critical uploaded-document findings before releasing this load.']
+        title: 'Do not dispatch: serious compliance problems',
+        reasons: ['Fix the serious problems found in your uploaded documents before you release this load.']
       };
     }
     return {
       mode: 'warn',
       blocked: false,
-      title: 'Dispatch allowed with compliance review',
+      title: 'You can dispatch, but check the warnings first',
       reasons: []
     };
   }, [localReadinessAlerts]);
@@ -316,11 +326,13 @@ const Dashboard = ({ user, onLogout }) => {
     return computeWeeklyFromExpenses(expenses);
   }, [weeklySummary, expenses]);
 
+  const effectiveTargets = useMemo(() => getEffectiveTargets(driverTargets, currencyCode), [driverTargets, currencyCode]);
+
   const driverAlerts = useMemo(() => analyzeDriverOps({
     expenses,
     loadPackets,
     maintenanceItems,
-    targets: driverTargets,
+    targets: effectiveTargets,
     weeklyDays,
     formatMoney,
     units: {
@@ -329,7 +341,7 @@ const Dashboard = ({ user, onLogout }) => {
       efficiencyUnit: region.efficiencyUnit,
       gapWarning: 880,
     },
-  }), [expenses, loadPackets, maintenanceItems, driverTargets, weeklyDays, formatMoney, region]);
+  }), [expenses, loadPackets, maintenanceItems, effectiveTargets, weeklyDays, formatMoney, region]);
 
   const currentOdometer = useMemo(() => latestOdometer(expenses), [expenses]);
   const nextMaintenance = useMemo(() => {
@@ -430,11 +442,19 @@ const Dashboard = ({ user, onLogout }) => {
 
   useEffect(() => {
     const tick = setInterval(() => {
-      setHosClocks(computeHosClocks(hosStartedAt, drivingStartedAt, hosStatus));
+      setHosClocks(computeHosClocks(hosStartedAt, drivingStartedAt, hosStatus, drivingLimits));
     }, 30000);
-    setHosClocks(computeHosClocks(hosStartedAt, drivingStartedAt, hosStatus));
+    setHosClocks(computeHosClocks(hosStartedAt, drivingStartedAt, hosStatus, drivingLimits));
     return () => clearInterval(tick);
-  }, [hosStartedAt, drivingStartedAt, hosStatus]);
+  }, [hosStartedAt, drivingStartedAt, hosStatus, drivingLimits]);
+
+  const updateDrivingLimit = (field, value) => {
+    setDrivingLimits(prev => {
+      const next = { ...prev, [field]: value };
+      localStorage.setItem(`righand:${userId || 'default'}:drivingLimits`, JSON.stringify(next));
+      return next;
+    });
+  };
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
@@ -1054,7 +1074,7 @@ const Dashboard = ({ user, onLogout }) => {
   const saveLoadPacket = async (e) => {
     e.preventDefault();
     if (!loadForm.broker && !loadForm.shipper && !loadForm.loadNumber) {
-      showToast('Add a broker, shipper, or load number first.', 'error');
+      showToast('Add a freight agent, sender or order number first.', 'error');
       return;
     }
     const packet = {
@@ -1070,7 +1090,7 @@ const Dashboard = ({ user, onLogout }) => {
           ? await OpsAPI.saveLoadPacket(packet)
           : await OpsAPI.createLoadPacket(packet);
       } catch {
-        showToast('Saved locally. Load packet will stay on this device until sync returns.', 'warning');
+        showToast('Saved on this phone. The trip file will upload when you have signal again.', 'warning');
       }
     }
     setLoadPackets(prev => [
@@ -1079,7 +1099,7 @@ const Dashboard = ({ user, onLogout }) => {
     ]);
     setLoadForm(emptyLoadPacket());
     setEditingLoadId(null);
-    showToast('Load packet saved.', 'success');
+    showToast('Trip file saved.', 'success');
   };
 
   const editLoadPacket = (packet) => {
@@ -1089,7 +1109,7 @@ const Dashboard = ({ user, onLogout }) => {
   };
 
   const deleteLoadPacket = async (packetId) => {
-    if (!window.confirm('Delete this load packet?')) return;
+    if (!window.confirm('Delete this trip file?')) return;
     if (!isDemo) {
       try {
         await OpsAPI.deleteLoadPacket(packetId);
@@ -1102,14 +1122,14 @@ const Dashboard = ({ user, onLogout }) => {
       setLoadForm(emptyLoadPacket());
       setEditingLoadId(null);
     }
-    showToast('Load packet deleted.', 'success');
+    showToast('Trip file deleted.', 'success');
   };
 
   const setLoadStatus = async (packetId, status) => {
     const current = loadPackets.find(packet => packet.id === packetId);
     if (!current) return;
     if (status === 'delivered' && dispatchPolicy.blocked) {
-      showToast(dispatchPolicy.title || 'Dispatch blocked by compliance policy.', 'error');
+      showToast(dispatchPolicy.title || 'Do not dispatch: compliance problems found.', 'error');
       setActiveTab('compliance');
       return;
     }
@@ -1133,7 +1153,7 @@ const Dashboard = ({ user, onLogout }) => {
       date: packet.deliveryDate || packet.pickupDate || new Date().toISOString().split('T')[0],
       type: 'income',
       category: 'load',
-      description: packet.loadNumber ? `Load ${packet.loadNumber}` : `Load payment - ${packet.broker || packet.shipper || 'broker'}`,
+      description: packet.loadNumber ? `Load ${packet.loadNumber}` : `Load payment - ${packet.broker || packet.shipper || 'freight agent'}`,
       amount: packet.rate ? String(packet.rate) : '',
       miles: packet.loadedMiles ? String(packet.loadedMiles) : '',
       deadheadMiles: packet.deadheadMiles ? String(packet.deadheadMiles) : '',
@@ -1143,22 +1163,22 @@ const Dashboard = ({ user, onLogout }) => {
       customer: packet.shipper || '',
       notes: [
         packet.receiver ? `Receiver: ${packet.receiver}` : '',
-        packet.detentionTerms ? `Detention: ${packet.detentionTerms}` : '',
+        packet.detentionTerms ? `Waiting-time charges: ${packet.detentionTerms}` : '',
         packet.notes || ''
       ].filter(Boolean).join(' | ')
     });
     setActiveTab('log');
     setLogView('add');
-    showToast('Load packet ready to save as income.', 'success');
+    showToast('Trip file ready to save as income.', 'success');
   };
 
   const buildLoadPacketText = (packet) => {
-    const decision = computeLoadDecision(packet, driverTargets);
+    const decision = computeLoadDecision(packet, effectiveTargets);
     const netPerMileText = decision.netPerMile ? `${formatMoney(decision.netPerMile)}/${region.distanceUnit}` : 'missing distance';
     return [
-      'RigHand Load Packet',
-      packet.loadNumber ? `Load: ${packet.loadNumber}` : '',
-      packet.broker ? `Broker: ${packet.broker}` : '',
+      'RigHand Trip File',
+      packet.loadNumber ? `Order: ${packet.loadNumber}` : '',
+      packet.broker ? `Freight agent: ${packet.broker}` : '',
       packet.shipper ? `Pickup: ${packet.shipper} ${packet.pickupDate || ''}` : '',
       packet.receiver ? `Delivery: ${packet.receiver} ${packet.deliveryDate || ''}` : '',
       packet.pickupAddress ? `Pickup address: ${packet.pickupAddress}` : '',
@@ -1166,7 +1186,7 @@ const Dashboard = ({ user, onLogout }) => {
       `Rate: ${formatMoney(packet.rate || 0)}`,
       `Distance (${region.distanceUnit}): ${decision.totalMiles || 0}`,
       `Net: ${formatMoney(decision.net)} (${netPerMileText})`,
-      packet.detentionTerms ? `Detention: ${packet.detentionTerms}` : '',
+      packet.detentionTerms ? `Waiting-time charges: ${packet.detentionTerms}` : '',
       packet.notes ? `Notes: ${packet.notes}` : ''
     ].filter(Boolean).join('\n');
   };
@@ -1174,13 +1194,13 @@ const Dashboard = ({ user, onLogout }) => {
   const downloadLoadPacket = (packet) => {
     const blob = new Blob([buildLoadPacketText(packet)], { type: 'text/plain;charset=utf-8' });
     downloadBlob(blob, `righand-load-${packet.loadNumber || packet.id}.txt`);
-    showToast('Load packet downloaded.', 'success');
+    showToast('Trip file downloaded.', 'success');
   };
 
   const shareLoadPacket = (packet) => {
     const text = buildLoadPacketText(packet);
     if (navigator.share) {
-      navigator.share({ title: 'RigHand Load Packet', text }).catch(() => {});
+      navigator.share({ title: 'RigHand Trip File', text }).catch(() => {});
       return;
     }
     window.location.href = `sms:?&body=${encodeURIComponent(text)}`;
@@ -1267,7 +1287,7 @@ const Dashboard = ({ user, onLogout }) => {
       if (status === 'DRIVING') setDrivingStartedAt(now);
       showToast(`Duty status updated.`, 'success');
     } catch {
-      showToast('Could not update HOS status.', 'error');
+      showToast('Could not update your driving status.', 'error');
     }
   };
 
@@ -1301,16 +1321,16 @@ const Dashboard = ({ user, onLogout }) => {
       <div className="quick-actions">
         <button type="button" className="btn-primary" onClick={() => startQuickEntry('income')}>+ Add Income</button>
         <button type="button" className="btn-secondary" onClick={() => startQuickEntry('expense')}>+ Add Expense</button>
-        <button type="button" className="btn-secondary" onClick={() => setActiveTab('loads')}>+ Load Packet</button>
+        <button type="button" className="btn-secondary" onClick={() => setActiveTab('loads')}>+ Trip File</button>
       </div>
 
       <section className="cockpit-grid">
         <article className="cockpit-card primary">
           <span className="metric-label">Today</span>
           <strong>{activeLoadPacket ? (activeLoadPacket.loadNumber || activeLoadPacket.broker || activeLoadPacket.shipper) : 'No active load'}</strong>
-          <p>{activeLoadPacket ? `${activeLoadPacket.shipper || 'Pickup'} to ${activeLoadPacket.receiver || 'delivery'}` : 'Create your first load packet to track rate, documents, and delivery.'}</p>
+          <p>{activeLoadPacket ? `${activeLoadPacket.shipper || 'Pickup'} to ${activeLoadPacket.receiver || 'delivery'}` : 'Create your first trip file to track the agreed rate, documents and delivery.'}</p>
           <button type="button" className="link-btn" onClick={() => setActiveTab('loads')}>
-            {activeLoadPacket ? 'Open load packet' : 'Create load packet'}
+            {activeLoadPacket ? 'Open trip file' : 'Create trip file'}
           </button>
         </article>
         <article className="cockpit-card">
@@ -1340,7 +1360,7 @@ const Dashboard = ({ user, onLogout }) => {
         <article className="cockpit-card">
           <span className="metric-label">Next Maintenance</span>
           <strong>{nextMaintenance ? nextMaintenance.name : 'No reminders'}</strong>
-          <p>{nextMaintenance?.dueOdometer ? `Due at ${Number(nextMaintenance.dueOdometer).toLocaleString()} ${region.distanceUnit}` : 'Add oil, tires, DOT, insurance, or registration reminders.'}</p>
+          <p>{nextMaintenance?.dueOdometer ? `Due at ${Number(nextMaintenance.dueOdometer).toLocaleString()} ${region.distanceUnit}` : 'Add oil, tyres, vehicle inspection, insurance or registration reminders.'}</p>
         </article>
         <article className="cockpit-card">
           <span className="metric-label">Compliance Assistant</span>
@@ -1353,10 +1373,22 @@ const Dashboard = ({ user, onLogout }) => {
       <section className="automation-panel">
         <div className="section-heading-row">
           <div>
-            <h2>Quiet Watch</h2>
+            <h2>Driver Alerts</h2>
             <p className="section-help">RigHand watches fuel, cross-border fuel records, maintenance, loads, and profit targets while you drive.</p>
           </div>
-          <button type="button" className="link-btn" onClick={() => setActiveTab('loads')}>Manage</button>
+          <button type="button" className="link-btn" onClick={() => setActiveTab('loads')}>Trip Files</button>
+        </div>
+        <div className="form-group weekly-goal-field">
+          <label htmlFor="weekly-profit-goal">Weekly profit goal ({currencyCode})</label>
+          <input
+            id="weekly-profit-goal"
+            type="number"
+            min="0"
+            step="1000"
+            value={driverTargets.customWeeklyProfit ?? ''}
+            placeholder={String(effectiveTargets.targetWeeklyProfit)}
+            onChange={(e) => setDriverTargets(prev => ({ ...prev, customWeeklyProfit: e.target.value }))}
+          />
         </div>
         {driverAlerts.length === 0 ? (
           <p className="admin-empty">No warnings yet. Add fuel, load, and maintenance records to activate automation.</p>
@@ -1431,7 +1463,7 @@ const Dashboard = ({ user, onLogout }) => {
       </section>
 
       <section className="insight-strip">
-        <div className="insight-pill"><span className="insight-label">Pending Sync</span><strong>{pendingCount}</strong></div>
+        <div className="insight-pill"><span className="insight-label">Waiting to upload</span><strong>{pendingCount}</strong></div>
         <div className="insight-pill"><span className="insight-label">Entries</span><strong>{expenses.length}</strong></div>
         <div className="insight-pill"><span className="insight-label">Alerts</span>
           <button type="button" className="link-btn" onClick={toggleNotifications}>{notificationsOn ? 'On' : 'Off'}</button>
@@ -1595,11 +1627,11 @@ const Dashboard = ({ user, onLogout }) => {
           <>
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="expense-broker">Broker</label>
-                <input id="expense-broker" type="text" name="broker" value={formData.broker} onChange={handleFormChange} placeholder="e.g. freight agent or broker" />
+                <label htmlFor="expense-broker">Freight agent</label>
+                                <input id="expense-broker" type="text" name="broker" value={formData.broker} onChange={handleFormChange} placeholder="e.g. freight agent or transporter" />
               </div>
               <div className="form-group">
-                <label htmlFor="expense-customer">Customer / Shipper</label>
+                <label htmlFor="expense-customer">Customer / Sender</label>
                 <input id="expense-customer" type="text" name="customer" value={formData.customer} onChange={handleFormChange} placeholder="Who you hauled for" />
               </div>
             </div>
@@ -1667,7 +1699,7 @@ const Dashboard = ({ user, onLogout }) => {
                 <div>
                   <h3>{expense.description}</h3>
                   <p className="expense-card-meta">
-                    {new Date(expense.date).toLocaleDateString()} · {getCatLabel(expense.category)}
+                    {new Date(expense.date).toLocaleDateString('en-GB')} · {getCatLabel(expense.category)}
                   </p>
                 </div>
                 <p className={clsx('expense-card-amount', expense.type === 'income' ? 'income-amount' : 'expense-amount')}>
@@ -1729,23 +1761,23 @@ const Dashboard = ({ user, onLogout }) => {
       <section className="compliance-panel-block load-compliance-panel">
         <div className="section-heading-row">
           <div>
-            <span className="metric-label">Trip Compliance</span>
-            <h3>{selectedJurisdiction.label} readiness</h3>
-            <p className="section-help">These prompts follow the selected country or region and should be checked before dispatching a load.</p>
+            <span className="metric-label">Trip checklist</span>
+            <h3>{selectedJurisdiction.label} checklist</h3>
+            <p className="section-help">These checks follow the country you selected. Go through them before you start the trip.</p>
           </div>
-          <button type="button" className="link-btn" onClick={() => setActiveTab('compliance')}>Upload evidence</button>
+          <button type="button" className="link-btn" onClick={() => setActiveTab('compliance')}>Upload a document</button>
         </div>
         <div className="compliance-status-grid">
           <div className="metric-card">
-            <span className="metric-label">Critical rules</span>
+            <span className="metric-label">Serious rules</span>
             <strong>{criticalRules.length}</strong>
           </div>
           <div className="metric-card">
-            <span className="metric-label">Latest evidence</span>
+            <span className="metric-label">Last upload</span>
             <strong>{latestComplianceScan ? latestComplianceScan.fileName : 'None'}</strong>
           </div>
           <div className="metric-card">
-            <span className="metric-label">Matched topics</span>
+            <span className="metric-label">Matching rules</span>
             <strong>{latestMatches.length}</strong>
           </div>
         </div>
@@ -1757,7 +1789,7 @@ const Dashboard = ({ user, onLogout }) => {
                 <span className="status-pill">{rule.severity}</span>
               </div>
               <p>{rule.summary}</p>
-              {!isDemo && <LugandaCaption text={`${rule.title}. ${rule.summary}`} />}
+              {!isDemo && <LanguageCaption text={`${rule.title}. ${rule.summary}`} />}
               <div className="compliance-doc-tags">
                 {rule.requiredDocs.slice(0, 4).map(doc => <span key={doc}>{doc}</span>)}
               </div>
@@ -1790,14 +1822,14 @@ const Dashboard = ({ user, onLogout }) => {
     <section className="loads-workspace">
       <div className="section-heading-row">
         <div>
-          <h2>Load Packets</h2>
-          <p className="section-help">Store contract details, score the load, export a trip packet, and convert it into income.</p>
+          <h2>Trip Files</h2>
+          <p className="section-help">Save the order details, check if the load pays, share the trip file, and turn it into income.</p>
         </div>
         <button type="button" className="btn-secondary" onClick={() => {
           setLoadForm(emptyLoadPacket());
           setEditingLoadId(null);
         }}>
-          New Packet
+          New Trip File
         </button>
       </div>
 
@@ -1806,8 +1838,8 @@ const Dashboard = ({ user, onLogout }) => {
       <form className="expense-form-section load-packet-form" onSubmit={saveLoadPacket}>
         <div className="form-row">
           <div className="form-group">
-            <label htmlFor="load-number">Load #</label>
-            <input id="load-number" name="loadNumber" value={loadForm.loadNumber} onChange={handleLoadFormChange} placeholder="Broker / rate con #" />
+            <label htmlFor="load-number">Order number</label>
+                        <input id="load-number" name="loadNumber" value={loadForm.loadNumber} onChange={handleLoadFormChange} placeholder="Order or contract number" />
           </div>
           <div className="form-group">
             <label htmlFor="load-status">Status</label>
@@ -1821,16 +1853,16 @@ const Dashboard = ({ user, onLogout }) => {
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label htmlFor="load-broker">Broker</label>
-            <input id="load-broker" name="broker" value={loadForm.broker} onChange={handleLoadFormChange} placeholder="Broker / dispatcher" />
+            <label htmlFor="load-broker">Freight agent</label>
+                        <input id="load-broker" name="broker" value={loadForm.broker} onChange={handleLoadFormChange} placeholder="Freight agent or dispatcher" />
           </div>
           <div className="form-group">
-            <label htmlFor="load-shipper">Shipper</label>
-            <input id="load-shipper" name="shipper" value={loadForm.shipper} onChange={handleLoadFormChange} placeholder="Pickup customer" />
+                        <label htmlFor="load-shipper">Sender</label>
+                        <input id="load-shipper" name="shipper" value={loadForm.shipper} onChange={handleLoadFormChange} placeholder="Who you collect the load from" />
           </div>
           <div className="form-group">
             <label htmlFor="load-receiver">Receiver</label>
-            <input id="load-receiver" name="receiver" value={loadForm.receiver} onChange={handleLoadFormChange} placeholder="Delivery customer" />
+                        <input id="load-receiver" name="receiver" value={loadForm.receiver} onChange={handleLoadFormChange} placeholder="Who you deliver the load to" />
           </div>
         </div>
         <div className="form-row">
@@ -1867,7 +1899,7 @@ const Dashboard = ({ user, onLogout }) => {
             <input id="load-tolls" type="number" name="tolls" value={loadForm.tolls} onChange={handleLoadFormChange} step="0.01" min="0" />
           </div>
           <div className="form-group">
-            <label htmlFor="load-lumper">Lumper ({currencyCode})</label>
+            <label htmlFor="load-lumper">Loading / offloading labour ({currencyCode})</label>
             <input id="load-lumper" type="number" name="lumper" value={loadForm.lumper} onChange={handleLoadFormChange} step="0.01" min="0" />
           </div>
         </div>
@@ -1883,18 +1915,18 @@ const Dashboard = ({ user, onLogout }) => {
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label htmlFor="load-detention-terms">Detention Terms</label>
-            <input id="load-detention-terms" name="detentionTerms" value={loadForm.detentionTerms} onChange={handleLoadFormChange} placeholder={`e.g. 2 hrs free, ${currencyCode} 75/hr`} />
+            <label htmlFor="load-detention-terms">Waiting-time charges</label>
+                        <input id="load-detention-terms" name="detentionTerms" value={loadForm.detentionTerms} onChange={handleLoadFormChange} placeholder={`e.g. first 2 hours free, then ${currencyCode} 75 per hour`} />
           </div>
           <div className="form-group">
             <label htmlFor="load-notes">Notes / Document Links</label>
-            <input id="load-notes" name="notes" value={loadForm.notes} onChange={handleLoadFormChange} placeholder="BOL, POD, rate con, accessorial notes" />
+            <input id="load-notes" name="notes" value={loadForm.notes} onChange={handleLoadFormChange} placeholder="Waybill, signed delivery note, order details, extra charges" />
           </div>
         </div>
 
         <div className="load-score-panel">
           {(() => {
-            const decision = computeLoadDecision(loadForm, driverTargets);
+            const decision = computeLoadDecision(loadForm, effectiveTargets);
             return (
               <>
                 <div>
@@ -1915,7 +1947,7 @@ const Dashboard = ({ user, onLogout }) => {
         </div>
 
         <div className="form-actions">
-          <button type="submit" className="btn-primary">{editingLoadId ? 'Update Packet' : 'Save Packet'}</button>
+          <button type="submit" className="btn-primary">{editingLoadId ? 'Update Trip File' : 'Save Trip File'}</button>
           {editingLoadId && (
             <button type="button" className="btn-secondary" onClick={() => {
               setLoadForm(emptyLoadPacket());
@@ -1935,14 +1967,14 @@ const Dashboard = ({ user, onLogout }) => {
           </div>
         </div>
         <form className="maintenance-form" onSubmit={saveMaintenanceItem}>
-          <input name="name" value={maintenanceForm.name} onChange={handleMaintenanceFormChange} placeholder="Oil service, tires, DOT inspection" />
+          <input name="name" value={maintenanceForm.name} onChange={handleMaintenanceFormChange} placeholder="Oil service, tyres, vehicle inspection" />
           <input type="number" name="dueOdometer" value={maintenanceForm.dueOdometer} onChange={handleMaintenanceFormChange} placeholder="Due odometer" />
           <input type="date" name="dueDate" value={maintenanceForm.dueDate} onChange={handleMaintenanceFormChange} />
           <button type="submit" className="btn-secondary">Save Reminder</button>
         </form>
         <div className="maintenance-list">
           {maintenanceItems.length === 0 ? (
-            <p className="admin-empty">Add oil, tires, brakes, DOT, insurance, registration, or license reminders.</p>
+            <p className="admin-empty">Add oil, tyres, brakes, vehicle inspection, insurance, registration or licence reminders.</p>
           ) : maintenanceItems.map(item => (
             <article key={item.id} className="maintenance-item">
               <div>
@@ -1958,11 +1990,11 @@ const Dashboard = ({ user, onLogout }) => {
       <div className="load-packet-grid">
         {loadPackets.length === 0 ? (
           <section className="empty-work-card">
-            <h3>Create your first load packet</h3>
-            <p>Capture rate con details, pickup and delivery, fuel estimate, BOL/POD notes, and profit before accepting the load.</p>
+            <h3>Create your first trip file</h3>
+            <p>Record the agreed rate, pickup and delivery, fuel estimate, waybill and delivery notes, and see your profit before you accept the load.</p>
           </section>
         ) : loadPackets.map(packet => {
-          const decision = computeLoadDecision(packet, driverTargets);
+          const decision = computeLoadDecision(packet, effectiveTargets);
           const dispatchAlert = complianceReadinessAlerts.find(alert => ['critical', 'warning'].includes(alert.level));
           const dispatchBlocked = dispatchPolicy.blocked && packet.status !== 'delivered';
           return (
@@ -1970,7 +2002,7 @@ const Dashboard = ({ user, onLogout }) => {
               <div className="load-card-top">
                 <div>
                   <span className="status-pill">{packet.status}</span>
-                  <h3>{packet.loadNumber || packet.broker || packet.shipper || 'Load Packet'}</h3>
+                  <h3>{packet.loadNumber || packet.broker || packet.shipper || 'Trip File'}</h3>
                   <p>{packet.shipper || 'Pickup'} to {packet.receiver || 'delivery'}</p>
                 </div>
                 <strong className={clsx('load-score', decision.score.toLowerCase())}>{decision.score}</strong>
@@ -2064,7 +2096,7 @@ const Dashboard = ({ user, onLogout }) => {
           Weekly PDF
         </button>
         <button type="button" className="btn-secondary" disabled={!!exporting} onClick={() => handleExport('csv', 'monthly')}>
-          CSV (QuickBooks)
+          CSV (Excel / accounting)
         </button>
       </div>
 
@@ -2127,20 +2159,32 @@ const Dashboard = ({ user, onLogout }) => {
 
   const renderHos = () => (
     <section className="hos-section">
-      <h2>HOS Clocks</h2>
+      <h2>Driving Hours</h2>
+      <p className="section-help">A guide to help you rest in time. East African countries have no single national driving-hours rule, so set limits that match your company and country rules.</p>
 
       <div className="hos-clocks">
         <div className="metric-card highlight">
-          <span className="metric-label">11-hr Drive Left</span>
+          <span className="metric-label">Driving time left</span>
           <strong>{formatHoursRemaining(hosClocks?.driveRemainingMs || 0)}</strong>
         </div>
         <div className="metric-card highlight">
-          <span className="metric-label">14-hr Window Left</span>
+          <span className="metric-label">Working time left</span>
           <strong>{formatHoursRemaining(hosClocks?.windowRemainingMs || 0)}</strong>
         </div>
       </div>
 
-      <p className="hos-current">Current: <strong>{hosStatus.replace('_', ' ')}</strong></p>
+      <div className="form-row">
+        <div className="form-group">
+          <label htmlFor="driving-limit-hours">Driving limit (hours)</label>
+          <input id="driving-limit-hours" type="number" min="1" max="24" step="0.5" value={drivingLimits.driveHours} onChange={(e) => updateDrivingLimit('driveHours', e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label htmlFor="duty-limit-hours">Working-day limit (hours)</label>
+          <input id="duty-limit-hours" type="number" min="1" max="24" step="0.5" value={drivingLimits.dutyHours} onChange={(e) => updateDrivingLimit('dutyHours', e.target.value)} />
+        </div>
+      </div>
+
+      <p className="hos-current">Now: <strong>{HOS_STATUSES.find(item => item.value === hosStatus)?.label || hosStatus}</strong></p>
 
       <div className="hos-buttons">
         {HOS_STATUSES.map(item => (
@@ -2171,10 +2215,10 @@ const Dashboard = ({ user, onLogout }) => {
     <section className="compliance-workspace">
       <div className="section-heading-row compliance-heading">
         <div>
-          <h2>Regional Compliance</h2>
-          <p className="section-help">Selected regulations shape required documents, upload matching, route prompts, and driver or vehicle readiness checks.</p>
+          <h2>Rules and Papers by Country</h2>
+          <p className="section-help">The country you choose decides which papers you need, what the upload check looks for, and which warnings you see before a trip.</p>
         </div>
-        <span className="status-pill">{complianceSyncStatus === 'synced' ? 'Server synced' : 'Local mode'}</span>
+        <span className="status-pill">{complianceSyncStatus === 'synced' ? 'Saved online' : 'Saved on this phone only'}</span>
         <label className="jurisdiction-picker" htmlFor="compliance-jurisdiction">Country / region</label>
         <select id="compliance-jurisdiction" value={selectedJurisdictionCode} onChange={(e) => handleJurisdictionChange(e.target.value)}>
             {COMPLIANCE_JURISDICTIONS.map(jurisdiction => (
@@ -2190,7 +2234,7 @@ const Dashboard = ({ user, onLogout }) => {
           <p>{selectedJurisdiction.summary}</p>
         </div>
         <div className="compliance-authority-card">
-          <span className="metric-label">Authority map</span>
+          <span className="metric-label">Who regulates this</span>
           <strong>{selectedJurisdiction.regulator}</strong>
           <a href={selectedJurisdiction.portal} target="_blank" rel="noreferrer">Open official source</a>
         </div>
@@ -2198,19 +2242,19 @@ const Dashboard = ({ user, onLogout }) => {
 
       <div className="compliance-status-grid">
         <article className="metric-card highlight">
-          <span className="metric-label">Critical Checks</span>
+          <span className="metric-label">Serious Rules</span>
           <strong>{criticalComplianceCount}</strong>
         </article>
         <article className="metric-card">
-          <span className="metric-label">Saved Scans</span>
+          <span className="metric-label">Saved Uploads</span>
           <strong>{complianceScans.length}</strong>
         </article>
         <article className="metric-card">
-          <span className="metric-label">Fleet Context</span>
+          <span className="metric-label">Your Role</span>
           <strong>{fleetStatus?.hasFleet ? fleetStatus.role || 'fleet' : 'solo'}</strong>
         </article>
         <article className="metric-card">
-          <span className="metric-label">Load Packets</span>
+          <span className="metric-label">Trip Files</span>
           <strong>{loadPackets.length}</strong>
         </article>
         <article className="metric-card">
@@ -2218,7 +2262,7 @@ const Dashboard = ({ user, onLogout }) => {
           <strong>{complianceProfiles.length}</strong>
         </article>
         <article className={clsx('metric-card', dispatchBlockerCount && 'highlight')}>
-          <span className="metric-label">Dispatch Alerts</span>
+          <span className="metric-label">Trip Warnings</span>
           <strong>{dispatchBlockerCount}</strong>
         </article>
       </div>
@@ -2226,11 +2270,11 @@ const Dashboard = ({ user, onLogout }) => {
       <section className="compliance-panel-block fleet-readiness-panel">
         <div className="section-heading-row compact-row">
           <div>
-            <h3>Fleet Dispatch Readiness</h3>
+            <h3>Ready for the Road?</h3>
             <p className="section-help">Rollup for the selected jurisdiction across uploaded findings and reusable driver, vehicle, and route profiles.</p>
           </div>
           <div className="compliance-profile-toolbar">
-            <span className={clsx('status-pill', dispatchPolicy.blocked && 'danger')}>{dispatchPolicy.blocked ? 'Dispatch blocked' : 'Dispatch review'}</span>
+            <span className={clsx('status-pill', dispatchPolicy.blocked && 'danger')}>{dispatchPolicy.blocked ? 'Do not dispatch' : 'Check warnings'}</span>
             <span className="status-pill">{complianceSummary?.profileCount ?? complianceProfiles.length} profiles</span>
           </div>
         </div>
@@ -2254,7 +2298,7 @@ const Dashboard = ({ user, onLogout }) => {
           </div>
           <span className="status-pill">
             {complianceSummary?.regulationMonitor?.lastCheckedAt
-              ? `Checked ${new Date(complianceSummary.regulationMonitor.lastCheckedAt).toLocaleDateString()}`
+              ? `Checked ${new Date(complianceSummary.regulationMonitor.lastCheckedAt).toLocaleDateString('en-GB')}`
               : 'First check pending'}
           </span>
         </div>
@@ -2266,9 +2310,9 @@ const Dashboard = ({ user, onLogout }) => {
               <article key={update.id} className={clsx('automation-alert', update.status === 'pending_review' ? 'warning' : 'info')}>
                 <strong>{update.title}</strong>
                 <p>{update.summary}</p>
-                {!isDemo && <LugandaCaption text={`${update.title}. ${update.summary}`} />}
+                {!isDemo && <LanguageCaption text={`${update.title}. ${update.summary}`} />}
                 <small>
-                  {new Date(update.detectedAt).toLocaleDateString()} · {update.status === 'pending_review' ? 'Pending review' : 'Approved'}
+                  {new Date(update.detectedAt).toLocaleDateString('en-GB')} · {update.status === 'pending_review' ? 'Waiting for review' : 'Approved'}
                   {update.summaryMode === 'ai' ? ' · AI summary' : ''}
                   {update.sourceUrl && (<> · <a href={update.sourceUrl} target="_blank" rel="noreferrer">Official source</a></>)}
                 </small>
@@ -2286,8 +2330,8 @@ const Dashboard = ({ user, onLogout }) => {
 
       <div className="compliance-upload-panel">
         <div>
-          <h3>Document Intake</h3>
-          <p className="section-help">Upload permits, inspection notes, customs entries, weighbridge tickets, tachograph summaries, PSV records, or route documents. Live accounts extract text/PDF content on the backend; image OCR is marked for review until OCR is connected.</p>
+          <h3>Upload a Document</h3>
+                    <p className="section-help">Upload a permit, inspection note, customs entry, weighbridge ticket, driving-hours record, PSV record or route document. The app reads text and PDF files for you. Photos are not read automatically yet, so check them yourself.</p>
         </div>
         <input type="file" accept=".txt,.md,.csv,.json,.pdf,.doc,.docx,image/*" onChange={handleComplianceUpload} />
       </div>
@@ -2295,12 +2339,12 @@ const Dashboard = ({ user, onLogout }) => {
       <section className="compliance-panel-block compliance-profile-panel">
         <div className="section-heading-row compact-row">
           <div>
-            <h3>Driver, Vehicle, Route Profiles</h3>
-            <p className="section-help">Save reusable readiness facts for the selected region so dispatch checks are not tied to a single upload.</p>
+            <h3>Driver, Vehicle and Route Details</h3>
+                        <p className="section-help">Save details you use often for this country, so you don't have to upload a document every time.</p>
           </div>
           <div className="compliance-profile-toolbar">
-            <button type="button" className="btn-secondary small" onClick={prefillComplianceProfileFromScan}>Use Latest Scan</button>
-            <span className="status-pill">D {profileCounts.driver || 0} / V {profileCounts.vehicle || 0} / R {profileCounts.route || 0}</span>
+                        <button type="button" className="btn-secondary small" onClick={prefillComplianceProfileFromScan}>Use Last Upload</button>
+                        <span className="status-pill">Drivers {profileCounts.driver || 0} · Vehicles {profileCounts.vehicle || 0} · Routes {profileCounts.route || 0}</span>
           </div>
         </div>
         <form className="compliance-profile-form" onSubmit={saveComplianceProfile}>
@@ -2309,7 +2353,7 @@ const Dashboard = ({ user, onLogout }) => {
             <option value="vehicle">Vehicle</option>
             <option value="route">Route</option>
           </select>
-          <input name="title" value={complianceProfileForm.title} onChange={handleComplianceProfileChange} placeholder="Profile title" />
+          <input name="title" value={complianceProfileForm.title} onChange={handleComplianceProfileChange} placeholder="Name, for example: My truck UAX 123A" />
           <input name="licenceExpiry" value={complianceProfileForm.licenceExpiry} onChange={handleComplianceProfileChange} placeholder="Licence expiry" />
           <input name="vehiclePlate" value={complianceProfileForm.vehiclePlate} onChange={handleComplianceProfileChange} placeholder="Vehicle plate" />
           <input name="inspectionExpiry" value={complianceProfileForm.inspectionExpiry} onChange={handleComplianceProfileChange} placeholder="Inspection expiry" />
@@ -2380,7 +2424,7 @@ const Dashboard = ({ user, onLogout }) => {
                   <span className="badge">{rule.hits.length ? `${rule.hits.length} hits` : rule.severity}</span>
                 </div>
                 <p>{rule.summary}</p>
-                {!isDemo && <LugandaCaption text={`${rule.title}. ${rule.summary}`} />}
+                {!isDemo && <LanguageCaption text={`${rule.title}. ${rule.summary}`} />}
                 <div className="compliance-doc-tags">
                   {rule.requiredDocs.slice(0, 5).map(doc => <span key={doc}>{doc}</span>)}
                 </div>
@@ -2392,7 +2436,7 @@ const Dashboard = ({ user, onLogout }) => {
 
       <div className="compliance-layout-grid">
         <section className="compliance-panel-block">
-          <h3>Workflow Prompts</h3>
+          <h3>Steps Before You Leave</h3>
           <div className="automation-alert-list">
             {selectedJurisdiction.workflowPrompts.map((prompt, index) => (
               <article key={prompt} className="automation-alert warning">
@@ -2404,7 +2448,7 @@ const Dashboard = ({ user, onLogout }) => {
         </section>
 
         <section className="compliance-panel-block">
-          <h3>Rule Pack</h3>
+          <h3>Rules</h3>
           <div className="compliance-rule-list">
             {selectedJurisdiction.rules.map(rule => (
               <article key={rule.id} className={clsx('compliance-rule-card', rule.severity)}>
@@ -2416,7 +2460,7 @@ const Dashboard = ({ user, onLogout }) => {
                   <span className="status-pill">{rule.severity}</span>
                 </div>
                 <p>{rule.summary}</p>
-                {!isDemo && <LugandaCaption text={`${rule.title}. ${rule.summary}`} />}
+                {!isDemo && <LanguageCaption text={`${rule.title}. ${rule.summary}`} />}
                 <div className="compliance-doc-tags">
                   {rule.requiredDocs.map(doc => <span key={doc}>{doc}</span>)}
                 </div>
@@ -2431,7 +2475,7 @@ const Dashboard = ({ user, onLogout }) => {
         </section>
       </div>
 
-      <p className="admin-hint warn">Operational reference only. Verify legal decisions against official sources and current local counsel guidance.</p>
+      <p className="admin-hint warn">This is a guide, not legal advice. Please confirm important decisions with the official office.</p>
     </section>
   );
 
@@ -2461,7 +2505,7 @@ const Dashboard = ({ user, onLogout }) => {
             { id: 'log', label: 'Money Log', icon: 'M', pro: false },
             { id: 'reports', label: 'Tax & Fuel', icon: 'R', pro: true },
             { id: 'compliance', label: 'Compliance', icon: 'C', pro: false },
-            { id: 'hos', label: 'HOS', icon: '⏱', pro: true },
+            { id: 'hos', label: 'Driving Hours', icon: '⏱', pro: true },
             { id: 'fleet', label: 'Dispatch', icon: 'D', pro: false },
             { id: 'admin', label: 'Admin', icon: '⚙', pro: true }
           ].map(tab => (

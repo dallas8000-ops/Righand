@@ -53,7 +53,7 @@ def add_fleet_driver(request):
                 'code': 'ACCOUNT_DETAILS_REQUIRED',
             }, status=400)
         if User.objects.filter(trucker_license=license_number).exists():
-            return JsonResponse({'error': 'Trucker license already registered'}, status=409)
+            return JsonResponse({'error': 'Driving licence number already registered'}, status=409)
         member = User(
             id=str(uuid.uuid4()),
             email=email,
@@ -71,7 +71,7 @@ def add_fleet_driver(request):
     except ValueError as exc:
         return JsonResponse({'error': str(exc)}, status=409)
     except IntegrityError:
-        return JsonResponse({'error': 'Could not create the driver account (email or license already used)'}, status=409)
+        return JsonResponse({'error': 'Could not create the driver account (email or licence number already used)'}, status=409)
 
     return JsonResponse({
         'success': True,

@@ -29,7 +29,7 @@ const ReceiptGallery = ({ expenses, onSelect, formatMoney = defaultFormatMoney }
           >
             <img src={expense.receiptUrl} alt={expense.description} />
             <span className="receipt-thumb-meta">
-              {new Date(expense.date).toLocaleDateString()} · {formatMoney(expense.amount)}
+              {new Date(expense.date).toLocaleDateString('en-GB')} · {formatMoney(expense.amount)}
             </span>
           </button>
         ))}
@@ -41,7 +41,7 @@ const ReceiptGallery = ({ expenses, onSelect, formatMoney = defaultFormatMoney }
             <img src={preview.receiptUrl} alt={preview.description} />
             <div className="receipt-modal-info">
               <strong>{preview.description}</strong>
-              <p>{new Date(preview.date).toLocaleDateString()} · {formatMoney(preview.amount)}</p>
+              <p>{new Date(preview.date).toLocaleDateString('en-GB')} · {formatMoney(preview.amount)}</p>
               <div className="receipt-modal-actions">
                 <button type="button" className="btn-secondary small" onClick={() => onSelect?.(preview)}>Edit Entry</button>
                 <button type="button" className="btn-secondary small" onClick={() => setPreview(null)}>Close</button>

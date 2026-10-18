@@ -17,7 +17,7 @@ const FEATURES = [
   },
   {
     icon: '📶',
-    title: 'Offline-First',
+    title: 'Works Without Signal',
     desc: 'Keep logging with no signal. Entries queue locally and sync automatically the moment you’re back online.',
   },
   {
@@ -65,8 +65,8 @@ const TIERS = [
     features: [
       'Everything in Free',
       'Tax & fuel reports (PDF/CSV export)',
-      'HOS countdown (11/14-hour clocks)',
-      'Maintenance reminders & document packets',
+      'Driving-hours clocks (set your own limits)',
+      'Maintenance reminders & trip files',
       'Admin panel & custom categories',
     ],
     cta: 'Start Free, Upgrade in App',
@@ -120,7 +120,7 @@ const LandingPage = ({ onLogin, onSignUp, onTryDemo }) => {
             <h1>Keep every driver, vehicle, and load ready for the road.</h1>
             <p className="landing-hero-sub">
               RigHand AI is an offline-first fleet operations platform with jurisdiction-aware compliance,
-              dispatch readiness, HOS assistance, and GPS or OBD-II trip logging. Drivers and small fleets
+              dispatch readiness, driving-hours tracking, and GPS or OBD-II trip logging. Drivers and small fleets
               stay audit-ready across Uganda, Kenya, Rwanda, the EAC, and the EU while tracking the real
               profit on every load.
             </p>

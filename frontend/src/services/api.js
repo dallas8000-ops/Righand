@@ -322,8 +322,8 @@ export const OpsAPI = {
 };
 
 export const ComplianceAPI = {
-  async translateToLuganda(text) {
-    const response = await api.post('/compliance/translate', { text });
+  async translateText(text, language = 'lg') {
+    const response = await api.post('/compliance/translate', { text, language });
     return response.data;
   },
 

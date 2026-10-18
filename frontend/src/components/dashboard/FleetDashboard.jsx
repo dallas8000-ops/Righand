@@ -76,7 +76,7 @@ const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked,
       const data = err?.response?.data;
       if (data?.code === 'ACCOUNT_DETAILS_REQUIRED') {
         setNeedsAccountDetails(true);
-        setDriverMessage('No account with that email yet. Enter the driver name, license and a temporary password to create one.');
+        setDriverMessage('No account with that email yet. Enter the driver name, driving licence number and a temporary password to create one.');
       } else {
         setDriverMessage(data?.error || 'Could not add driver.');
       }
@@ -133,18 +133,18 @@ const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked,
 
       {canShareGps && (
         <div className="fleet-gps-panel">
-          <h3>Share location with dispatcher</h3>
+          <h3>Share your location with your dispatcher</h3>
           <p className="admin-hint">
-            Sends GPS to your fleet every 3 minutes while enabled.
+            Sends your location to your fleet every 3 minutes while this is on.
             {gps.isNative ? ' Works in the Android app.' : ' Best on the Android app.'}
           </p>
           <div className="fleet-gps-status">
             <span className={`fleet-gps-dot ${gps.sharing ? 'active' : ''}`} />
-            <strong>{gps.sharing ? 'Sharing active' : 'Not sharing'}</strong>
+            <strong>{gps.sharing ? 'Location sharing is on' : 'Location sharing is off'}</strong>
           </div>
           {gps.lastPing && (
             <p className="fleet-gps-last">
-              Last ping: {formatTime(gps.lastPing.at)} · {gps.lastPing.lat.toFixed(4)}, {gps.lastPing.lng.toFixed(4)}
+              Last location sent: {formatTime(gps.lastPing.at)} · {gps.lastPing.lat.toFixed(4)}, {gps.lastPing.lng.toFixed(4)}
               {gps.lastPing.speed > 0 && ` · ${gps.lastPing.speed} km/h`}
             </p>
           )}
@@ -153,7 +153,7 @@ const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked,
             <button type="button" className="btn-primary" onClick={handleToggleGps}>
               {gps.sharing ? 'Stop sharing' : 'Start sharing'}
             </button>
-            <button type="button" className="btn-secondary" onClick={gps.pingNow}>Ping now</button>
+            <button type="button" className="btn-secondary" onClick={gps.pingNow}>Send location now</button>
           </div>
         </div>
       )}
@@ -186,7 +186,7 @@ const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked,
                       <input id="fleet-driver-name" type="text" required value={driverForm.name} onChange={updateDriverForm('name')} />
                     </div>
                     <div className="form-group">
-                      <label htmlFor="fleet-driver-license">Trucker license</label>
+                      <label htmlFor="fleet-driver-license">Driving licence number</label>
                       <input id="fleet-driver-license" type="text" required value={driverForm.truckerLicense} onChange={updateDriverForm('truckerLicense')} />
                     </div>
                   </div>
@@ -247,7 +247,7 @@ const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked,
                     </a>
                   </div>
                 ) : (
-                  <p className="admin-hint">No GPS ping yet - driver must enable sharing in Dispatch.</p>
+                  <p className="admin-hint">No location received yet - the driver must turn on location sharing in Dispatch.</p>
                 )}
               </article>
             ))}

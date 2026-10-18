@@ -480,7 +480,7 @@ class ComplianceProfile(models.Model):
 class TranslationCache(models.Model):
     id = models.CharField(max_length=64, primary_key=True)
     source_text = models.TextField()
-    luganda = models.TextField()
+    translation = models.TextField(db_column='luganda')
     english_summary = models.TextField()
     user_id = models.CharField(max_length=50, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)

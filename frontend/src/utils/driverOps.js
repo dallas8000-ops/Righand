@@ -16,12 +16,31 @@ const writeJson = (key, value) => {
 const scopedKey = (userId, name) => `righand:${userId || 'demo'}:${name}`;
 
 export const DEFAULT_DRIVER_TARGETS = {
-  targetRatePerMile: 2.1,
-  targetWeeklyProfit: 1500,
+  targetRatePerMile: 2000,
+  targetWeeklyProfit: 1500000,
   fuelReserveMiles: 300,
   tankGallons: 450,
   fuelLevelPct: '',
   maintenanceWarningMiles: 1000,
+};
+
+// Starting goals in each country's own currency; drivers can change the weekly goal in the app.
+const CURRENCY_GOALS = {
+  UGX: { targetRatePerMile: 2000, targetWeeklyProfit: 1500000 },
+  KES: { targetRatePerMile: 60, targetWeeklyProfit: 50000 },
+  RWF: { targetRatePerMile: 500, targetWeeklyProfit: 450000 },
+  EUR: { targetRatePerMile: 0.6, targetWeeklyProfit: 400 },
+  USD: { targetRatePerMile: 0.5, targetWeeklyProfit: 400 },
+};
+
+export const getEffectiveTargets = (targets, currencyCode) => {
+  const goals = CURRENCY_GOALS[currencyCode] || CURRENCY_GOALS.USD;
+  const customWeekly = Number(targets.customWeeklyProfit);
+  return {
+    ...targets,
+    targetRatePerMile: goals.targetRatePerMile,
+    targetWeeklyProfit: customWeekly > 0 ? customWeekly : goals.targetWeeklyProfit,
+  };
 };
 
 export const DriverOpsStore = {
@@ -99,7 +118,7 @@ export const computeLoadDecision = (packet, targets = DEFAULT_DRIVER_TARGETS) =>
   const netPerMile = totalMiles > 0 ? net / totalMiles : null;
   const target = Number(targets.targetRatePerMile) || DEFAULT_DRIVER_TARGETS.targetRatePerMile;
 
-  let score = 'Need miles';
+  let score = 'Add distance';
   if (netPerMile !== null) {
     if (netPerMile >= target) score = 'Take';
     else if (netPerMile >= target * 0.85) score = 'Review';
@@ -114,7 +133,7 @@ export const latestOdometer = (expenses) => expenses
   .filter(Boolean)
   .sort((a, b) => b - a)[0] || null;
 
-const maintenanceOdometerAlert = (item, odometer, warningMiles) => {
+const maintenanceOdometerAlert = (item, odometer, warningMiles, distanceUnit) => {
   const dueOdo = Number(item.dueOdometer) || 0;
   if (!odometer || !dueOdo) return null;
 
@@ -124,7 +143,7 @@ const maintenanceOdometerAlert = (item, odometer, warningMiles) => {
       type: 'maintenance',
       level: 'danger',
       title: `${item.name} overdue`,
-      body: `${item.name} is overdue by ${Math.abs(milesLeft).toFixed(0)} miles.`,
+      body: `${item.name} is overdue by ${Math.abs(milesLeft).toFixed(0)} ${distanceUnit}.`,
     };
   }
   if (milesLeft <= warningMiles) {
@@ -132,7 +151,7 @@ const maintenanceOdometerAlert = (item, odometer, warningMiles) => {
       type: 'maintenance',
       level: 'warning',
       title: `${item.name} due soon`,
-      body: `${item.name} due in ${milesLeft.toFixed(0)} miles.`,
+      body: `${item.name} due in ${milesLeft.toFixed(0)} ${distanceUnit}.`,
     };
   }
   return null;
@@ -156,14 +175,14 @@ const maintenanceDateAlert = (item) => {
   };
 };
 
-const collectMaintenanceAlerts = (maintenanceItems, odometer, warningMiles) => (
+const collectMaintenanceAlerts = (maintenanceItems, odometer, warningMiles, distanceUnit) => (
   maintenanceItems.flatMap(item => [
-    maintenanceOdometerAlert(item, odometer, warningMiles),
+    maintenanceOdometerAlert(item, odometer, warningMiles, distanceUnit),
     maintenanceDateAlert(item),
   ].filter(Boolean))
 );
 
-const collectLoadAlerts = (loadPackets, targets, formatMoney) => {
+const collectLoadAlerts = (loadPackets, targets, formatMoney, distanceUnit) => {
   const followUpAlerts = loadPackets
     .filter(packet => packet.status !== 'paid' && packet.deliveryDate)
     .filter(packet => Math.floor((Date.now() - new Date(packet.deliveryDate).getTime()) / 86400000) >= 5)
@@ -172,8 +191,8 @@ const collectLoadAlerts = (loadPackets, targets, formatMoney) => {
       return {
         type: 'load',
         level: 'warning',
-        title: 'Broker payment follow-up',
-        body: `${packet.broker || 'Broker'} payment is ${daysSinceDelivery} days past delivery on load ${packet.loadNumber || packet.shipper || 'packet'}.`,
+        title: 'Payment follow-up',
+        body: `${packet.broker || 'Your freight agent'} has not paid yet: ${daysSinceDelivery} days since delivery of order ${packet.loadNumber || packet.shipper || 'trip file'}.`,
       };
     });
 
@@ -184,8 +203,8 @@ const collectLoadAlerts = (loadPackets, targets, formatMoney) => {
       alerts.push({
         type: 'load',
         level: decision.score === 'Pass' ? 'danger' : 'warning',
-        title: `Load pays ${formatMoney(decision.netPerMile)}/mi`,
-        body: `Target is ${formatMoney(decision.target)}/mi after fuel, tolls, deadhead, and lumper.`,
+        title: `Load pays ${formatMoney(decision.netPerMile)}/${distanceUnit}`,
+        body: `Your target is ${formatMoney(decision.target)}/${distanceUnit} after fuel, tolls, empty-run distance and loading labour.`,
       });
     }
     if (packet.pickupDate && packet.deliveryDate && new Date(packet.deliveryDate) < new Date(packet.pickupDate)) {
@@ -193,7 +212,7 @@ const collectLoadAlerts = (loadPackets, targets, formatMoney) => {
         type: 'load',
         level: 'danger',
         title: 'Delivery before pickup',
-        body: 'Check pickup and delivery dates on the load packet.',
+        body: 'Check the pickup and delivery dates on the trip file.',
       });
     }
     return alerts;
@@ -262,7 +281,7 @@ export const analyzeDriverOps = ({ expenses, loadPackets, maintenanceItems, targ
         type: 'fuel',
         level: 'warning',
         title: `${units.efficiencyUnit} dropped`,
-        body: `Fuel efficiency dropped from ${average.toFixed(1)} to ${latest.toFixed(1)} ${units.efficiencyUnit}. Check idle time, load weight, tires, or route.`,
+        body: `Fuel efficiency dropped from ${average.toFixed(1)} to ${latest.toFixed(1)} ${units.efficiencyUnit}. Check idle time, load weight, tyres, or route.`,
       });
     }
   }
@@ -284,14 +303,14 @@ export const analyzeDriverOps = ({ expenses, loadPackets, maintenanceItems, targ
     alerts.push({
       type: 'profit',
       level: 'info',
-      title: 'Weekly profit target',
-      body: `You are at ${formatMoney(weeklyProfit)} this week against a ${formatMoney(targets.targetWeeklyProfit)} target.`,
+      title: 'Weekly profit goal',
+      body: `You have made ${formatMoney(weeklyProfit)} this week. Your goal is ${formatMoney(targets.targetWeeklyProfit)}.`,
     });
   }
 
   return [
     ...alerts,
-    ...collectMaintenanceAlerts(maintenanceItems, odometer, targets.maintenanceWarningMiles),
-    ...collectLoadAlerts(loadPackets, targets, formatMoney),
+    ...collectMaintenanceAlerts(maintenanceItems, odometer, targets.maintenanceWarningMiles, units.distanceUnit),
+    ...collectLoadAlerts(loadPackets, targets, formatMoney, units.distanceUnit),
   ].slice(0, 8);
 };

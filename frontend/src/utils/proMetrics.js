@@ -99,7 +99,7 @@ export const computeWeeklyFromExpenses = (expenses) => {
     const expenseTotal = dayEntries.filter(e => e.type === 'expense').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
     days.push({
       date: dayStr,
-      label: day.toLocaleDateString('en-US', { weekday: 'short' }),
+      label: day.toLocaleDateString('en-GB', { weekday: 'short' }),
       income,
       expenses: expenseTotal,
       net: income - expenseTotal,
@@ -122,10 +122,14 @@ export const computeLoadProfitPreview = (formData) => {
 };
 
 const MS_HOUR = 60 * 60 * 1000;
-const DRIVE_LIMIT = 11 * MS_HOUR;
-const WINDOW_LIMIT = 14 * MS_HOUR;
+// Guide limits only: East African countries have no single national driving-hours rule, so drivers can change these.
+export const DEFAULT_DRIVING_LIMITS = { driveHours: 9, dutyHours: 13 };
 
-export const computeHosClocks = (dutyStartedAt, drivingStartedAt, currentStatus) => {
+const positiveHours = (value, fallback) => (Number(value) > 0 ? Number(value) : fallback);
+
+export const computeHosClocks = (dutyStartedAt, drivingStartedAt, currentStatus, limits = DEFAULT_DRIVING_LIMITS) => {
+  const driveLimit = positiveHours(limits.driveHours, DEFAULT_DRIVING_LIMITS.driveHours) * MS_HOUR;
+  const dutyLimit = positiveHours(limits.dutyHours, DEFAULT_DRIVING_LIMITS.dutyHours) * MS_HOUR;
   const now = Date.now();
   const onDutyMs = dutyStartedAt ? now - new Date(dutyStartedAt).getTime() : 0;
   const drivingMs = (currentStatus === 'DRIVING' && drivingStartedAt)
@@ -133,8 +137,8 @@ export const computeHosClocks = (dutyStartedAt, drivingStartedAt, currentStatus)
     : 0;
 
   return {
-    driveRemainingMs: Math.max(DRIVE_LIMIT - drivingMs, 0),
-    windowRemainingMs: Math.max(WINDOW_LIMIT - onDutyMs, 0),
+    driveRemainingMs: Math.max(driveLimit - drivingMs, 0),
+    windowRemainingMs: Math.max(dutyLimit - onDutyMs, 0),
     driveUsedHours: drivingMs / MS_HOUR,
     windowUsedHours: onDutyMs / MS_HOUR
   };

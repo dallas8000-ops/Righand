@@ -20,7 +20,7 @@ def register(request):
             return JsonResponse({'error': 'Email already registered'}, status=409)
 
         if User.objects.filter(trucker_license=data['truckerLicense']).exists():
-            return JsonResponse({'error': 'Trucker license already registered'}, status=409)
+            return JsonResponse({'error': 'Driving licence number already registered'}, status=409)
 
         user_id = str(uuid.uuid4())
         user = User(

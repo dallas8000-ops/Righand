@@ -36,7 +36,7 @@ const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
       const demoUser = {
         id: 'demo_user_001',
         email: 'demo@righand.ai',
-        name: 'Demo Trucker',
+        name: 'Demo Driver',
         truckerLicense: 'DEMO123'
       };
 
@@ -157,14 +157,14 @@ const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
               </div>
 
               <div className="form-group">
-                <label htmlFor="license">Trucker License</label>
+                <label htmlFor="license">Driving Licence Number</label>
                 <input
                   id="license"
                   type="text"
                   name="truckerLicense"
                   value={formData.truckerLicense}
                   onChange={handleChange}
-                  placeholder="CDL License Number"
+                  placeholder="Your driving licence number"
                   required
                 />
               </div>
