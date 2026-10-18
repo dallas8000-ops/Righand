@@ -14,6 +14,7 @@ import tempfile
 import threading
 import uuid
 from datetime import timedelta
+from datetime import timezone as dt_timezone
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -295,6 +296,13 @@ def check_source(source):
     return update
 
 
+def _aware(value):
+    """The production database returns naive timestamps; treat them as UTC so they compare with timezone.now()."""
+    if value is not None and timezone.is_naive(value):
+        return timezone.make_aware(value, dt_timezone.utc)
+    return value
+
+
 def run_checks(force=False):
     """Check every source that is due. Returns a list of per-source results."""
     sync_sources()
@@ -302,11 +310,12 @@ def run_checks(force=False):
     threshold = timezone.now() - check_interval()
     for source in RegulationSource.objects.order_by('id'):
         if not force:
-            if source.last_checked_at and source.last_checked_at > threshold:
+            last_checked = _aware(source.last_checked_at)
+            if last_checked and last_checked > threshold:
                 continue
             # Atomic claim so concurrent workers don't check the same source twice.
             claimed = RegulationSource.objects.filter(
-                pk=source.pk, last_checked_at=source.last_checked_at
+                pk=source.pk, last_checked_at=last_checked
             ).update(last_checked_at=timezone.now())
             if not claimed:
                 continue

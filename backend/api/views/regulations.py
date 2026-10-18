@@ -5,8 +5,8 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from api.jwt_auth import jwt_required
-from api.models import RegulationSource, RegulationUpdate, User
-from api.regulation_monitor import sync_sources, trigger_if_due
+from api.models import RegulationSource, RegulationUpdate, User, _iso_utc
+from api.regulation_monitor import _aware, sync_sources, trigger_if_due
 from api.utils import parse_json
 
 REVIEW_STATUSES = ('approved', 'dismissed')
@@ -33,9 +33,9 @@ def regulation_monitor_payload(jurisdiction_code=None, user_id=None):
         sources = sources.filter(jurisdiction_code=code)
         updates = updates.filter(jurisdiction_code=code)
 
-    checked = [s.last_checked_at for s in sources if s.last_checked_at]
+    checked = [_aware(s.last_checked_at) for s in sources if s.last_checked_at]
     return {
-        'lastCheckedAt': max(checked).isoformat() if checked else None,
+        'lastCheckedAt': _iso_utc(max(checked)) if checked else None,
         'sources': [s.to_dict() for s in sources.order_by('id')],
         'updates': [u.to_dict() for u in updates.order_by('-detected_at')[:20]],
         'pendingCount': updates.filter(status='pending_review').count(),

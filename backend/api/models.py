@@ -2,6 +2,16 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from django.db import models
+from django.utils import timezone as dj_timezone
+
+
+def _iso_utc(value):
+    """ISO string with an explicit UTC offset, even when the database returns naive timestamps."""
+    if value is None:
+        return None
+    if dj_timezone.is_naive(value):
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
 
 TRIAL_DAYS = 30
 
@@ -490,8 +500,8 @@ class RegulationSource(models.Model):
             'label': self.label,
             'url': self.url,
             'status': self.last_status or 'pending',
-            'lastCheckedAt': self.last_checked_at.isoformat() if self.last_checked_at else None,
-            'lastChangedAt': self.last_changed_at.isoformat() if self.last_changed_at else None,
+            'lastCheckedAt': _iso_utc(self.last_checked_at),
+            'lastChangedAt': _iso_utc(self.last_changed_at),
         }
 
 
@@ -524,6 +534,6 @@ class RegulationUpdate(models.Model):
             'summaryMode': self.summary_mode,
             'sourceUrl': self.source_url,
             'status': self.status,
-            'detectedAt': self.detected_at.isoformat() if self.detected_at else None,
-            'reviewedAt': self.reviewed_at.isoformat() if self.reviewed_at else None,
+            'detectedAt': _iso_utc(self.detected_at),
+            'reviewedAt': _iso_utc(self.reviewed_at),
         }

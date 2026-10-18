@@ -3,7 +3,7 @@ from unittest import mock
 from django.test import TestCase
 
 from api import regulation_monitor as monitor
-from api.models import RegulationSource, RegulationUpdate
+from api.models import RegulationSource, RegulationUpdate, _iso_utc
 from api.schema_migrations import ensure_core_schema
 
 PAGE_V1 = """
@@ -51,6 +51,14 @@ class ExtractTests(TestCase):
 
 
 class CheckSourceTests(TestCase):
+    def test_naive_database_timestamps_are_treated_as_utc(self):
+        from datetime import datetime
+        naive = datetime(2026, 10, 18, 10, 19, 24)
+        aware = monitor._aware(naive)
+        self.assertIsNotNone(aware.tzinfo)
+        self.assertEqual(aware.utcoffset().total_seconds(), 0)
+        self.assertTrue(aware < monitor.timezone.now())
+        self.assertTrue(_iso_utc(naive).endswith('+00:00'))
     def setUp(self):
         ensure_core_schema()
         monitor.sync_sources()
