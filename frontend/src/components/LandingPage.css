@@ -305,6 +305,20 @@
   margin: 0;
 }
 
+/* ---------- Demo video ---------- */
+
+.landing-demo-video {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 9 / 16;
+  margin: 0 auto;
+  border-radius: 16px;
+  background: #000;
+  object-fit: cover;
+  box-shadow: 0 18px 40px rgba(38, 38, 51, 0.18);
+}
+
 /* ---------- How it works ---------- */
 
 .landing-steps {
