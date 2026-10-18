@@ -328,6 +328,78 @@ GET /expenses/profit?startDate=2024-01-01&endDate=2024-01-31
 
 ---
 
+### Compliance
+
+#### Regulation Watch
+```http
+GET /compliance/regulation-updates?jurisdictionCode=KE
+Authorization: Bearer <token>
+```
+
+Returns the monitored official sources and any detected changes. Checks run automatically about once a day, started by requests to this endpoint or to `GET /compliance/summary` (which also returns the same data as `regulationMonitor`). Changes stay `pending_review` and never rewrite rule text on their own.
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "lastCheckedAt": "2026-10-18T10:32:12+00:00",
+  "sources": [{ "id": "ke-ntsa", "jurisdictionCode": "KE", "status": "baseline", "lastCheckedAt": "..." }],
+  "updates": [{ "id": "...", "title": "...", "summary": "...", "summaryMode": "diff", "status": "pending_review" }],
+  "pendingCount": 1,
+  "canReview": false
+}
+```
+
+Source `status` is `baseline`, `unchanged`, `changed`, `unreadable`, `error` or `pending`.
+
+```http
+POST /compliance/regulation-updates/{updateId}
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "status": "approved" }
+```
+
+`status` is `approved` or `dismissed`. Only emails listed in `REGULATION_REVIEWER_EMAILS` may review (`403` otherwise).
+
+#### Translated captions
+```http
+POST /compliance/translate
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "text": "Check axle load...", "language": "sw" }
+```
+
+`language` is `lg` (Luganda, default) or `sw` (Swahili). Returns `translation`, a two-sentence `englishSummary` and a `disclaimer`. Results are cached by text, model and language; each user may create 30 new translations per day.
+
+**Errors:** `400` bad text or language, `429` daily limit, `503` `AI_NOT_CONFIGURED` (no `OPENAI_API_KEY`), `502` with `code` `AI_QUOTA`, `AI_AUTH`, `AI_RATE_LIMIT` or `AI_FAILED`.
+
+---
+
+### Fleet
+
+#### Add a driver or dispatcher
+```http
+POST /fleet/drivers
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "email": "driver@example.com", "role": "driver" }
+```
+
+Fleet owner only. If no account exists for the email, also send `name`, `truckerLicense` (the driving licence number) and a temporary `password` of at least 6 characters; otherwise the API answers `400` with `code` `ACCOUNT_DETAILS_REQUIRED`. Returns `201`, or `409` when the fleet seat limit is reached or the person is already in a fleet.
+
+#### Remove a driver
+```http
+DELETE /fleet/drivers/{userId}
+Authorization: Bearer <token>
+```
+
+Fleet owner only. The owner cannot be removed.
+
+---
+
 ## Status Codes
 
 | Code | Meaning |

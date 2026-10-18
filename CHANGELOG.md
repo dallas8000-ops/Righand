@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0-dev] - 2026-10-18
+
+### Added
+- **Regulation Watch:** official sources (Uganda Ministry of Works, Kenya NTSA via its public sitemap, KeNHA, KRA public notices) are checked automatically about once a day. Changes are flagged for review in the Compliance tab and never rewrite rules on their own. Reviewers are set with `REGULATION_REVIEWER_EMAILS`; `python manage.py check_regulations --force` runs a check now.
+- **Luganda and Swahili captions:** a "Read in" picker on compliance rules and Regulation Watch cards gives an AI caption with a short English summary (needs `OPENAI_API_KEY`; optional `OPENAI_MODEL`). Results are cached and limited to 30 new translations per user per day.
+- **Fleet owners can add and remove drivers and dispatchers in the Dispatch tab** (previously only possible with `setup_fleet.py`).
+- **Driving Hours:** adjustable driving and working-day limits per user.
+
+### Changed
+- **East Africa units and wording:** litres, kilometres and km/L; a fuel-country list (UG, KE, TZ, RW, BI, SS, CD, ZM, ET, SO) instead of US states; GPS and OBD trips record kilometres; dates are day-first; weekly profit goals use the selected currency.
+- Plain-language rewrite of compliance text and common terms (Load Packet is now Trip File, Broker is Freight agent, Lumper, Detention, BOL and POD replaced, British spelling).
+- Tax & Fuel exports (PDF and CSV) use litres and kilometres.
+
+### Fixed
+- Hold To Talk: clearer messages, an automatic fallback to typing when the speech service is unreachable or the page runs in an embedded browser (for example the VS Code browser), and pointer capture so the hold is not cut short.
+- Production web build called the wrong API host (`REACT_APP_API_URL`) and had incomplete `CORS_ORIGINS`, which made sign-in fail with "Network Error".
+
 ## [1.0.4-dev] - 2026-06-18
 
 ### Fixed
