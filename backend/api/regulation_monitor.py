@@ -9,11 +9,15 @@ is never rewritten automatically.
 import hashlib
 import logging
 import os
+import re
+import tempfile
 import threading
 import uuid
 from datetime import timedelta
 from html.parser import HTMLParser
+from pathlib import Path
 
+import certifi
 import requests
 from django.db import connection
 from django.utils import timezone
@@ -32,8 +36,13 @@ REGULATION_SOURCES = [
     {
         'id': 'ke-ntsa',
         'jurisdictionCode': 'KE',
-        'label': 'Kenya NTSA',
-        'url': 'https://ntsa.go.ke/',
+        'label': 'Kenya NTSA (new notices and press items)',
+        # NTSA's pages are JavaScript-rendered, so its public sitemap (allowed by robots.txt) is watched for new URLs.
+        'url': 'https://ntsa.go.ke/sitemap.xml',
+        'mode': 'sitemap',
+        'linkUrl': 'https://ntsa.go.ke/press-releases',
+        # The server omits its intermediate certificate; verification stays on using the bundled public one.
+        'caFile': 'sectigo-dv-r36.pem',
     },
     {
         'id': 'ke-kenha',
@@ -41,7 +50,17 @@ REGULATION_SOURCES = [
         'label': 'Kenya National Highways Authority (KeNHA)',
         'url': 'https://kenha.co.ke/',
     },
+    {
+        'id': 'ke-kra-notices',
+        'jurisdictionCode': 'KE',
+        'label': 'Kenya Revenue Authority - Public Notices (customs)',
+        'url': 'https://www.kra.go.ke/news-center/public-notices',
+    },
 ]
+
+CERT_DIR = Path(__file__).resolve().parent / 'certs'
+SITEMAP_LOC_RE = re.compile(r'<loc>\s*([^<\s]+)\s*</loc>')
+_ca_bundle_cache = {}
 
 USER_AGENT = 'Mozilla/5.0 (compatible; RigHandRegulationMonitor/1.0)'
 FETCH_TIMEOUT = 25
@@ -109,19 +128,48 @@ def extract_lines(html):
     return lines
 
 
-def fetch_lines(url):
+def _verify_setting(ca_file):
+    """Return requests' `verify` value: the default trust store, plus an extra public intermediate if given."""
+    if not ca_file:
+        return True
+    if ca_file not in _ca_bundle_cache:
+        extra = (CERT_DIR / ca_file).read_bytes()
+        fd, path = tempfile.mkstemp(suffix='.pem', prefix='righand-ca-')
+        with os.fdopen(fd, 'wb') as handle:
+            handle.write(Path(certifi.where()).read_bytes() + b'\n' + extra)
+        _ca_bundle_cache[ca_file] = path
+    return _ca_bundle_cache[ca_file]
+
+
+def _source_definition(source_id):
+    return next((d for d in REGULATION_SOURCES if d['id'] == source_id), {})
+
+
+def extract_sitemap_urls(xml_text):
+    seen = set()
+    urls = []
+    for match in SITEMAP_LOC_RE.finditer(xml_text):
+        url = match.group(1).strip()
+        if url not in seen:
+            seen.add(url)
+            urls.append(url)
+    return urls
+
+
+def fetch_lines(url, ca_file=None, mode='html'):
     response = requests.get(
         url,
-        headers={'User-Agent': USER_AGENT, 'Accept': 'text/html,application/xhtml+xml'},
+        headers={'User-Agent': USER_AGENT, 'Accept': 'text/html,application/xhtml+xml,application/xml'},
         timeout=FETCH_TIMEOUT,
         stream=True,
+        verify=_verify_setting(ca_file),
     )
     response.raise_for_status()
     body = response.raw.read(MAX_BYTES + 1, decode_content=True)
     if len(body) > MAX_BYTES:
         raise ValueError('Source page too large')
-    html = body.decode(response.encoding or 'utf-8', errors='replace')
-    return extract_lines(html)
+    text = body.decode(response.encoding or 'utf-8', errors='replace')
+    return extract_sitemap_urls(text) if mode == 'sitemap' else extract_lines(text)
 
 
 def _hash_lines(lines):
@@ -182,16 +230,20 @@ def sync_sources():
             },
         )
         if not created and (source.url != definition['url'] or source.label != definition['label']):
+            if source.url != definition['url']:
+                source.content_hash = None
+                source.snapshot_text = None
             source.url = definition['url']
             source.label = definition['label']
-            source.save(update_fields=['url', 'label'])
+            source.save()
 
 
 def check_source(source):
     """Fetch one source and record the result. Returns the new RegulationUpdate or None."""
     now = timezone.now()
     try:
-        lines = fetch_lines(source.url)
+        definition = _source_definition(source.id)
+        lines = fetch_lines(source.url, definition.get('caFile'), definition.get('mode', 'html'))
     except Exception as exc:
         logger.warning('Regulation fetch failed for %s: %s', source.id, exc)
         source.last_checked_at = now
@@ -228,7 +280,7 @@ def check_source(source):
                 summary_mode='ai' if summary else 'diff',
                 added_text='\n'.join(added[:MAX_DIFF_LINES]),
                 removed_text='\n'.join(removed[:MAX_DIFF_LINES]),
-                source_url=source.url,
+                source_url=_source_definition(source.id).get('linkUrl') or source.url,
                 status='pending_review',
             )
             source.last_changed_at = now

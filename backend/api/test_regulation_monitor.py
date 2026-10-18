@@ -33,6 +33,22 @@ class ExtractTests(TestCase):
         self.assertEqual(added, ['c' * 25])
         self.assertEqual(removed, ['a' * 25])
 
+    def test_sitemap_urls_ignore_lastmod_and_duplicates(self):
+        xml = (
+            '<urlset><url><loc>https://ntsa.go.ke/news/19</loc><lastmod>2026-10-18T08:37:25+00:00</lastmod></url>'
+            '<url><loc> https://ntsa.go.ke/news/17 </loc></url>'
+            '<url><loc>https://ntsa.go.ke/news/19</loc></url></urlset>'
+        )
+        self.assertEqual(
+            monitor.extract_sitemap_urls(xml),
+            ['https://ntsa.go.ke/news/19', 'https://ntsa.go.ke/news/17'],
+        )
+
+    def test_ntsa_source_uses_sitemap_mode_and_bundled_cert(self):
+        ntsa = next(s for s in monitor.REGULATION_SOURCES if s['id'] == 'ke-ntsa')
+        self.assertEqual(ntsa['mode'], 'sitemap')
+        self.assertTrue((monitor.CERT_DIR / ntsa['caFile']).exists())
+
 
 class CheckSourceTests(TestCase):
     def setUp(self):

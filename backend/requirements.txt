@@ -8,6 +8,7 @@ gunicorn==22.0.0
 psycopg2-binary==2.9.9
 reportlab==4.2.5
 requests==2.31.0
+certifi
 stripe>=11.0,<14
 werkzeug>=3.0
 pypdf>=4.3,<5
