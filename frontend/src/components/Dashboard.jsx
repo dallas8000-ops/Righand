@@ -13,7 +13,7 @@ import {
   downloadBlob,
   readFileAsDataUrl
 } from '../utils/proMetrics';
-import { US_STATES } from '../utils/usStates';
+import { getRegionProfile } from '../utils/regionProfile';
 import { useTheme } from '../hooks/useTheme';
 import { useNotifications, loadNotificationPref } from '../hooks/useNotifications';
 import WeeklyChart from './dashboard/WeeklyChart';
@@ -237,6 +237,7 @@ const Dashboard = ({ user, onLogout }) => {
     [selectedJurisdiction.code]
   );
   const formatMoney = useMemo(() => makeMoneyFormatter(currencyCode), [currencyCode]);
+  const region = useMemo(() => getRegionProfile(selectedJurisdiction.code), [selectedJurisdiction.code]);
   const latestComplianceScan = complianceScans[0] || null;
   const criticalComplianceCount = selectedJurisdiction.rules.filter(rule => rule.severity === 'critical').length;
   const latestExtractedFields = Object.entries(latestComplianceScan?.extractedFields || {});
@@ -320,8 +321,14 @@ const Dashboard = ({ user, onLogout }) => {
     maintenanceItems,
     targets: driverTargets,
     weeklyDays,
-    formatMoney
-  }), [expenses, loadPackets, maintenanceItems, driverTargets, weeklyDays, formatMoney]);
+    formatMoney,
+    units: {
+      fuelUnit: region.fuelUnit.toLowerCase(),
+      distanceUnit: region.distanceUnit,
+      efficiencyUnit: region.efficiencyUnit,
+      gapWarning: 880,
+    },
+  }), [expenses, loadPackets, maintenanceItems, driverTargets, weeklyDays, formatMoney, region]);
 
   const currentOdometer = useMemo(() => latestOdometer(expenses), [expenses]);
   const nextMaintenance = useMemo(() => {
@@ -350,7 +357,7 @@ const Dashboard = ({ user, onLogout }) => {
     return mpg * Number(driverTargets.tankGallons || 0) * (Number(driverTargets.fuelLevelPct) / 100);
   }, [expenses, driverTargets]);
   const fuelWatchText = useMemo(() => {
-    if (estimatedFuelRange) return `${estimatedFuelRange.toFixed(0)} mi range`;
+    if (estimatedFuelRange) return `${estimatedFuelRange.toFixed(0)} ${region.distanceUnit} range`;
     if (displayMetrics.costPerGallon) return `${formatMoney(displayMetrics.costPerGallon)}/gal`;
     return 'Add fuel stop';
   }, [displayMetrics.costPerGallon, estimatedFuelRange, formatMoney]);
@@ -734,8 +741,8 @@ const Dashboard = ({ user, onLogout }) => {
       { keywords: ['food', 'hotel', 'meal', 'lodging'], category: 'food' },
       { keywords: ['load', 'freight', 'income', 'payment'], category: 'load' }
     ];
-    const amountMatch = text.match(/(\d+(\.\d{1,2})?)/);
-    const parsedAmount = amountMatch ? amountMatch[1] : '';
+    const amountMatch = text.match(/(\d[\d,]*(?:\.\d{1,2})?)/);
+    const parsedAmount = amountMatch ? amountMatch[1].replace(/,/g, '') : '';
     let parsedCategory = 'other';
     for (const rule of categoryKeywords) {
       if (rule.keywords.some(keyword => text.includes(keyword))) {
@@ -746,7 +753,7 @@ const Dashboard = ({ user, onLogout }) => {
     const parsedType = (text.includes('income') || text.includes('load') || text.includes('payment'))
       ? 'income'
       : 'expense';
-    const cleanedDescription = spokenText.replace(/\$?\d+(\.\d{1,2})?/g, '').replace(/\s+/g, ' ').trim();
+    const cleanedDescription = spokenText.replace(/\$?\d[\d,]*(\.\d{1,2})?/g, '').replace(/\s+/g, ' ').trim();
 
     setActiveTab('log');
     setLogView('add');
@@ -770,6 +777,8 @@ const Dashboard = ({ user, onLogout }) => {
   } = useVoiceCapture(applyVoiceCommand);
 
   const beginVoiceCapture = (e) => {
+    // Keep the gesture on the button so drifting or browser long-press handling can't end it early.
+    e?.currentTarget?.setPointerCapture?.(e.pointerId);
     setActiveTab('log');
     setLogView('add');
     startVoiceCapture(e);
@@ -1302,7 +1311,7 @@ const Dashboard = ({ user, onLogout }) => {
         <article className="cockpit-card">
           <span className="metric-label">Fuel Watch</span>
           <strong>{fuelWatchText}</strong>
-          <p>{displayMetrics.fuelCostPerMile ? `${formatMoney(displayMetrics.fuelCostPerMile)}/mile fuel cost` : 'Gallons, odometer, and state unlock MPG and IFTA checks.'}</p>
+          <p>{displayMetrics.fuelCostPerMile ? `${formatMoney(displayMetrics.fuelCostPerMile)}/${region.distanceUnit} fuel cost` : `${region.fuelUnit}, odometer, and country unlock ${region.efficiencyUnit} and cross-border fuel checks.`}</p>
           <div className="fuel-watch-inputs">
             <input
               type="number"
@@ -1318,8 +1327,8 @@ const Dashboard = ({ user, onLogout }) => {
               min="1"
               value={driverTargets.tankGallons}
               onChange={(e) => setDriverTargets(prev => ({ ...prev, tankGallons: e.target.value }))}
-              placeholder="Tank gal"
-              aria-label="Tank gallons"
+              placeholder={`Tank ${region.fuelUnitShort}`}
+              aria-label={`Tank capacity in ${region.fuelUnit.toLowerCase()}`}
             />
           </div>
         </article>
@@ -1340,7 +1349,7 @@ const Dashboard = ({ user, onLogout }) => {
         <div className="section-heading-row">
           <div>
             <h2>Quiet Watch</h2>
-            <p className="section-help">RigHand watches fuel, IFTA, maintenance, loads, and profit targets while you drive.</p>
+            <p className="section-help">RigHand watches fuel, cross-border fuel records, maintenance, loads, and profit targets while you drive.</p>
           </div>
           <button type="button" className="link-btn" onClick={() => setActiveTab('loads')}>Manage</button>
         </div>
@@ -1392,19 +1401,19 @@ const Dashboard = ({ user, onLogout }) => {
 
       <section className="metrics-grid">
         <div className="metric-card highlight">
-          <span className="metric-label">Profit / Mile</span>
+          <span className="metric-label">Profit / {region.distanceUnit}</span>
           <strong>{formatMoney(displayMetrics.profitPerMile)}</strong>
         </div>
         <div className="metric-card">
-          <span className="metric-label">Fuel {currencyCode} / Mile</span>
+          <span className="metric-label">Fuel {currencyCode} / {region.distanceUnit}</span>
           <strong>{formatMoney(displayMetrics.fuelCostPerMile)}</strong>
         </div>
         <div className="metric-card">
-          <span className="metric-label">{currencyCode} / Gallon</span>
+          <span className="metric-label">{currencyCode} / {region.fuelUnit === 'Litres' ? 'Litre' : region.fuelUnit}</span>
           <strong>{formatMoney(displayMetrics.costPerGallon)}</strong>
         </div>
         <div className="metric-card">
-          <span className="metric-label">Loaded Miles</span>
+          <span className="metric-label">Loaded {region.distanceUnit}</span>
           <strong>{displayMetrics.loadedMiles ? displayMetrics.loadedMiles.toFixed(1) : '—'}</strong>
         </div>
       </section>
@@ -1475,7 +1484,7 @@ const Dashboard = ({ user, onLogout }) => {
                 disabled={!voiceAvailable}
                 onPointerDown={beginVoiceCapture}
                 onPointerUp={stopVoiceCapture}
-                onPointerLeave={stopVoiceCapture}
+                onContextMenu={(e) => e.preventDefault()}
               >
                 {isListening ? 'Release To Finish' : 'Hold To Talk'}
               </button>
@@ -1546,14 +1555,14 @@ const Dashboard = ({ user, onLogout }) => {
           <>
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="expense-gallons">Gallons (fuel log)</label>
-                <input id="expense-gallons" type="number" name="gallons" value={formData.gallons} onChange={handleFormChange} step="0.01" min="0" placeholder="IRS fuel record" />
+                <label htmlFor="expense-gallons">{region.fuelUnit} (fuel log)</label>
+                <input id="expense-gallons" type="number" name="gallons" value={formData.gallons} onChange={handleFormChange} step="0.01" min="0" placeholder={region.fuelLogPlaceholder} />
               </div>
               <div className="form-group">
-                <label htmlFor="expense-fuel-state">Fuel State (IFTA)</label>
+                <label htmlFor="expense-fuel-state">{region.fuelLocationLabel}</label>
                 <select id="expense-fuel-state" name="fuelState" value={formData.fuelState} onChange={handleFormChange}>
-                  <option value="">Select state</option>
-                  {US_STATES.map(s => (
+                  <option value="">{region.fuelLocationPlaceholder}</option>
+                  {region.fuelLocations.map(s => (
                     <option key={s.code} value={s.code}>{s.code} — {s.name}</option>
                   ))}
                 </select>
@@ -1561,7 +1570,7 @@ const Dashboard = ({ user, onLogout }) => {
             </div>
             <div className="form-row">
               <div className="form-group fuel-calc-preview">
-                <span className="form-label">{currencyCode} / Gallon</span>
+                <span className="form-label">{currencyCode} / {region.fuelUnit === 'Litres' ? 'Litre' : region.fuelUnit}</span>
                 <p>
                   {formData.gallons && formData.amount
                     ? formatMoney(Number.parseFloat(formData.amount) / Number.parseFloat(formData.gallons))
@@ -1569,8 +1578,8 @@ const Dashboard = ({ user, onLogout }) => {
                 </p>
               </div>
               <div className="form-group fuel-calc-preview">
-                <span className="form-label">MPG (auto-calc)</span>
-                <p>{fuelMpgPreview ? `${fuelMpgPreview.toFixed(1)} mpg` : 'Add gallons + miles or odometer'}</p>
+                <span className="form-label">{region.efficiencyUnit} (auto-calc)</span>
+                <p>{fuelMpgPreview ? `${fuelMpgPreview.toFixed(1)} ${region.efficiencyUnit}` : `Add ${region.fuelUnit.toLowerCase()} + ${region.distanceUnit} or odometer`}</p>
                 {prevFuelOdometer ? <small>Prev odometer: {prevFuelOdometer}</small> : null}
               </div>
             </div>
@@ -1661,8 +1670,8 @@ const Dashboard = ({ user, onLogout }) => {
                 </p>
               </div>
               <div className="expense-card-tags">
-                {expense.miles ? <span className="badge">{expense.miles} mi</span> : null}
-                {expense.gallons ? <span className="badge">{expense.gallons} gal</span> : null}
+                {expense.miles ? <span className="badge">{expense.miles} {region.distanceUnit}</span> : null}
+                {expense.gallons ? <span className="badge">{expense.gallons} {region.fuelUnitShort}</span> : null}
                 {expense.broker ? <span className="badge">{expense.broker}</span> : null}
                 {expense.customer ? <span className="badge">{expense.customer}</span> : null}
                 {expense.fuelState ? <span className="badge">{expense.fuelState}</span> : null}
@@ -2024,7 +2033,7 @@ const Dashboard = ({ user, onLogout }) => {
 
   const renderReports = () => (
     <section className="reports-section">
-      <h2>Tax & IFTA</h2>
+      <h2>{region.reportsTitle}</h2>
 
       <div className="report-quarter-picker">
         <label htmlFor="report-year">Year</label>
@@ -2057,7 +2066,7 @@ const Dashboard = ({ user, onLogout }) => {
 
       {taxReport && (
         <div className="report-block">
-          <h3>Schedule C — Q{taxReport.quarter} {taxReport.year}</h3>
+          <h3>{region.taxReportTitle} — Q{taxReport.quarter} {taxReport.year}</h3>
           <div className="metrics-grid compact">
             <div className="metric-card"><span className="metric-label">Income</span><strong>{formatMoney(taxReport.totalIncome)}</strong></div>
             <div className="metric-card"><span className="metric-label">Expenses</span><strong>{formatMoney(taxReport.totalExpenses)}</strong></div>
@@ -2076,11 +2085,11 @@ const Dashboard = ({ user, onLogout }) => {
 
       {iftaReport && (
         <div className="report-block">
-          <h3>IFTA Fuel — Q{iftaReport.quarter} {iftaReport.year}</h3>
-          <p className="section-help">Total: {iftaReport.totalGallons?.toFixed(1) || 0} gal · {formatMoney(iftaReport.totalCost)}</p>
+          <h3>{region.fuelReportTitle} — Q{iftaReport.quarter} {iftaReport.year}</h3>
+          <p className="section-help">Total: {iftaReport.totalGallons?.toFixed(1) || 0} {region.fuelUnitShort} · {formatMoney(iftaReport.totalCost)}</p>
           {iftaReport.states?.length > 0 ? (
             <table className="report-table">
-              <thead><tr><th>State</th><th>Gallons</th><th>Cost</th><th>Stops</th></tr></thead>
+              <thead><tr><th>{region.fuelReportLocationHeader}</th><th>{region.fuelUnit}</th><th>Cost</th><th>Stops</th></tr></thead>
               <tbody>
                 {iftaReport.states.map(row => (
                   <tr key={row.state}>
@@ -2096,15 +2105,15 @@ const Dashboard = ({ user, onLogout }) => {
             <p className="admin-empty">No fuel data for this quarter.</p>
           )}
           {iftaReport.unassigned?.stops > 0 && (
-            <p className="admin-hint warn">Unassigned: {iftaReport.unassigned.gallons} gal</p>
+            <p className="admin-hint warn">Unassigned: {iftaReport.unassigned.gallons} {region.fuelUnitShort}</p>
           )}
         </div>
       )}
 
       <div className="metrics-grid compact">
-        <div className="metric-card"><span className="metric-label">Profit / Mile</span><strong>{formatMoney(displayMetrics.profitPerMile)}</strong></div>
-        <div className="metric-card"><span className="metric-label">Fuel {currencyCode} / Mile</span><strong>{formatMoney(displayMetrics.fuelCostPerMile)}</strong></div>
-        <div className="metric-card"><span className="metric-label">Total Gallons</span><strong>{displayMetrics.totalGallons || '—'}</strong></div>
+        <div className="metric-card"><span className="metric-label">Profit / {region.distanceUnit}</span><strong>{formatMoney(displayMetrics.profitPerMile)}</strong></div>
+        <div className="metric-card"><span className="metric-label">Fuel {currencyCode} / {region.distanceUnit}</span><strong>{formatMoney(displayMetrics.fuelCostPerMile)}</strong></div>
+        <div className="metric-card"><span className="metric-label">Total {region.fuelUnit}</span><strong>{displayMetrics.totalGallons || '—'}</strong></div>
         <div className="metric-card"><span className="metric-label">Net Profit</span><strong>{formatMoney(displayMetrics.netProfit)}</strong></div>
       </div>
     </section>
@@ -2141,6 +2150,16 @@ const Dashboard = ({ user, onLogout }) => {
       </div>
     </section>
   );
+
+  const handleReviewRegulation = async (updateId, status) => {
+    try {
+      await ComplianceAPI.reviewRegulationUpdate(updateId, status);
+      await loadComplianceSummary();
+      showToast(status === 'approved' ? 'Update approved.' : 'Update dismissed.', 'success');
+    } catch (err) {
+      showToast(err?.response?.data?.error || 'Could not save review.', 'error');
+    }
+  };
 
   const renderCompliance = () => (
     <section className="compliance-workspace">
@@ -2217,6 +2236,45 @@ const Dashboard = ({ user, onLogout }) => {
             </article>
           ))}
         </div>
+      </section>
+
+      <section className="compliance-panel-block regulation-monitor-panel">
+        <div className="section-heading-row compact-row">
+          <div>
+            <h3>Regulation Watch</h3>
+            <p className="section-help">
+              RigHand checks official sources automatically. Detected changes are flagged here for review and do not change your rules until approved.
+            </p>
+          </div>
+          <span className="status-pill">
+            {complianceSummary?.regulationMonitor?.lastCheckedAt
+              ? `Checked ${new Date(complianceSummary.regulationMonitor.lastCheckedAt).toLocaleDateString()}`
+              : 'First check pending'}
+          </span>
+        </div>
+        {(complianceSummary?.regulationMonitor?.updates || []).length === 0 ? (
+          <p className="admin-empty">No regulation changes detected for {selectedJurisdiction.label}.</p>
+        ) : (
+          <div className="automation-alert-list compact-row">
+            {complianceSummary.regulationMonitor.updates.map(update => (
+              <article key={update.id} className={clsx('automation-alert', update.status === 'pending_review' ? 'warning' : 'info')}>
+                <strong>{update.title}</strong>
+                <p>{update.summary}</p>
+                <small>
+                  {new Date(update.detectedAt).toLocaleDateString()} · {update.status === 'pending_review' ? 'Pending review' : 'Approved'}
+                  {update.summaryMode === 'ai' ? ' · AI summary' : ''}
+                  {update.sourceUrl && (<> · <a href={update.sourceUrl} target="_blank" rel="noreferrer">Official source</a></>)}
+                </small>
+                {complianceSummary.regulationMonitor.canReview && update.status === 'pending_review' && (
+                  <div className="trip-actions">
+                    <button type="button" className="btn-primary" onClick={() => handleReviewRegulation(update.id, 'approved')}>Approve</button>
+                    <button type="button" className="btn-secondary" onClick={() => handleReviewRegulation(update.id, 'dismissed')}>Dismiss</button>
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <div className="compliance-upload-panel">
@@ -2392,7 +2450,7 @@ const Dashboard = ({ user, onLogout }) => {
             { id: 'home', label: 'Home', icon: 'H', pro: false },
             { id: 'loads', label: 'Loads', icon: 'L', pro: false },
             { id: 'log', label: 'Money Log', icon: 'M', pro: false },
-            { id: 'reports', label: 'Tax & IFTA', icon: 'R', pro: true },
+            { id: 'reports', label: 'Tax & Fuel', icon: 'R', pro: true },
             { id: 'compliance', label: 'Compliance', icon: 'C', pro: false },
             { id: 'hos', label: 'HOS', icon: '⏱', pro: true },
             { id: 'fleet', label: 'Dispatch', icon: 'D', pro: false },
@@ -2447,6 +2505,7 @@ const Dashboard = ({ user, onLogout }) => {
             subscription={subscription}
             onUnlocked={handlePaidUnlock}
             formatMoney={formatMoney}
+            onFleetChanged={loadFleetStatus}
           />
         )}
         {activeTab === 'admin' && (

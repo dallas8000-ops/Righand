@@ -41,19 +41,19 @@ export function useFleetLocation(userId, fleetEnabled) {
     try {
       const position = await readPosition();
       const { latitude, longitude, speed, heading } = position.coords;
-      const mph = speed != null && speed >= 0 ? Math.round(speed * 2.237) : 0;
+      const kmh = speed != null && speed >= 0 ? Math.round(speed * 3.6) : 0;
 
       await FleetAPI.postLocation({
         latitude,
         longitude,
-        speed: mph,
+        speed: kmh,
         heading: heading ?? undefined
       });
 
       const ping = {
         lat: latitude,
         lng: longitude,
-        speed: mph,
+        speed: kmh,
         at: new Date().toISOString()
       };
       setLastPing(ping);

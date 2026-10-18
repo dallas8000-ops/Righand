@@ -1,18 +1,100 @@
 import uuid
 
+from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
+from werkzeug.security import generate_password_hash
 
 from api.jwt_auth import jwt_required
 from api.models import DutyLog, Expense, FleetMembership, Tenant, User, VehicleLocation
 from api.tier_guard import require_pro
 from api.utils import parse_json
-from fleet_service import FLEET_SEAT_ROLES
+from fleet_service import FLEET_SEAT_ROLES, add_fleet_member
+
+MIN_PASSWORD_LENGTH = 6
 
 
 def _membership_for(user_id):
     return FleetMembership.objects.filter(user_id=user_id).first()
+
+
+def _owner_tenant(user_id):
+    membership = _membership_for(user_id)
+    if not membership or membership.role != 'owner':
+        return None
+    return Tenant.objects.filter(pk=membership.tenant_id).first()
+
+
+@jwt_required
+@require_http_methods(['POST'])
+def add_fleet_driver(request):
+    tenant = _owner_tenant(request.righand_user_id)
+    if not tenant:
+        return JsonResponse({'error': 'Only the fleet owner can add drivers'}, status=403)
+
+    data = parse_json(request)
+    email = (data.get('email') or '').strip().lower()
+    role = (data.get('role') or 'driver').strip()
+    if not email:
+        return JsonResponse({'error': 'Email is required'}, status=400)
+    if role not in FLEET_SEAT_ROLES:
+        return JsonResponse({'error': 'Role must be driver or dispatcher'}, status=400)
+
+    member = User.objects.filter(email__iexact=email).first()
+    created = False
+    if not member:
+        name = (data.get('name') or '').strip()
+        license_number = (data.get('truckerLicense') or '').strip()
+        password = data.get('password') or ''
+        if not name or not license_number or len(password) < MIN_PASSWORD_LENGTH:
+            return JsonResponse({
+                'error': f'No account exists for {email}. Provide name, truckerLicense, and a temporary password of at least {MIN_PASSWORD_LENGTH} characters to create one.',
+                'code': 'ACCOUNT_DETAILS_REQUIRED',
+            }, status=400)
+        if User.objects.filter(trucker_license=license_number).exists():
+            return JsonResponse({'error': 'Trucker license already registered'}, status=409)
+        member = User(
+            id=str(uuid.uuid4()),
+            email=email,
+            password_hash=generate_password_hash(password),
+            name=name,
+            trucker_license=license_number,
+        )
+        created = True
+
+    try:
+        with transaction.atomic():
+            if created:
+                member.save()
+            add_fleet_member(tenant, member, role)
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=409)
+    except IntegrityError:
+        return JsonResponse({'error': 'Could not create the driver account (email or license already used)'}, status=409)
+
+    return JsonResponse({
+        'success': True,
+        'created': created,
+        'member': {'id': member.id, 'name': member.name, 'email': member.email, 'role': role},
+    }, status=201)
+
+
+@jwt_required
+@require_http_methods(['DELETE'])
+def remove_fleet_driver(request, member_user_id):
+    tenant = _owner_tenant(request.righand_user_id)
+    if not tenant:
+        return JsonResponse({'error': 'Only the fleet owner can remove drivers'}, status=403)
+
+    membership = FleetMembership.objects.filter(tenant_id=tenant.id, user_id=member_user_id).first()
+    if not membership:
+        return JsonResponse({'error': 'Member not found in your fleet'}, status=404)
+    if membership.role == 'owner':
+        return JsonResponse({'error': 'The fleet owner cannot be removed'}, status=400)
+
+    membership.delete()
+    return JsonResponse({'success': True})
 
 
 @jwt_required

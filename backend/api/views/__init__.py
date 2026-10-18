@@ -13,13 +13,21 @@ from api.views.expenses import (
     expense_detail,
     get_user_expenses,
 )
-from api.views.fleet import driver_summaries, fleet_status, hos_status, post_location
+from api.views.fleet import (
+    add_fleet_driver,
+    driver_summaries,
+    fleet_status,
+    hos_status,
+    post_location,
+    remove_fleet_driver,
+)
 from api.views.ops import (
     load_packet_detail,
     load_packets,
     maintenance_item_detail,
     maintenance_items,
 )
+from api.views.regulations import regulation_update_detail, regulation_updates
 from api.views.reports import (
     export_csv,
     export_pdf,

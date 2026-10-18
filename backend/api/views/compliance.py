@@ -11,6 +11,7 @@ from api.compliance_rules import analyze_compliance_text, get_jurisdiction
 from api.jwt_auth import jwt_required
 from api.models import ComplianceDocument, ComplianceFinding, ComplianceProfile
 from api.utils import parse_json
+from api.views.regulations import regulation_monitor_payload
 
 try:
     from pypdf import PdfReader
@@ -232,6 +233,7 @@ def compliance_summary(request):
         'readinessAlerts': _fleet_readiness_alerts(profile_counts, severity_counts),
         'dispatchPolicy': _dispatch_policy(severity_counts),
         'latestDocument': latest_document.to_dict() if latest_document else None,
+        'regulationMonitor': regulation_monitor_payload(jurisdiction_code, user_id),
     })
 
 

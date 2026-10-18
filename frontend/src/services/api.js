@@ -322,6 +322,11 @@ export const OpsAPI = {
 };
 
 export const ComplianceAPI = {
+  async reviewRegulationUpdate(updateId, status) {
+    const response = await api.post(`/compliance/regulation-updates/${encodeURIComponent(updateId)}`, { status });
+    return response.data;
+  },
+
   async getSummary(jurisdictionCode) {
     const response = await api.get('/compliance/summary', {
       params: jurisdictionCode ? { jurisdictionCode } : {}
@@ -438,6 +443,16 @@ export const FleetAPI = {
 
   async getDriverSummaries() {
     const response = await api.get('/fleet/drivers/summary');
+    return response.data;
+  },
+
+  async addDriver(payload) {
+    const response = await api.post('/fleet/drivers', payload);
+    return response.data;
+  },
+
+  async removeDriver(userId) {
+    const response = await api.delete(`/fleet/drivers/${encodeURIComponent(userId)}`);
     return response.data;
   },
 

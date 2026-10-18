@@ -237,6 +237,39 @@ CREATE TABLE IF NOT EXISTS compliance_profiles (
 )
 """
 
+CREATE_REGULATION_SOURCES = """
+CREATE TABLE IF NOT EXISTS regulation_sources (
+    id VARCHAR(60) PRIMARY KEY,
+    jurisdiction_code VARCHAR(10) NOT NULL,
+    label VARCHAR(160) NOT NULL,
+    url VARCHAR(500) NOT NULL,
+    content_hash VARCHAR(64),
+    snapshot_text TEXT,
+    last_checked_at TIMESTAMP,
+    last_changed_at TIMESTAMP,
+    last_status VARCHAR(30),
+    last_error TEXT
+)
+"""
+
+CREATE_REGULATION_UPDATES = """
+CREATE TABLE IF NOT EXISTS regulation_updates (
+    id VARCHAR(50) PRIMARY KEY,
+    source_id VARCHAR(60) NOT NULL,
+    jurisdiction_code VARCHAR(10) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    summary TEXT,
+    summary_mode VARCHAR(10) DEFAULT 'diff',
+    added_text TEXT,
+    removed_text TEXT,
+    source_url VARCHAR(500),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending_review',
+    detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMP,
+    reviewed_by VARCHAR(120)
+)
+"""
+
 
 def _subscriptions_create_sql():
     if connection.vendor == 'postgresql':
@@ -332,6 +365,8 @@ def ensure_core_schema():
         CREATE_COMPLIANCE_DOCUMENTS,
         CREATE_COMPLIANCE_FINDINGS,
         CREATE_COMPLIANCE_PROFILES,
+        CREATE_REGULATION_SOURCES,
+        CREATE_REGULATION_UPDATES,
         _subscriptions_create_sql(),
         _purchase_events_create_sql(),
         'CREATE INDEX IF NOT EXISTS ix_users_email ON users (email)',
@@ -353,6 +388,8 @@ def ensure_core_schema():
         'CREATE INDEX IF NOT EXISTS ix_compliance_profiles_type ON compliance_profiles (profile_type)',
         'CREATE INDEX IF NOT EXISTS ix_compliance_profiles_jurisdiction ON compliance_profiles (jurisdiction_code)',
         'CREATE INDEX IF NOT EXISTS ix_purchase_events_subscriber_id ON purchase_events (subscriber_id)',
+        'CREATE INDEX IF NOT EXISTS ix_regulation_updates_status ON regulation_updates (status)',
+        'CREATE INDEX IF NOT EXISTS ix_regulation_updates_jurisdiction ON regulation_updates (jurisdiction_code)',
     ]
     with connection.cursor() as cursor:
         for sql in statements:

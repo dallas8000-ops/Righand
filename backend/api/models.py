@@ -465,3 +465,65 @@ class ComplianceProfile(models.Model):
             'createdAt': self.created_at.isoformat() if self.created_at else None,
             'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class RegulationSource(models.Model):
+    id = models.CharField(max_length=60, primary_key=True)
+    jurisdiction_code = models.CharField(max_length=10, db_index=True)
+    label = models.CharField(max_length=160)
+    url = models.CharField(max_length=500)
+    content_hash = models.CharField(max_length=64, null=True, blank=True)
+    snapshot_text = models.TextField(null=True, blank=True)
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    last_changed_at = models.DateTimeField(null=True, blank=True)
+    last_status = models.CharField(max_length=30, null=True, blank=True)
+    last_error = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'regulation_sources'
+        managed = False
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'jurisdictionCode': self.jurisdiction_code,
+            'label': self.label,
+            'url': self.url,
+            'status': self.last_status or 'pending',
+            'lastCheckedAt': self.last_checked_at.isoformat() if self.last_checked_at else None,
+            'lastChangedAt': self.last_changed_at.isoformat() if self.last_changed_at else None,
+        }
+
+
+class RegulationUpdate(models.Model):
+    id = models.CharField(max_length=50, primary_key=True)
+    source_id = models.CharField(max_length=60, db_index=True)
+    jurisdiction_code = models.CharField(max_length=10, db_index=True)
+    title = models.CharField(max_length=200)
+    summary = models.TextField(null=True, blank=True)
+    summary_mode = models.CharField(max_length=10, default='diff')
+    added_text = models.TextField(null=True, blank=True)
+    removed_text = models.TextField(null=True, blank=True)
+    source_url = models.CharField(max_length=500, null=True, blank=True)
+    status = models.CharField(max_length=20, default='pending_review', db_index=True)
+    detected_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.CharField(max_length=120, null=True, blank=True)
+
+    class Meta:
+        db_table = 'regulation_updates'
+        managed = False
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'sourceId': self.source_id,
+            'jurisdictionCode': self.jurisdiction_code,
+            'title': self.title,
+            'summary': self.summary or '',
+            'summaryMode': self.summary_mode,
+            'sourceUrl': self.source_url,
+            'status': self.status,
+            'detectedAt': self.detected_at.isoformat() if self.detected_at else None,
+            'reviewedAt': self.reviewed_at.isoformat() if self.reviewed_at else None,
+        }

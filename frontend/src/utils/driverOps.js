@@ -18,8 +18,8 @@ const scopedKey = (userId, name) => `righand:${userId || 'demo'}:${name}`;
 export const DEFAULT_DRIVER_TARGETS = {
   targetRatePerMile: 2.1,
   targetWeeklyProfit: 1500,
-  fuelReserveMiles: 180,
-  tankGallons: 120,
+  fuelReserveMiles: 300,
+  tankGallons: 450,
   fuelLevelPct: '',
   maintenanceWarningMiles: 1000,
 };
@@ -202,7 +202,9 @@ const collectLoadAlerts = (loadPackets, targets, formatMoney) => {
   return [...followUpAlerts, ...packetAlerts];
 };
 
-export const analyzeDriverOps = ({ expenses, loadPackets, maintenanceItems, targets, weeklyDays, formatMoney = (value) => formatCurrency(value, 'USD') }) => {
+const DEFAULT_UNITS = { fuelUnit: 'litres', distanceUnit: 'km', efficiencyUnit: 'km/L', gapWarning: 880 };
+
+export const analyzeDriverOps = ({ expenses, loadPackets, maintenanceItems, targets, weeklyDays, formatMoney = (value) => formatCurrency(value, 'USD'), units = DEFAULT_UNITS }) => {
   const alerts = [];
   const fuelEntries = expenses
     .filter(e => e.type === 'expense' && e.category === 'fuel')
@@ -214,16 +216,16 @@ export const analyzeDriverOps = ({ expenses, loadPackets, maintenanceItems, targ
       alerts.push({
         type: 'ifta',
         level: 'warning',
-        title: 'Fuel state missing',
-        body: `You entered ${Number(entry.gallons).toFixed(1)} gallons without a fuel state. Add state for IFTA.`,
+        title: 'Fuel country missing',
+        body: `You entered ${Number(entry.gallons).toFixed(1)} ${units.fuelUnit} without a fuel country. Add the country for cross-border fuel records.`,
       });
     }
     if ((Number(entry.gallons) || 0) <= 0) {
       alerts.push({
         type: 'ifta',
         level: 'warning',
-        title: 'Fuel gallons missing',
-        body: 'Fuel entries need gallons for IFTA and MPG records.',
+        title: `Fuel ${units.fuelUnit} missing`,
+        body: `Fuel entries need ${units.fuelUnit} for fuel records and ${units.efficiencyUnit} tracking.`,
       });
     }
   });
@@ -233,12 +235,12 @@ export const analyzeDriverOps = ({ expenses, loadPackets, maintenanceItems, targ
     .sort((a, b) => Number(b.odometer) - Number(a.odometer));
   if (sortedFuelWithOdo.length >= 2) {
     const gap = Number(sortedFuelWithOdo[0].odometer) - Number(sortedFuelWithOdo[1].odometer);
-    if (gap > 550) {
+    if (gap > units.gapWarning) {
       alerts.push({
         type: 'fuel',
         level: 'warning',
         title: 'Fuel log may be missing',
-        body: `You drove ${gap.toFixed(0)} miles between fuel odometers. Check for a missing fuel stop.`,
+        body: `You drove ${gap.toFixed(0)} ${units.distanceUnit} between fuel odometers. Check for a missing fuel stop.`,
       });
     }
   }
@@ -259,8 +261,8 @@ export const analyzeDriverOps = ({ expenses, loadPackets, maintenanceItems, targ
       alerts.push({
         type: 'fuel',
         level: 'warning',
-        title: 'MPG dropped',
-        body: `Fuel MPG dropped from ${average.toFixed(1)} to ${latest.toFixed(1)}. Check idle time, load weight, tires, or route.`,
+        title: `${units.efficiencyUnit} dropped`,
+        body: `Fuel efficiency dropped from ${average.toFixed(1)} to ${latest.toFixed(1)} ${units.efficiencyUnit}. Check idle time, load weight, tires, or route.`,
       });
     }
   }
@@ -272,7 +274,7 @@ export const analyzeDriverOps = ({ expenses, loadPackets, maintenanceItems, targ
         type: 'fuel',
         level: 'warning',
         title: 'Fuel range getting low',
-        body: `At current MPG and fuel level, estimated range is ${estimatedRange.toFixed(0)} miles.`,
+        body: `At current ${units.efficiencyUnit} and fuel level, estimated range is ${estimatedRange.toFixed(0)} ${units.distanceUnit}.`,
       });
     }
   }
