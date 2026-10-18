@@ -14,6 +14,7 @@ import {
   readFileAsDataUrl
 } from '../utils/proMetrics';
 import { getRegionProfile } from '../utils/regionProfile';
+import LugandaCaption from './dashboard/LugandaCaption';
 import { useTheme } from '../hooks/useTheme';
 import { useNotifications, loadNotificationPref } from '../hooks/useNotifications';
 import WeeklyChart from './dashboard/WeeklyChart';
@@ -1756,6 +1757,7 @@ const Dashboard = ({ user, onLogout }) => {
                 <span className="status-pill">{rule.severity}</span>
               </div>
               <p>{rule.summary}</p>
+              {!isDemo && <LugandaCaption text={`${rule.title}. ${rule.summary}`} />}
               <div className="compliance-doc-tags">
                 {rule.requiredDocs.slice(0, 4).map(doc => <span key={doc}>{doc}</span>)}
               </div>
@@ -2264,6 +2266,7 @@ const Dashboard = ({ user, onLogout }) => {
               <article key={update.id} className={clsx('automation-alert', update.status === 'pending_review' ? 'warning' : 'info')}>
                 <strong>{update.title}</strong>
                 <p>{update.summary}</p>
+                {!isDemo && <LugandaCaption text={`${update.title}. ${update.summary}`} />}
                 <small>
                   {new Date(update.detectedAt).toLocaleDateString()} · {update.status === 'pending_review' ? 'Pending review' : 'Approved'}
                   {update.summaryMode === 'ai' ? ' · AI summary' : ''}
@@ -2377,6 +2380,7 @@ const Dashboard = ({ user, onLogout }) => {
                   <span className="badge">{rule.hits.length ? `${rule.hits.length} hits` : rule.severity}</span>
                 </div>
                 <p>{rule.summary}</p>
+                {!isDemo && <LugandaCaption text={`${rule.title}. ${rule.summary}`} />}
                 <div className="compliance-doc-tags">
                   {rule.requiredDocs.slice(0, 5).map(doc => <span key={doc}>{doc}</span>)}
                 </div>
@@ -2412,6 +2416,7 @@ const Dashboard = ({ user, onLogout }) => {
                   <span className="status-pill">{rule.severity}</span>
                 </div>
                 <p>{rule.summary}</p>
+                {!isDemo && <LugandaCaption text={`${rule.title}. ${rule.summary}`} />}
                 <div className="compliance-doc-tags">
                   {rule.requiredDocs.map(doc => <span key={doc}>{doc}</span>)}
                 </div>

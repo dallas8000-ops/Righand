@@ -870,6 +870,27 @@ body.night-drive .dashboard-header {
   gap: 12px;
 }
 
+.luganda-caption {
+  margin-top: 8px;
+}
+
+.luganda-caption-box {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-left: 4px solid #16a34a;
+  background: #f0fdf4;
+  border-radius: 6px;
+}
+
+.luganda-caption-text {
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.luganda-caption-english {
+  margin: 0 0 6px;
+}
+
 .compliance-doc-tags,
 .compliance-sources {
   display: flex;

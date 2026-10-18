@@ -271,6 +271,18 @@ CREATE TABLE IF NOT EXISTS regulation_updates (
 """
 
 
+CREATE_TRANSLATION_CACHE = """
+CREATE TABLE IF NOT EXISTS translation_cache (
+    id VARCHAR(64) PRIMARY KEY,
+    source_text TEXT NOT NULL,
+    luganda TEXT NOT NULL,
+    english_summary TEXT NOT NULL,
+    user_id VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+
 def _subscriptions_create_sql():
     if connection.vendor == 'postgresql':
         return """
@@ -367,6 +379,7 @@ def ensure_core_schema():
         CREATE_COMPLIANCE_PROFILES,
         CREATE_REGULATION_SOURCES,
         CREATE_REGULATION_UPDATES,
+        CREATE_TRANSLATION_CACHE,
         _subscriptions_create_sql(),
         _purchase_events_create_sql(),
         'CREATE INDEX IF NOT EXISTS ix_users_email ON users (email)',
@@ -390,6 +403,7 @@ def ensure_core_schema():
         'CREATE INDEX IF NOT EXISTS ix_purchase_events_subscriber_id ON purchase_events (subscriber_id)',
         'CREATE INDEX IF NOT EXISTS ix_regulation_updates_status ON regulation_updates (status)',
         'CREATE INDEX IF NOT EXISTS ix_regulation_updates_jurisdiction ON regulation_updates (jurisdiction_code)',
+        'CREATE INDEX IF NOT EXISTS ix_translation_cache_user_id ON translation_cache (user_id)',
     ]
     with connection.cursor() as cursor:
         for sql in statements:

@@ -322,6 +322,11 @@ export const OpsAPI = {
 };
 
 export const ComplianceAPI = {
+  async translateToLuganda(text) {
+    const response = await api.post('/compliance/translate', { text });
+    return response.data;
+  },
+
   async reviewRegulationUpdate(updateId, status) {
     const response = await api.post(`/compliance/regulation-updates/${encodeURIComponent(updateId)}`, { status });
     return response.data;

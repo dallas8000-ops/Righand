@@ -28,6 +28,7 @@ from api.views.ops import (
     maintenance_items,
 )
 from api.views.regulations import regulation_update_detail, regulation_updates
+from api.views.translation import translate_compliance_text
 from api.views.reports import (
     export_csv,
     export_pdf,

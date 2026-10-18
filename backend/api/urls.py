@@ -34,6 +34,7 @@ urlpatterns = [
     path('compliance/summary', csrf(views.compliance_summary)),
     path('compliance/regulation-updates/<str:update_id>', csrf(views.regulation_update_detail)),
     path('compliance/regulation-updates', csrf(views.regulation_updates)),
+    path('compliance/translate', csrf(views.translate_compliance_text)),
     path('reports/metrics', csrf(views.get_metrics)),
     path('reports/weekly-summary', csrf(views.weekly_summary)),
     path('reports/export/csv', csrf(views.export_csv)),
