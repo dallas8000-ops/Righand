@@ -21,4 +21,11 @@ describe('RigHand product positioning', () => {
     expect(landingPage).toMatch(/offline-first/i);
     expect(landingPage).toMatch(/GPS.*OBD-II/is);
   });
+
+  test('plays the demo video from the marketing site, not from the app bundle', () => {
+    expect(landingPage).toContain('https://gilliomfrontlinedigital.com/videos/righand-ai.mp4');
+    expect(landingPage).toContain('https://gilliomfrontlinedigital.com/images/video-posters/righand-ai.jpg');
+    expect(landingPage).toMatch(/preload="none"/);
+    expect(fs.existsSync(path.resolve(process.cwd(), 'public/videos'))).toBe(false);
+  });
 });

@@ -88,6 +88,13 @@ const TIERS = [
   },
 ];
 
+// Hosted on the marketing site (not in public/) so the 10 MB file is not bundled into the Android app.
+const DEMO_VIDEO = {
+  src: 'https://gilliomfrontlinedigital.com/videos/righand-ai.mp4',
+  poster: 'https://gilliomfrontlinedigital.com/images/video-posters/righand-ai.jpg',
+  title: 'RigHand AI: 4 fleet problems in East Africa and how the app fixes them',
+};
+
 const LandingPage = ({ onLogin, onSignUp, onTryDemo }) => {
   return (
     <div className="landing">
@@ -95,6 +102,7 @@ const LandingPage = ({ onLogin, onSignUp, onTryDemo }) => {
         <div className="landing-nav-inner">
           <a href="#top" className="landing-logo">🚚 RigHand AI</a>
           <nav className="landing-nav-links" aria-label="Primary">
+            <a href="#demo-video">Watch Demo</a>
             <a href="#how-it-works">How It Works</a>
             <a href="#features">Features</a>
             <a href="#pricing">Pricing</a>
@@ -145,6 +153,27 @@ const LandingPage = ({ onLogin, onSignUp, onTryDemo }) => {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section id="demo-video" className="landing-section" aria-labelledby="demo-video-title">
+          <div className="landing-section-head">
+            <span className="landing-section-tag">See It In Action</span>
+            <h2 id="demo-video-title">4 problems East African fleets face, and how RigHand fixes them</h2>
+            <p className="landing-section-sub">
+              Records lost when the signal drops, driver fatigue, breakdowns, and missing papers at the
+              weighbridge, shown on the real app in just over two minutes.
+            </p>
+          </div>
+          <video
+            className="landing-demo-video"
+            src={DEMO_VIDEO.src}
+            poster={DEMO_VIDEO.poster}
+            title={DEMO_VIDEO.title}
+            aria-label={DEMO_VIDEO.title}
+            controls
+            playsInline
+            preload="none"
+          />
         </section>
 
         <section id="how-it-works" className="landing-section">
