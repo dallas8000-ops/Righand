@@ -92,6 +92,19 @@ class CheckSourceTests(TestCase):
         self.assertEqual(source.last_status, 'error')
         self.assertIn('boom', source.last_error)
 
+    def test_changed_url_resets_snapshot_and_schedule(self):
+        ntsa = RegulationSource.objects.get(pk='ke-ntsa')
+        ntsa.url = 'https://ntsa.go.ke/'
+        ntsa.content_hash = 'old'
+        ntsa.snapshot_text = 'old'
+        ntsa.last_checked_at = monitor.timezone.now()
+        ntsa.save()
+        monitor.sync_sources()
+        ntsa.refresh_from_db()
+        self.assertEqual(ntsa.url, 'https://ntsa.go.ke/sitemap.xml')
+        self.assertIsNone(ntsa.content_hash)
+        self.assertIsNone(ntsa.last_checked_at)
+
     def test_run_checks_skips_recently_checked_sources(self):
         with mock.patch.object(monitor, 'fetch_lines', return_value=monitor.extract_lines(PAGE_V1)) as fetch:
             first = monitor.run_checks()

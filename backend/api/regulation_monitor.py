@@ -233,6 +233,7 @@ def sync_sources():
             if source.url != definition['url']:
                 source.content_hash = None
                 source.snapshot_text = None
+                source.last_checked_at = None
             source.url = definition['url']
             source.label = definition['label']
             source.save()
