@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tax & Fuel exports (PDF and CSV) use litres and kilometres.
 
 ### Fixed
+- **Android Hold To Talk could get stuck on "Release To Finish":** the speech plugin never answers `stop()` and does not report "no speech" once partial results are on. Voice sessions now never wait for `stop()`, end themselves when nothing is heard (9 s) or after a long hold (20 s), and show "I did not hear anything" instead of staying stuck. Covered by new tests in `nativeVoiceSession.test.js`.
 - Hold To Talk: clearer messages, an automatic fallback to typing when the speech service is unreachable or the page runs in an embedded browser (for example the VS Code browser), and pointer capture so the hold is not cut short.
 - Production web build called the wrong API host (`REACT_APP_API_URL`) and had incomplete `CORS_ORIGINS`, which made sign-in fail with "Network Error".
 
