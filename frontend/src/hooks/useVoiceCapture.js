@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { createNativeVoiceSession } from '../utils/nativeVoiceSession';
 
 const WEB_ERROR_MESSAGES = {
   'not-allowed': 'Microphone blocked — allow mic access for this site in the browser address bar.',
@@ -15,9 +16,8 @@ export function useVoiceCapture(onTranscript, onUnavailable) {
   const onTranscriptRef = useRef(onTranscript);
   const onUnavailableRef = useRef(onUnavailable);
   const speechRecognitionRef = useRef(null);
+  const nativeSessionRef = useRef(null);
   const voiceSessionActiveRef = useRef(false);
-  const latestTranscriptRef = useRef('');
-  const nativePartialHandleRef = useRef(null);
 
   const [voiceAvailable, setVoiceAvailable] = useState(false);
   const [voiceHint, setVoiceHint] = useState('');
@@ -39,6 +39,7 @@ export function useVoiceCapture(onTranscript, onUnavailable) {
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
       let mounted = true;
+      const handles = [];
       (async () => {
         try {
           const { SpeechRecognition } = await import('@capacitor-community/speech-recognition');
@@ -51,11 +52,17 @@ export function useVoiceCapture(onTranscript, onUnavailable) {
             return;
           }
 
-          nativePartialHandleRef.current = await SpeechRecognition.addListener('partialResults', (data) => {
-            const match = data?.matches?.[0];
-            if (match) latestTranscriptRef.current = match;
+          const session = createNativeVoiceSession({
+            plugin: SpeechRecognition,
+            onListening: setIsListening,
+            onTranscript: applyTranscript,
+            onHint: setVoiceHint,
           });
-
+          handles.push(
+            await SpeechRecognition.addListener('partialResults', (data) => session.handlePartial(data?.matches)),
+            await SpeechRecognition.addListener('listeningState', (data) => session.handleState(data?.status)),
+          );
+          nativeSessionRef.current = session;
           speechRecognitionRef.current = SpeechRecognition;
           setVoiceEngine('native');
           setVoiceAvailable(true);
@@ -66,8 +73,9 @@ export function useVoiceCapture(onTranscript, onUnavailable) {
 
       return () => {
         mounted = false;
-        nativePartialHandleRef.current?.remove?.();
-        nativePartialHandleRef.current = null;
+        nativeSessionRef.current?.dispose();
+        nativeSessionRef.current = null;
+        handles.forEach((handle) => handle?.remove?.());
         import('@capacitor-community/speech-recognition')
           .then(({ SpeechRecognition }) => SpeechRecognition.removeAllListeners())
           .catch(() => {});
@@ -141,20 +149,16 @@ export function useVoiceCapture(onTranscript, onUnavailable) {
 
   useEffect(() => {
     const releaseVoice = () => {
+      if (voiceEngine === 'native') {
+        nativeSessionRef.current?.end();
+        return;
+      }
       if (!voiceSessionActiveRef.current) return;
       voiceSessionActiveRef.current = false;
-      if (voiceEngine === 'web') {
-        try {
-          speechRecognitionRef.current?.stop();
-        } catch {
-          /* ignore */
-        }
-      } else if (voiceEngine === 'native') {
-        speechRecognitionRef.current?.stop()
-          .then(() => applyTranscript(latestTranscriptRef.current))
-          .catch(() => {});
-        setIsListening(false);
-        setTimeout(() => setVoiceHint(''), 2000);
+      try {
+        speechRecognitionRef.current?.stop();
+      } catch {
+        /* ignore */
       }
     };
     window.addEventListener('pointerup', releaseVoice);
@@ -163,7 +167,7 @@ export function useVoiceCapture(onTranscript, onUnavailable) {
       window.removeEventListener('pointerup', releaseVoice);
       window.removeEventListener('pointercancel', releaseVoice);
     };
-  }, [applyTranscript, voiceEngine]);
+  }, [voiceEngine]);
 
   const startVoiceCapture = useCallback(async (e) => {
     e?.preventDefault?.();
@@ -172,30 +176,15 @@ export function useVoiceCapture(onTranscript, onUnavailable) {
       setVoiceHint('Voice recognition is not available on this device.');
       return;
     }
-    if (voiceSessionActiveRef.current) return;
-
-    voiceSessionActiveRef.current = true;
-    latestTranscriptRef.current = '';
-    setVoiceHint('Starting microphone…');
 
     if (voiceEngine === 'native') {
-      try {
-        await speechRecognitionRef.current.start({
-          language: 'en-US',
-          maxResults: 1,
-          partialResults: true,
-          popup: false,
-        });
-        setIsListening(true);
-        setVoiceHint('Listening… speak now, release when done.');
-      } catch (error) {
-        voiceSessionActiveRef.current = false;
-        setIsListening(false);
-        setVoiceHint(error?.message || 'Microphone busy — wait a moment and try again.');
-      }
+      await nativeSessionRef.current?.start();
       return;
     }
 
+    if (voiceSessionActiveRef.current) return;
+    voiceSessionActiveRef.current = true;
+    setVoiceHint('Starting microphone…');
     try {
       speechRecognitionRef.current.start();
     } catch {
@@ -204,31 +193,22 @@ export function useVoiceCapture(onTranscript, onUnavailable) {
     }
   }, [voiceAvailable, voiceEngine]);
 
-  const stopVoiceCapture = useCallback(async (e) => {
+  const stopVoiceCapture = useCallback((e) => {
     e?.preventDefault?.();
     e?.stopPropagation?.();
+    if (voiceEngine === 'native') {
+      nativeSessionRef.current?.end();
+      return;
+    }
     if (!speechRecognitionRef.current) return;
 
     voiceSessionActiveRef.current = false;
-
-    if (voiceEngine === 'native') {
-      try {
-        await speechRecognitionRef.current.stop();
-        applyTranscript(latestTranscriptRef.current);
-      } catch {
-        /* ignore */
-      }
-      setIsListening(false);
-      setTimeout(() => setVoiceHint(''), 2000);
-      return;
-    }
-
     try {
       speechRecognitionRef.current.stop();
     } catch {
       /* ignore */
     }
-  }, [applyTranscript, voiceEngine]);
+  }, [voiceEngine]);
 
   const toggleVoiceCapture = useCallback(() => {
     if (isListening || voiceSessionActiveRef.current) {
