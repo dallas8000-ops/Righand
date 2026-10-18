@@ -93,7 +93,12 @@ export function useVoiceCapture(onTranscript) {
     recognition.onerror = (event) => {
       voiceSessionActiveRef.current = false;
       setIsListening(false);
-      const msg = WEB_ERROR_MESSAGES[event.error] || `Voice error: ${event.error}`;
+      let msg = WEB_ERROR_MESSAGES[event.error] || `Voice error: ${event.error}`;
+      if (event.error === 'network') {
+        msg = navigator.onLine === false
+          ? 'You are offline. Voice needs a connection - type the entry instead.'
+          : 'This browser cannot reach its speech service (common in Brave, Edge or embedded browsers). Use Chrome or the RigHand Android app, or type the entry.';
+      }
       if (msg) setVoiceHint(msg);
     };
     recognition.onresult = (event) => {
