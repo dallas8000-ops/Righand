@@ -3,8 +3,16 @@ import { SubscriptionAPI } from '../services/api';
 
 const PAID_TIERS = new Set(['pro', 'fleet']);
 
-const isDeveloperMode = () => (
-  typeof localStorage !== 'undefined'
+// The localStorage flag only counts in developer builds (or `npm start`), so a
+// leftover or hand-set flag can never unlock Pro screens on the live site.
+const isDeveloperBuild = () => (
+  process.env.REACT_APP_DEVELOPER_BUILD === 'true'
+  || process.env.NODE_ENV === 'development'
+);
+
+export const isDeveloperMode = () => (
+  isDeveloperBuild()
+  && typeof localStorage !== 'undefined'
   && localStorage.getItem('righandDeveloperMode') === 'true'
 );
 

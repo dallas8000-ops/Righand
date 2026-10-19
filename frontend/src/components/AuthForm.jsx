@@ -43,6 +43,7 @@ const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
       await UserDB.saveUserSession(demoUser.id, demoUser.email, demoUser);
       localStorage.setItem('authToken', 'demo_token_12345');
       localStorage.setItem('userId', demoUser.id);
+      localStorage.removeItem('righandDeveloperMode');
 
       onAuthSuccess(demoUser);
     } catch (err) {
