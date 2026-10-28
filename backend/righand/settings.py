@@ -21,6 +21,20 @@ else:
     _env = os.environ.get('DJANGO_ENV', os.environ.get('FLASK_ENV', 'development'))
 DEBUG = _env == 'development'
 
+# Refuse to boot in production with missing or placeholder signing keys: anyone
+# who knows the placeholder could mint login tokens for any user.
+if _is_production:
+    _placeholder_secrets = {
+        'righand-secret-key-change-in-production',
+        'righand-jwt-secret-change-in-production',
+    }
+    for _name in ('SECRET_KEY', 'JWT_SECRET_KEY'):
+        _value = os.environ.get(_name, '').strip()
+        if not _value or _value in _placeholder_secrets:
+            raise ImproperlyConfigured(
+                f'{_name} must be set to a unique random value in Railway Variables.'
+            )
+
 # --- Error/performance monitoring (Sentry) ---
 # SENTRY_DSN is set as a Railway environment variable, not hardcoded here.
 # No-ops safely if unset (e.g. local dev), so it's always safe to leave in.
@@ -221,6 +235,10 @@ for _url in (
 ):
     if _url and _url not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(_url)
+
+# Local-only shortcuts that change a tier without a verified payment
+# (/subscriptions/activate and /subscriptions/renew). Never on in production.
+ALLOW_UNPAID_TIER_CHANGES = DEBUG and not _is_production
 
 if _is_production:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

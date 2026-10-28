@@ -42,3 +42,7 @@ jobs:
           # CRA treats ESLint warnings as errors when CI=true; repo has hook-deps warnings.
           CI: "false"
         run: npm ci && npm run build
+
+      - name: Backend tests
+        working-directory: backend
+        run: python manage.py test api

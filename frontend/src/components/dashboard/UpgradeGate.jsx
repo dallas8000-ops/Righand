@@ -30,13 +30,14 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
       ? subscription?.tier === 'fleet'
       : subscription?.tier === 'pro' || subscription?.tier === 'fleet');
 
-  const handlePurchaseComplete = async (orderId, product) => {
+  const handlePurchaseComplete = async (orderId, product, purchaseToken) => {
     setBusy(true);
     setError('');
     try {
       await SubscriptionAPI.verifyPurchase({
         productId: product || productId,
         googleOrderId: orderId,
+        purchaseToken,
       });
       if (onUnlocked) await onUnlocked();
     } catch (err) {
@@ -83,8 +84,8 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
   useEffect(() => {
     window.RigHandBilling = window.RigHandBilling || {};
     window.RigHandBilling.onPurchase = (purchase) => {
-      if (!purchase?.orderId || !purchase?.productId) return;
-      handlePurchaseComplete(purchase.orderId, purchase.productId);
+      if (!purchase?.productId || !purchase?.purchaseToken) return;
+      handlePurchaseComplete(purchase.orderId, purchase.productId, purchase.purchaseToken);
     };
     return () => {
       if (window.RigHandBilling?.onPurchase) {
