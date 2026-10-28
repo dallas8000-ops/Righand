@@ -71,6 +71,7 @@ def my_subscription(request):
         'fleet': {'productId': products['fleet'], 'price': TIER_PRICES['fleet']},
     }
     payload['stripeConfigured'] = bool(os.environ.get('STRIPE_SECRET_KEY') and os.environ.get('STRIPE_PRICE_ID_PRO'))
+    payload['flutterwaveConfigured'] = bool(os.environ.get('FLUTTERWAVE_SECRET_KEY', '').strip())
     return JsonResponse(payload)
 
 

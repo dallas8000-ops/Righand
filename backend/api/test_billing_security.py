@@ -167,6 +167,23 @@ class FlutterwaveVerificationTests(TestCase):
         self.assertEqual(Subscription.objects.get(user_id=self.user.id).tier, 'fleet')
 
 
+class PaymentOptionsTests(TestCase):
+    def setUp(self):
+        ensure_core_schema()
+        self.user = _make_user('driver@example.com', 'DRV1')
+
+    def _me(self):
+        return self.client.get('/api/subscriptions/me', **_headers(self.user)).json()
+
+    def test_flutterwave_hidden_when_not_configured(self):
+        with mock.patch.dict(os.environ, {'FLUTTERWAVE_SECRET_KEY': ''}):
+            self.assertFalse(self._me()['flutterwaveConfigured'])
+
+    def test_flutterwave_shown_when_configured(self):
+        with mock.patch.dict(os.environ, {'FLUTTERWAVE_SECRET_KEY': 'sk'}):
+            self.assertTrue(self._me()['flutterwaveConfigured'])
+
+
 class FrontendRedirectTests(TestCase):
     def setUp(self):
         ensure_core_schema()
