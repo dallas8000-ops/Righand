@@ -21,6 +21,7 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
 
   const productId = subscription?.products?.[tier]?.productId;
   const stripeConfigured = Boolean(subscription?.stripeConfigured);
+  const flutterwaveConfigured = Boolean(subscription?.flutterwaveConfigured);
   const trialActive = Boolean(subscription?.trialActive);
   const trialExpired = Boolean(subscription?.trialExpired);
 
@@ -30,17 +31,32 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
       ? subscription?.tier === 'fleet'
       : subscription?.tier === 'pro' || subscription?.tier === 'fleet');
 
-  const handlePurchaseComplete = async (orderId, product) => {
+  const handlePurchaseComplete = async (orderId, product, purchaseToken) => {
     setBusy(true);
     setError('');
     try {
       await SubscriptionAPI.verifyPurchase({
         productId: product || productId,
         googleOrderId: orderId,
+        purchaseToken,
       });
       if (onUnlocked) await onUnlocked();
     } catch (err) {
       setError(err?.error || err?.message || 'Purchase verification failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Local development only: the backend refuses /subscriptions/activate in production.
+  const handleDevActivate = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await SubscriptionAPI.activate(tier);
+      if (onUnlocked) await onUnlocked();
+    } catch (err) {
+      setError(err?.error || err?.message || 'Activation failed.');
     } finally {
       setBusy(false);
     }
@@ -83,8 +99,8 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
   useEffect(() => {
     window.RigHandBilling = window.RigHandBilling || {};
     window.RigHandBilling.onPurchase = (purchase) => {
-      if (!purchase?.orderId || !purchase?.productId) return;
-      handlePurchaseComplete(purchase.orderId, purchase.productId);
+      if (!purchase?.productId || !purchase?.purchaseToken) return;
+      handlePurchaseComplete(purchase.orderId, purchase.productId, purchase.purchaseToken);
     };
     return () => {
       if (window.RigHandBilling?.onPurchase) {
@@ -113,32 +129,35 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
           </p>
         )}
         <p className="admin-hint">{copy.blurb}</p>
-        <p className="admin-hint">
-          Pay via Flutterwave (mobile money &amp; cards) or Stripe on web.
-          Features unlock automatically after payment.
-        </p>
-        {productId && (
-          <p className="upgrade-product-id">
-            Product ID: <code>{productId}</code>
+        {(stripeConfigured || flutterwaveConfigured) ? (
+          <p className="admin-hint">
+            {stripeConfigured ? 'Pay securely by card.' : 'Pay by mobile money or card.'}
+            {' '}Features unlock automatically after payment.
+          </p>
+        ) : (
+          <p className="admin-hint">
+            Online payment is not available yet. Contact support to subscribe.
           </p>
         )}
         {error && <p className="error-message">{error}</p>}
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={busy}
-          onClick={handleFlutterwaveCheckout}
-        >
-          {busy ? 'Opening checkout...' : 'Subscribe with Flutterwave'}
-        </button>
         {stripeConfigured && (
           <button
             type="button"
-            className="btn-secondary"
+            className="btn-primary"
             disabled={busy}
             onClick={handleStripeCheckout}
           >
-            {busy ? 'Opening checkout...' : 'Subscribe with Stripe'}
+            {busy ? 'Opening checkout...' : 'Subscribe'}
+          </button>
+        )}
+        {flutterwaveConfigured && (
+          <button
+            type="button"
+            className={stripeConfigured ? 'btn-secondary' : 'btn-primary'}
+            disabled={busy}
+            onClick={handleFlutterwaveCheckout}
+          >
+            {busy ? 'Opening checkout...' : 'Pay with mobile money'}
           </button>
         )}
         {process.env.NODE_ENV === 'development' && (
@@ -146,9 +165,9 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
             type="button"
             className="btn-secondary"
             disabled={busy}
-            onClick={() => handlePurchaseComplete(`DEV-${Date.now()}`, productId || tier)}
+            onClick={handleDevActivate}
           >
-            {busy ? 'Verifying…' : 'Dev: simulate payment'}
+            {busy ? 'Activating…' : 'Dev: simulate payment'}
           </button>
         )}
       </div>

@@ -3,7 +3,7 @@
 import os
 from datetime import datetime, timedelta, timezone
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from api.models import PurchaseEvent, Subscription, User
 from fleet_service import ensure_fleet_for_owner
@@ -34,6 +34,20 @@ def catalog_product_ids():
         'pro': os.environ.get('GOOGLE_PRODUCT_PRO', 'righand_pro_monthly'),
         'fleet': os.environ.get('GOOGLE_PRODUCT_FLEET', 'righand_fleet_monthly'),
     }
+
+
+def flutterwave_currency() -> str:
+    return os.environ.get('FLUTTERWAVE_CURRENCY', 'USD').strip().upper()
+
+
+def flutterwave_price(tier: str) -> float:
+    """Price charged through Flutterwave, in FLUTTERWAVE_CURRENCY.
+
+    Set FLUTTERWAVE_PRICE_PRO / FLUTTERWAVE_PRICE_FLEET when the currency is not
+    USD (e.g. UGX), otherwise the USD figure would be charged as local currency.
+    """
+    override = os.environ.get(f'FLUTTERWAVE_PRICE_{tier.upper()}', '').strip()
+    return float(override) if override else TIER_PRICES[tier]
 
 
 def catalog_stripe_price_ids():
@@ -94,14 +108,23 @@ def get_or_create_subscription(user_id: str) -> Subscription:
     sub = Subscription.objects.filter(user_id=user_id).first()
     if sub:
         return sub
-    sub = Subscription(
-        user_id=user_id,
-        subscriber_id=next_subscriber_id(),
-        tier='free',
-        started_at=utcnow(),
-    )
-    sub.save()
-    return sub
+    # Two concurrent requests (e.g. parallel dashboard calls on first load) can
+    # both see "no row" and try to insert; the loser must re-read the winner's row.
+    try:
+        with transaction.atomic():
+            sub = Subscription(
+                user_id=user_id,
+                subscriber_id=next_subscriber_id(),
+                tier='free',
+                started_at=utcnow(),
+            )
+            sub.save()
+        return sub
+    except IntegrityError:
+        sub = Subscription.objects.filter(user_id=user_id).first()
+        if sub:
+            return sub
+        raise
 
 
 def find_purchase_by_order(google_order_id: str):
