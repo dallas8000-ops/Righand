@@ -11,8 +11,7 @@ const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    name: '',
-    truckerLicense: ''
+    name: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,7 +24,7 @@ const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
 
   const handleToggleMode = () => {
     setError('');
-    setFormData({ email: '', password: '', name: '', truckerLicense: '' });
+    setFormData({ email: '', password: '', name: '' });
     if (onToggleMode) onToggleMode();
   };
 
@@ -91,8 +90,7 @@ const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
         const response = await AuthAPI.register({
           email: formData.email,
           password: formData.password,
-          name: formData.name,
-          truckerLicense: formData.truckerLicense
+          name: formData.name
         });
         localStorage.setItem('userId', response.user.id);
         await UserDB.saveUserSession(response.user.id, response.user.email, response.user);
@@ -155,24 +153,6 @@ const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
                   placeholder="Your Name"
                   required
                 />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="license">Driving Licence Number</label>
-                <input
-                  id="license"
-                  type="text"
-                  name="truckerLicense"
-                  value={formData.truckerLicense}
-                  onChange={handleChange}
-                  placeholder="Your driving licence number"
-                  aria-describedby="license-why"
-                  required
-                />
-                <p id="license-why" className="field-hint">
-                  We use your licence number only to make sure each driver has one account. It is not shown
-                  to other users. <a href="/privacy" target="_blank" rel="noopener noreferrer">How we protect it</a>
-                </p>
               </div>
             </>
           )}

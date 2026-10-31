@@ -45,15 +45,13 @@ def add_fleet_driver(request):
     created = False
     if not member:
         name = (data.get('name') or '').strip()
-        license_number = (data.get('truckerLicense') or '').strip()
+        license_number = (data.get('truckerLicense') or '').strip() or None
         password = data.get('password') or ''
-        if not name or not license_number or len(password) < MIN_PASSWORD_LENGTH:
+        if not name or len(password) < MIN_PASSWORD_LENGTH:
             return JsonResponse({
-                'error': f'No account exists for {email}. Provide name, truckerLicense, and a temporary password of at least {MIN_PASSWORD_LENGTH} characters to create one.',
+                'error': f'No account exists for {email}. Provide a name and a temporary password of at least {MIN_PASSWORD_LENGTH} characters to create one.',
                 'code': 'ACCOUNT_DETAILS_REQUIRED',
             }, status=400)
-        if User.objects.filter(trucker_license=license_number).exists():
-            return JsonResponse({'error': 'Driving licence number already registered'}, status=409)
         member = User(
             id=str(uuid.uuid4()),
             email=email,

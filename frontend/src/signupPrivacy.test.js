@@ -17,7 +17,7 @@ jest.mock('./components/Dashboard', () => () => <div>dashboard</div>);
 
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
-describe('sign-up explains the driving-licence field and links the privacy policy', () => {
+describe('sign-up asks only for email, name and password and links the privacy policy', () => {
   let container;
   let root;
 
@@ -34,27 +34,24 @@ describe('sign-up explains the driving-licence field and links the privacy polic
     window.history.pushState({}, '', '/');
   });
 
-  it('register form shows why the licence is needed and links to /privacy', async () => {
+  it('register form no longer asks for a driving licence and links to /privacy', async () => {
     await act(async () => {
       root.render(<AuthForm isLogin={false} onAuthSuccess={() => {}} onToggleMode={() => {}} />);
     });
 
-    const licence = container.querySelector('#license');
-    expect(licence).not.toBeNull();
-    const hint = container.querySelector('#license-why');
-    expect(hint).not.toBeNull();
-    expect(licence.getAttribute('aria-describedby')).toBe('license-why');
-    expect(hint.textContent).toMatch(/only to make sure each driver has one account/);
+    expect(container.querySelector('#license')).toBeNull();
+    expect(container.querySelector('input[name="truckerLicense"]')).toBeNull();
+    expect(container.textContent).not.toMatch(/licence/i);
+    ['#email', '#name', '#password'].forEach((id) => expect(container.querySelector(id)).not.toBeNull());
 
     const privacyLinks = [...container.querySelectorAll('a')].filter((a) => a.getAttribute('href') === '/privacy');
-    expect(privacyLinks.length).toBeGreaterThanOrEqual(2);
+    expect(privacyLinks.length).toBeGreaterThanOrEqual(1);
   });
 
   it('login form does not show the registration privacy notice', async () => {
     await act(async () => {
       root.render(<AuthForm isLogin onAuthSuccess={() => {}} onToggleMode={() => {}} />);
     });
-    expect(container.querySelector('#license-why')).toBeNull();
     expect(container.querySelector('.auth-privacy-note')).toBeNull();
   });
 

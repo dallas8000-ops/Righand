@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(120) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(120) NOT NULL,
-    trucker_license VARCHAR(50) NOT NULL UNIQUE,
+    trucker_license VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
@@ -411,8 +411,38 @@ def ensure_core_schema():
     logger.info('Application schema ensured (%s)', connection.vendor)
 
 
+def relax_trucker_license():
+    """Make users.trucker_license optional and non-unique on existing Postgres databases.
+
+    The licence number used to be a required, unique account key, which let anyone check
+    whether a licence was registered. Email is the only account key now. Existing values
+    are left in place. Both statements are no-ops once applied.
+    """
+    if connection.vendor != 'postgresql':
+        # Fresh SQLite databases get the new definition from CREATE_USERS; an old local
+        # SQLite file keeps the old constraint until it is recreated.
+        return
+    with connection.cursor() as cursor:
+        cursor.execute('ALTER TABLE users ALTER COLUMN trucker_license DROP NOT NULL')
+        # Look up the real constraint names rather than assuming Postgres's default naming.
+        cursor.execute(
+            """
+            SELECT con.conname
+            FROM pg_constraint con
+            JOIN pg_class rel ON rel.oid = con.conrelid
+            JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = ANY (con.conkey)
+            WHERE rel.relname = 'users' AND con.contype = 'u' AND att.attname = 'trucker_license'
+            """
+        )
+        for (name,) in cursor.fetchall():
+            cursor.execute(f'ALTER TABLE users DROP CONSTRAINT IF EXISTS "{name}"')
+            logger.info('Dropped unique constraint %s on users.trucker_license', name)
+    logger.info('users.trucker_license is optional and non-unique')
+
+
 def run_migrations():
     ensure_core_schema()
+    relax_trucker_license()
 
     tables = _table_names()
 

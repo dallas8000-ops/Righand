@@ -76,7 +76,7 @@ const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked,
       const data = err?.response?.data;
       if (data?.code === 'ACCOUNT_DETAILS_REQUIRED') {
         setNeedsAccountDetails(true);
-        setDriverMessage('No account with that email yet. Enter the driver name, driving licence number and a temporary password to create one.');
+        setDriverMessage('No account with that email yet. Enter the driver name and a temporary password to create one (driving licence number is optional).');
       } else {
         setDriverMessage(data?.error || 'Could not add driver.');
       }
@@ -186,8 +186,8 @@ const FleetDashboard = ({ fleetStatus, isDemo, userId, subscription, onUnlocked,
                       <input id="fleet-driver-name" type="text" required value={driverForm.name} onChange={updateDriverForm('name')} />
                     </div>
                     <div className="form-group">
-                      <label htmlFor="fleet-driver-license">Driving licence number</label>
-                      <input id="fleet-driver-license" type="text" required value={driverForm.truckerLicense} onChange={updateDriverForm('truckerLicense')} />
+                      <label htmlFor="fleet-driver-license">Driving licence number (optional)</label>
+                      <input id="fleet-driver-license" type="text" value={driverForm.truckerLicense} onChange={updateDriverForm('truckerLicense')} />
                     </div>
                   </div>
                   <div className="form-group">

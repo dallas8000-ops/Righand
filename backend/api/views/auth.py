@@ -13,14 +13,15 @@ from api.utils import parse_json
 def register(request):
     try:
         data = parse_json(request)
-        if not all(k in data for k in ['email', 'password', 'name', 'truckerLicense']):
+        if not all(k in data for k in ['email', 'password', 'name']):
             return JsonResponse({'error': 'Missing required fields'}, status=400)
 
         if User.objects.filter(email=data['email']).exists():
             return JsonResponse({'error': 'Email already registered'}, status=409)
 
-        if User.objects.filter(trucker_license=data['truckerLicense']).exists():
-            return JsonResponse({'error': 'Driving licence number already registered'}, status=409)
+        # The driving licence number is optional and no longer an account key, so it is
+        # never checked for duplicates (that check revealed whether a licence was registered).
+        license_number = (data.get('truckerLicense') or '').strip() or None
 
         user_id = str(uuid.uuid4())
         user = User(
@@ -28,7 +29,7 @@ def register(request):
             email=data['email'],
             password_hash=generate_password_hash(data['password']),
             name=data['name'],
-            trucker_license=data['truckerLicense'],
+            trucker_license=license_number,
         )
         user.save()
 
