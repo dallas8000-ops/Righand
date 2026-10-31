@@ -186,3 +186,24 @@
 .auth-back-link:hover {
   color: #667eea;
 }
+
+.field-hint {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #52606d;
+  text-align: left;
+}
+
+.field-hint a,
+.auth-privacy-note a {
+  color: #1d4ed8;
+}
+
+.auth-privacy-note {
+  margin: 4px 0 12px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #52606d;
+  text-align: center;
+}

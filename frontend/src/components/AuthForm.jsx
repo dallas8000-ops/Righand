@@ -166,8 +166,13 @@ const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
                   value={formData.truckerLicense}
                   onChange={handleChange}
                   placeholder="Your driving licence number"
+                  aria-describedby="license-why"
                   required
                 />
+                <p id="license-why" className="field-hint">
+                  We use your licence number only to make sure each driver has one account. It is not shown
+                  to other users. <a href="/privacy" target="_blank" rel="noopener noreferrer">How we protect it</a>
+                </p>
               </div>
             </>
           )}
@@ -186,6 +191,13 @@ const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
           </div>
 
           {error && <div className="error-message">{error}</div>}
+
+          {!isLogin && (
+            <p className="auth-privacy-note">
+              By registering you agree to how we handle your data, explained in our{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+            </p>
+          )}
 
           <button type="submit" disabled={loading} className="btn-primary">
             {loading ? 'Processing...' : (isLogin ? 'Login' : 'Register')}

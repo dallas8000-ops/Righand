@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import AuthForm from './components/AuthForm';
 import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
+import PrivacyPolicy from './components/PrivacyPolicy';
 import { AuthAPI, setAuthToken } from './services/api';
 import { UserDB } from './services/offlineDB';
 import './App.css';
@@ -109,6 +110,11 @@ function App() {
       console.error('Demo mode failed:', error);
     }
   };
+
+  // Public page: reachable before sign-up, whether or not someone is logged in.
+  if (window.location.pathname.replace(/\/+$/, '') === '/privacy') {
+    return <PrivacyPolicy onBack={() => window.location.assign('/')} />;
+  }
 
   if (loading) {
     return (

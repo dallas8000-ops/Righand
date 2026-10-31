@@ -1,30 +1,60 @@
-# Privacy Policy
+# RigHand AI Privacy Policy
 
-**RigHand Pro**  
-_Last updated: May 30, 2026_
+_Last updated: 31 October 2026_
 
-## Ownership and Intellectual Property
+This is the source text for the in-app privacy page at `/privacy`
+(`frontend/src/components/PrivacyPolicy.jsx`). Keep the two in step.
 
-RigHand Pro and all associated source code, designs, and intellectual property are the exclusive property of the app’s creator and owner. Unauthorized copying, distribution, modification, or sale of the app or its code is strictly prohibited. Any attempt to sell, sublicense, or otherwise exploit the app or its code without explicit written permission from the owner is unlawful and will be subject to legal action.
+RigHand AI is run by Barney R. Gilliom (Gilliom Frontline Digital). This page explains, in plain language, what information RigHand keeps, why, and who else receives it.
 
-## Information Collection and Use
+## What you give us when you register
 
-RigHand Pro does not collect, store, or share any personal information from users.
+- **Email address**: to log in and to contact you about your account.
+- **Full name**: shown in your own account and, if you join a fleet, to that fleet's owner and dispatchers.
+- **Password**: stored only as a one-way scrambled form (a hash). We cannot read it.
+- **Driving licence number**: used only to make sure each driver has one account. It is not shown to other RigHand users and is not shared with anyone outside the service providers listed below.
 
-## Permissions
+## What you add while using the app
 
-RigHand Pro may request access to device features (such as location or Bluetooth) solely for the app’s core functionality. No data is collected or transmitted to us or third parties.
+- Income and expense entries, categories, notes and receipt photos or links.
+- Trips: distances, odometer readings, fuel, tolls and load details (such as broker, shipper, receiver, addresses, rates and documents you attach).
+- Driving-hours (duty) logs, maintenance reminders and compliance records you enter.
 
-## Prohibited Activities
+Entries are saved on your phone first, so the app works without signal, and are copied to our servers when you are back online.
 
-- You may not reverse engineer, decompile, or disassemble the app.
-- You may not sell, rent, lease, or sublicense the app or any part of its code.
-- You may not use the app for any unlawful or unauthorized purpose.
+## Location, Bluetooth, microphone and camera
 
-## Changes to This Privacy Policy
+- **Location**: used when you choose GPS trip tracking. If you are part of a fleet and turn on location sharing, your position is sent about every 3 minutes and shown to that fleet's owner and dispatchers.
+- **Bluetooth**: used only to read an OBD-II dongle if you connect one.
+- **Microphone**: used only when you choose voice entry, through your device's own speech recognition.
+- **Camera / photos**: used only when you add a receipt photo.
 
-We may update our Privacy Policy from time to time. Any changes will be posted on this page.
+The app asks your permission before using any of these, and you can turn them off in your device settings.
 
-## Contact Us
+## Who else receives data
 
-If you have any questions about this Privacy Policy or the ownership of RigHand Pro, please contact us at [dallas8000@gmail.com](mailto:dallas8000@gmail.com).
+We do not sell your data. We share it only with the services needed to run RigHand:
+
+- **Railway**: hosts our servers and database.
+- **Stripe and Google Play**: process paid-plan payments. They handle your card details; we never see or store your card number.
+- **Sentry**: receives technical error reports (for example, browser or device type and the error that occurred) so we can fix problems.
+- **OpenAI**: receives the text being translated when you use translated captions.
+- **Your fleet**: if you join a fleet, its owner and dispatchers can see your name, duty status, shared location and the trip and profit figures shown in the dispatch view.
+
+We may also disclose information if the law requires it.
+
+## How we protect it
+
+Data travels between the app and our servers over encrypted connections (HTTPS), and passwords are stored only as hashes. No system is perfectly secure, so please use a password you do not use anywhere else.
+
+## Keeping and deleting your data
+
+We keep your data while your account exists. To see what we hold about you, correct it, or delete your account and its data, email [dallas8000@gmail.com](mailto:dallas8000@gmail.com) from the address on your account. We will confirm by email once it is done. Data stored only on your phone is removed when you clear the app's data or uninstall it.
+
+## Not legal, tax or safety advice
+
+RigHand helps you keep records. Its compliance, driving-hours and tax features are tools, not legal, tax or safety advice. Check official requirements for where you drive.
+
+## Changes and contact
+
+If this policy changes, we will update this page and the date above. Questions: [dallas8000@gmail.com](mailto:dallas8000@gmail.com).
