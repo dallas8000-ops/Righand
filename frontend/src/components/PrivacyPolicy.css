@@ -1,0 +1,54 @@
+.privacy-page {
+  min-height: 100vh;
+  padding: 24px 16px;
+  background: #f4f6f8;
+  color: #1f2933;
+}
+
+.privacy-card {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  line-height: 1.6;
+  text-align: left;
+}
+
+.privacy-card h1 {
+  margin: 8px 0 4px;
+  font-size: 1.6rem;
+}
+
+.privacy-card h2 {
+  margin: 24px 0 8px;
+  font-size: 1.15rem;
+}
+
+.privacy-card ul {
+  padding-left: 20px;
+}
+
+.privacy-card li {
+  margin-bottom: 6px;
+}
+
+.privacy-card a {
+  color: #1d4ed8;
+}
+
+.privacy-updated {
+  margin-top: 0;
+  color: #52606d;
+  font-size: 0.9rem;
+}
+
+.privacy-back {
+  border: none;
+  background: none;
+  color: #1d4ed8;
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 0;
+}
