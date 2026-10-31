@@ -12,7 +12,8 @@ RigHand AI is run by Barney R. Gilliom (Gilliom Frontline Digital). This page ex
 - **Email address**: to log in and to contact you about your account.
 - **Full name**: shown in your own account and, if you join a fleet, to that fleet's owner and dispatchers.
 - **Password**: stored only as a one-way scrambled form (a hash). We cannot read it.
-- **Driving licence number**: used only to make sure each driver has one account. It is not shown to other RigHand users and is not shared with anyone outside the service providers listed below.
+
+**Driving licence number:** RigHand no longer asks for it when you register. A fleet owner may add it, optionally, when creating a driver's account. If you gave us your licence number before 31 October 2026, it is still stored with your account. It is not shown to other RigHand users or shared with anyone outside the service providers listed below, and you can ask us to remove it (see "Keeping and deleting your data").
 
 ## What you add while using the app
 

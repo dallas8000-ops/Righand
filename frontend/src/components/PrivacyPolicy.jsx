@@ -25,11 +25,14 @@ const PrivacyPolicy = ({ onBack }) => (
         <li><strong>Email address</strong>: to log in and to contact you about your account.</li>
         <li><strong>Full name</strong>: shown in your own account and, if you join a fleet, to that fleet&apos;s owner and dispatchers.</li>
         <li><strong>Password</strong>: stored only as a one-way scrambled form (a hash). We cannot read it.</li>
-        <li>
-          <strong>Driving licence number</strong>: used only to make sure each driver has one account. It is not
-          shown to other RigHand users and is not shared with anyone outside the service providers listed below.
-        </li>
       </ul>
+      <p>
+        <strong>Driving licence number:</strong> RigHand no longer asks for it when you register. A fleet owner may
+        add it, optionally, when creating a driver&apos;s account. If you gave us your licence number before
+        31 October 2026, it is still stored with your account. It is not shown to other RigHand users or shared
+        with anyone outside the service providers listed below, and you can ask us to remove it (see
+        &ldquo;Keeping and deleting your data&rdquo;).
+      </p>
 
       <h2>What you add while using the app</h2>
       <ul>
