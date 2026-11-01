@@ -546,6 +546,7 @@ class RegulationUpdate(models.Model):
             'title': self.title,
             'summary': self.summary or '',
             'summaryMode': self.summary_mode,
+            'addedText': (self.added_text or '')[:800],
             'sourceUrl': self.source_url,
             'status': self.status,
             'detectedAt': _iso_utc(self.detected_at),

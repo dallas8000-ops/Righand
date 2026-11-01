@@ -6,7 +6,7 @@ from django.views.decorators.http import require_http_methods
 
 from api.jwt_auth import jwt_required
 from api.models import RegulationSource, RegulationUpdate, User, _iso_utc
-from api.regulation_monitor import _aware, sync_sources, trigger_if_due
+from api.regulation_monitor import SITE_NEWS_STATUS, _aware, sync_sources, trigger_if_due
 from api.utils import parse_json
 
 REVIEW_STATUSES = ('approved', 'dismissed')
@@ -27,17 +27,20 @@ def regulation_monitor_payload(jurisdiction_code=None, user_id=None):
     sync_sources()
 
     sources = RegulationSource.objects.all()
-    updates = RegulationUpdate.objects.exclude(status='dismissed')
+    visible = RegulationUpdate.objects.exclude(status='dismissed')
     if jurisdiction_code:
         code = jurisdiction_code.upper()[:10]
         sources = sources.filter(jurisdiction_code=code)
-        updates = updates.filter(jurisdiction_code=code)
+        visible = visible.filter(jurisdiction_code=code)
+    updates = visible.exclude(status=SITE_NEWS_STATUS)
+    site_news = visible.filter(status=SITE_NEWS_STATUS)
 
     checked = [_aware(s.last_checked_at) for s in sources if s.last_checked_at]
     return {
         'lastCheckedAt': _iso_utc(max(checked)) if checked else None,
         'sources': [s.to_dict() for s in sources.order_by('id')],
         'updates': [u.to_dict() for u in updates.order_by('-detected_at')[:20]],
+        'siteNews': [u.to_dict() for u in site_news.order_by('-detected_at')[:10]],
         'pendingCount': updates.filter(status='pending_review').count(),
         'canReview': bool(user_id) and _user_email(user_id) in _reviewer_emails(),
     }

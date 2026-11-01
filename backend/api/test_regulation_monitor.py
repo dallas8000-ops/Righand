@@ -18,6 +18,42 @@ PAGE_V1 = """
 </body></html>
 """
 PAGE_V2 = PAGE_V1.replace('</body>', '<p>New axle load amendment notice published for 2027 season.</p></body>')
+PAGE_NEWS_ONLY = PAGE_V1.replace(
+    '</body>',
+    '<p>Government Helps Families Affected by Koboko-Yumbe-Moyo Road Project Get New Homes</p>'
+    '<p>Bid Notice Under Open Domestic Bidding: Provision of Hotel Services Under Framework Contract</p></body>',
+)
+
+
+class RelevanceTests(TestCase):
+    def test_regulatory_wording_is_relevant(self):
+        for line in (
+            'The Roads (Vehicle Dimensions, Vehicle Load Control and Enforcement Measures) Regulations 2026',
+            'New axle load limits published for heavy goods vehicles',
+            'Special load permits now issued online by the Ministry',
+            'Implementation of the 2022 Harmonized System and Common External Tariff',
+            'Traffic and Road Safety (Amendment) Act, 2026',
+            'COMESA Yellow Card requirements updated for cross-border cargo',
+        ):
+            self.assertTrue(monitor.is_regulatory(line), line)
+
+    def test_news_and_tenders_are_not_relevant(self):
+        for line in (
+            'Government Helps Families Affected by Koboko-Yumbe-Moyo Road Project Get New Homes',
+            'Minister Magandah Pledges Follow-Up on Delayed Compensation for Project-Affected Persons',
+            'Support us to improve the Water Transport Act',
+            'Bid Notice Under Open Domestic Bidding: Provision of Hotel Services Under Framework Contract',
+            'Tender for supply of office stationery and printer toner for the Ministry',
+        ):
+            self.assertFalse(monitor.is_regulatory(line), line)
+
+    def test_tender_wording_wins_even_with_a_regulatory_word(self):
+        self.assertFalse(monitor.is_regulatory('Tender for supply of weighbridge spare parts'))
+
+    def test_sitemap_source_skips_the_wording_filter(self):
+        ntsa = next(s for s in monitor.REGULATION_SOURCES if s['id'] == 'ke-ntsa')
+        added, removed = monitor.relevant_changes(['https://ntsa.go.ke/news/19'], [], ntsa)
+        self.assertEqual(added, ['https://ntsa.go.ke/news/19'])
 
 
 class ExtractTests(TestCase):
@@ -85,6 +121,36 @@ class CheckSourceTests(TestCase):
         self.assertEqual(update.status, 'pending_review')
         self.assertEqual(update.summary_mode, 'diff')
         self.assertIn('axle load amendment', update.added_text)
+
+    def test_news_only_change_is_kept_as_site_news_and_not_reported_as_a_regulation_change(self):
+        self._check(PAGE_V1)
+        news = self._check(PAGE_NEWS_ONLY)
+        self.assertIsNotNone(news)
+        self.assertEqual(news.status, 'site_news')
+        self.assertIn('Koboko', news.added_text)
+        source = RegulationSource.objects.get(pk=self.source.pk)
+        self.assertEqual(source.last_status, 'news')
+        self.assertEqual(RegulationUpdate.objects.filter(status='pending_review').count(), 0)
+        # The same news is not reported again on the next check.
+        self.assertIsNone(self._check(PAGE_NEWS_ONLY))
+        self.assertEqual(RegulationUpdate.objects.count(), 1)
+
+    def test_a_real_change_is_never_hidden_by_news_on_the_same_page(self):
+        self._check(PAGE_V1)
+        update = self._check(PAGE_V2.replace('</body>', '<p>Koboko-Yumbe-Moyo road project news item for today.</p></body>'))
+        self.assertEqual(update.status, 'pending_review')
+        self.assertIn('axle load amendment', update.added_text)
+
+    @mock.patch.dict('os.environ', {'REGULATION_MONITOR_ENABLED': '0'})
+    def test_payload_separates_regulation_changes_from_site_news(self):
+        from api.views.regulations import regulation_monitor_payload
+        self._check(PAGE_V1)
+        self._check(PAGE_NEWS_ONLY)
+        payload = regulation_monitor_payload('UG')
+        self.assertEqual(payload['updates'], [])
+        self.assertEqual(payload['pendingCount'], 0)
+        self.assertEqual(len(payload['siteNews']), 1)
+        self.assertEqual(payload['siteNews'][0]['status'], 'site_news')
 
     def test_unreadable_page_is_flagged_not_changed(self):
         self._check(PAGE_V1)
