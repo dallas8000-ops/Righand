@@ -21,7 +21,8 @@ class User(models.Model):
     email = models.EmailField(max_length=120, unique=True, db_index=True)
     password_hash = models.CharField(max_length=255)
     name = models.CharField(max_length=120)
-    trucker_license = models.CharField(max_length=50, unique=True)
+    # Optional, not an account key (email is). Kept for drivers who entered one earlier.
+    trucker_license = models.CharField(max_length=50, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

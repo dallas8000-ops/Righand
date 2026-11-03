@@ -11,8 +11,7 @@ const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    name: '',
-    truckerLicense: ''
+    name: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,7 +24,7 @@ const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
 
   const handleToggleMode = () => {
     setError('');
-    setFormData({ email: '', password: '', name: '', truckerLicense: '' });
+    setFormData({ email: '', password: '', name: '' });
     if (onToggleMode) onToggleMode();
   };
 
@@ -91,8 +90,7 @@ const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
         const response = await AuthAPI.register({
           email: formData.email,
           password: formData.password,
-          name: formData.name,
-          truckerLicense: formData.truckerLicense
+          name: formData.name
         });
         localStorage.setItem('userId', response.user.id);
         await UserDB.saveUserSession(response.user.id, response.user.email, response.user);
@@ -156,19 +154,6 @@ const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
                   required
                 />
               </div>
-
-              <div className="form-group">
-                <label htmlFor="license">Driving Licence Number</label>
-                <input
-                  id="license"
-                  type="text"
-                  name="truckerLicense"
-                  value={formData.truckerLicense}
-                  onChange={handleChange}
-                  placeholder="Your driving licence number"
-                  required
-                />
-              </div>
             </>
           )}
 
@@ -186,6 +171,13 @@ const AuthForm = ({ onAuthSuccess, isLogin = true, onToggleMode, onBack }) => {
           </div>
 
           {error && <div className="error-message">{error}</div>}
+
+          {!isLogin && (
+            <p className="auth-privacy-note">
+              By registering you agree to how we handle your data, explained in our{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+            </p>
+          )}
 
           <button type="submit" disabled={loading} className="btn-primary">
             {loading ? 'Processing...' : (isLogin ? 'Login' : 'Register')}
