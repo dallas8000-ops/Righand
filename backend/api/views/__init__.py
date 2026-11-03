@@ -41,6 +41,7 @@ from api.views.subscriptions import (
     activate_subscription,
     cancel_subscription,
     create_flutterwave_checkout,
+    flutterwave_webhook,
     create_stripe_checkout,
     my_purchase_events,
     my_subscription,

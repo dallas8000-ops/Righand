@@ -44,17 +44,16 @@ const FEATURES = [
 
 const TIERS = [
   {
-    name: 'Free',
+    name: '30-Day Free Trial',
     price: '$0',
-    period: '',
-    tagline: 'Everything you need to start tracking profit today.',
+    period: ' for 30 days',
+    tagline: 'Try every feature before you pay anything.',
     features: [
-      'Home dashboard & weekly profit chart',
-      'Money Log — add, search, and filter entries',
-      'Receipt photo capture',
-      'Trip distance (manual, GPS, or OBD)',
+      'Every feature unlocked for 30 days',
+      'No card required to start',
+      'Then choose Compliance Pro or Fleet Lite to keep using RigHand',
     ],
-    cta: 'Start Free',
+    cta: 'Start Free Trial',
     highlight: false,
   },
   {
@@ -63,13 +62,13 @@ const TIERS = [
     period: '/mo',
     tagline: 'For drivers who need tax-ready records and compliance tools.',
     features: [
-      'Everything in Free',
+      'Profit dashboard, Money Log, receipts & trip distance',
       'Tax & fuel reports (PDF/CSV export)',
       'Driving-hours clocks (set your own limits)',
       'Maintenance reminders & trip files',
       'Admin panel & custom categories',
     ],
-    cta: 'Start Free, Upgrade in App',
+    cta: 'Start 30-Day Free Trial',
     highlight: true,
   },
   {
@@ -83,7 +82,7 @@ const TIERS = [
       'Live GPS sharing across the fleet',
       'Multi-driver dispatch & P&L view',
     ],
-    cta: 'Start Free, Upgrade in App',
+    cta: 'Start 30-Day Free Trial',
     highlight: false,
   },
 ];
@@ -110,7 +109,7 @@ const LandingPage = ({ onLogin, onSignUp, onTryDemo }) => {
           </nav>
           <div className="landing-nav-actions">
             <button type="button" className="btn-nav-login" onClick={onLogin}>Login</button>
-            <button type="button" className="btn-nav-cta" onClick={onSignUp}>Get Started Free</button>
+            <button type="button" className="btn-nav-cta" onClick={onSignUp}>Start Free Trial</button>
           </div>
         </div>
       </header>
@@ -134,13 +133,13 @@ const LandingPage = ({ onLogin, onSignUp, onTryDemo }) => {
             </p>
             <div className="landing-hero-actions">
               <button type="button" className="btn-hero-primary" onClick={onSignUp}>
-                Get Started Free
+                Start Free Trial
               </button>
               <button type="button" className="btn-hero-secondary" onClick={onTryDemo}>
                 🎯 Try Demo Mode
               </button>
             </div>
-            <p className="landing-hero-note">No card required to start on the Free plan.</p>
+            <p className="landing-hero-note">30-day free trial. No card required to start.</p>
           </div>
         </section>
 
@@ -237,9 +236,9 @@ const LandingPage = ({ onLogin, onSignUp, onTryDemo }) => {
         <section id="pricing" className="landing-section landing-section-alt">
           <div className="landing-section-head">
             <span className="landing-section-tag">Pricing</span>
-            <h2>Start free. Upgrade only if you need it.</h2>
+            <h2>30 days free. Then pick a plan.</h2>
             <p className="landing-section-sub">
-              Paid tiers unlock inside the app after you sign up — no separate purchase needed to get started.
+              Every feature is open during your 30-day trial. To keep using RigHand after that, subscribe inside the app.
             </p>
           </div>
           <div className="landing-pricing-grid">
@@ -274,7 +273,7 @@ const LandingPage = ({ onLogin, onSignUp, onTryDemo }) => {
           <h2>Ready to see your real profit per km?</h2>
           <div className="landing-hero-actions">
             <button type="button" className="btn-hero-primary" onClick={onSignUp}>
-              Get Started Free
+              Start Free Trial
             </button>
             <button type="button" className="btn-nav-login btn-nav-login--onlight" onClick={onLogin}>
               I already have an account

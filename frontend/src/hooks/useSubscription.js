@@ -65,5 +65,9 @@ export function useSubscription(isDemo) {
   const trialExpired = !isDemo && Boolean(subscription?.trialExpired);
   const trialDaysLeft = subscription?.trialDaysLeft ?? 0;
 
-  return { subscription, loading, isPro, isFleetPaid, refresh, tier, isInTrial, trialExpired, trialDaysLeft };
+  // The server decides (paid plan, trial, fleet seat). Only an explicit `false` locks the app,
+  // so a failed status request never walls a paying user; the API still enforces the lock.
+  const hasAccess = isDemo || developerMode || subscription?.hasAccess !== false;
+
+  return { subscription, loading, isPro, isFleetPaid, refresh, tier, isInTrial, trialExpired, trialDaysLeft, hasAccess };
 }
