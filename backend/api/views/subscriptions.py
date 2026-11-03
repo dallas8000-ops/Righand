@@ -25,6 +25,7 @@ from subscription_service import (
     flutterwave_currency,
     flutterwave_price,
     get_or_create_subscription,
+    has_app_access,
     log_purchase_event,
     resolve_product,
     utcnow,
@@ -72,6 +73,7 @@ def my_subscription(request):
     }
     payload['stripeConfigured'] = bool(os.environ.get('STRIPE_SECRET_KEY') and os.environ.get('STRIPE_PRICE_ID_PRO'))
     payload['flutterwaveConfigured'] = bool(os.environ.get('FLUTTERWAVE_SECRET_KEY', '').strip())
+    payload['hasAccess'] = has_app_access(user_id)
     return JsonResponse(payload)
 
 

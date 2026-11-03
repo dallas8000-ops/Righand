@@ -125,7 +125,7 @@ const UpgradeGate = ({ tier = 'pro', subscription, onUnlocked, children }) => {
         <p className="upgrade-price">${copy.price}/mo</p>
         {trialExpired && (
           <p className="admin-hint upgrade-trial-note">
-            Your 30-day free trial has ended. Subscribe to keep access to all features.
+            Your 30-day free trial has ended. Subscribe to keep using RigHand.
           </p>
         )}
         <p className="admin-hint">{copy.blurb}</p>

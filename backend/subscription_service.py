@@ -98,6 +98,36 @@ def is_trial_active(sub) -> bool:
     return utcnow() < started + timedelta(days=TRIAL_DAYS)
 
 
+def complimentary_emails() -> set:
+    """Accounts that always have access (e.g. the owner's own login). Comma-separated env var."""
+    raw = os.environ.get('RIGHAND_COMPLIMENTARY_EMAILS', '')
+    return {e.strip().lower() for e in raw.split(',') if e.strip()}
+
+
+def has_app_access(user_id: str) -> bool:
+    """After the 30-day trial, only paid accounts (or seats on a paid fleet) may use the app."""
+    from api.models import FleetMembership, Tenant
+
+    sub = get_or_create_subscription(user_id)
+    if sub.tier in ('pro', 'fleet') or is_trial_active(sub):
+        return True
+
+    membership = FleetMembership.objects.filter(user_id=user_id).first()
+    if membership:
+        tenant = Tenant.objects.filter(pk=membership.tenant_id).first()
+        if tenant and tenant.owner_user_id != user_id:
+            owner_sub = Subscription.objects.filter(user_id=tenant.owner_user_id).first()
+            if owner_sub and owner_sub.tier == 'fleet':
+                return True
+
+    comp = complimentary_emails()
+    if comp:
+        user = User.objects.filter(pk=user_id).only('email').first()
+        if user and (user.email or '').lower() in comp:
+            return True
+    return False
+
+
 def next_subscriber_id() -> str:
     last = Subscription.objects.order_by('-id').first()
     num = (last.id if last else 0) + 1
