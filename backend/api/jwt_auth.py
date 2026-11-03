@@ -38,6 +38,10 @@ def get_request_user_id(request) -> str | None:
         return None
 
 
+# Reachable after the trial ends, so a locked-out user can still sign in, see their status and pay.
+PAYWALL_EXEMPT_PREFIXES = ('/api/auth/', '/api/subscriptions/')
+
+
 def jwt_required(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
@@ -45,6 +49,16 @@ def jwt_required(view_func):
         if not user_id:
             return JsonResponse({'error': 'Missing or invalid authorization token'}, status=401)
         request.righand_user_id = user_id
+        if not request.path.startswith(PAYWALL_EXEMPT_PREFIXES):
+            from subscription_service import has_app_access
+
+            if not has_app_access(user_id):
+                return JsonResponse({
+                    'error': 'Your 30-day free trial has ended. Subscribe to keep using RigHand.',
+                    'code': 'SUBSCRIPTION_REQUIRED',
+                    'trialExpired': True,
+                    'upgradeUrl': '/upgrade/pro',
+                }, status=402)
         return view_func(request, *args, **kwargs)
 
     return wrapper

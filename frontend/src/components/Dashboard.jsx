@@ -25,6 +25,7 @@ import AdminPanel from './dashboard/AdminPanel';
 import TripTracker from './dashboard/TripTracker';
 import ThemeSwitcher from './dashboard/ThemeSwitcher';
 import UpgradeGate from './dashboard/UpgradeGate';
+import TrialEndedWall from './dashboard/TrialEndedWall';
 import { useSubscription } from '../hooks/useSubscription';
 import { useVoiceCapture } from '../hooks/useVoiceCapture';
 import { DriverSettings } from '../utils/driverSettings';
@@ -181,7 +182,7 @@ const Dashboard = ({ user, onLogout }) => {
   });
   const [complianceSummary, setComplianceSummary] = useState(null);
   const [complianceSyncStatus, setComplianceSyncStatus] = useState('local');
-  const { subscription, isPro, refresh: refreshSubscription } = useSubscription(isDemo);
+  const { subscription, isPro, hasAccess, refresh: refreshSubscription } = useSubscription(isDemo);
 
   // Verify Flutterwave payment after redirect back from checkout
   useEffect(() => {
@@ -2478,6 +2479,10 @@ const Dashboard = ({ user, onLogout }) => {
       <p className="admin-hint warn">This is a guide, not legal advice. Please confirm important decisions with the official office.</p>
     </section>
   );
+
+  if (!hasAccess) {
+    return <TrialEndedWall subscription={subscription} onUnlocked={handlePaidUnlock} onLogout={onLogout} />;
+  }
 
   return (
     <div className={clsx('dashboard', `theme-${theme}`, isNight && 'night-drive')}>
