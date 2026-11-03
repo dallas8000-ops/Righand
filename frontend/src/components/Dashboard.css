@@ -722,6 +722,43 @@ body.night-drive .dashboard-header {
   gap: 12px;
 }
 
+/* Six summary cards fit on one row on a laptop or tablet. */
+.compliance-status-grid {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.rule-latest-update {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-left: 4px solid #f59e0b;
+  background: #fffbeb;
+  border-radius: 6px;
+}
+
+.rule-latest-update p {
+  margin: 4px 0;
+}
+
+.site-news {
+  margin-top: 12px;
+}
+
+.site-news summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.site-news ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.site-news li {
+  padding: 8px 0;
+  border-top: 1px solid #e2e8f0;
+}
+
 .compliance-layout-grid {
   display: grid;
   grid-template-columns: minmax(240px, 0.75fr) minmax(0, 1.25fr);
@@ -765,7 +802,7 @@ body.night-drive .dashboard-header {
 
 .compliance-profile-form {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 10px;
 }
 

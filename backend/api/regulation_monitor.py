@@ -41,6 +41,8 @@ REGULATION_SOURCES = [
         # NTSA's pages are JavaScript-rendered, so its public sitemap (allowed by robots.txt) is watched for new URLs.
         'url': 'https://ntsa.go.ke/sitemap.xml',
         'mode': 'sitemap',
+        # Sitemap entries are bare URLs, so the wording filter does not apply.
+        'filter': 'none',
         'linkUrl': 'https://ntsa.go.ke/press-releases',
         # The server omits its intermediate certificate; verification stays on using the bundled public one.
         'caFile': 'sectigo-dv-r36.pem',
@@ -70,6 +72,7 @@ MIN_LINE_CHARS = 20
 MIN_READABLE_LINES = 5
 MAX_SNAPSHOT_CHARS = 200_000
 MAX_DIFF_LINES = 25
+SITE_NEWS_STATUS = 'site_news'
 SKIPPED_TAGS = {'script', 'style', 'noscript', 'svg', 'head', 'nav', 'footer', 'form'}
 BLOCK_TAGS = {'p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'tr', 'article', 'section', 'br', 'td', 'a'}
 
@@ -184,6 +187,35 @@ def diff_lines(old_lines, new_lines):
     return added, removed
 
 
+# Ministry and agency pages also carry news, tenders and vacancies. Only wording that points at a rule,
+# permit, load limit, customs or tax matter should raise a "possible regulation change" card.
+_REGULATORY_TERMS = (
+    r'regulations?', r'statutory instruments?', r'legal notices?', r'gazett\w*',
+    r'act,?\s+(?:no\.?\s*\d+\s+of\s+)?\d{4}', r'bills?,?\s+\d{4}', r'amendments?',
+    r'polic(?:y|ies)', r'directives?', r'circulars?', r'guidelines?',
+    r'permits?', r'licen[cs](?:e|es|ing)', r'axle', r'weighbridges?', r'overload\w*', r'load control',
+    r'gross (?:vehicle )?mass', r'tariffs?', r'lev(?:y|ies)', r'excise', r'customs', r'comesa', r'yellow card',
+    r'tachograph\w*', r'driving hours?', r'road ?worth\w*', r'inspection', r'psv', r'speed limits?',
+    r'road safety', r'demerit', r'transit',
+)
+_NOISE_TERMS = (
+    r'tenders?', r'bid notice', r'bidding', r'procurement', r'vacanc\w*', r'recruitment',
+    r'expressions? of interest', r'framework contract', r'invitation to',
+)
+REGULATORY_RE = re.compile(r'\b(?:' + '|'.join(_REGULATORY_TERMS) + r')\b', re.IGNORECASE)
+NOISE_RE = re.compile(r'\b(?:' + '|'.join(_NOISE_TERMS) + r')\b', re.IGNORECASE)
+
+
+def is_regulatory(line):
+    return bool(REGULATORY_RE.search(line)) and not NOISE_RE.search(line)
+
+
+def relevant_changes(added, removed, source_definition):
+    if source_definition.get('filter') == 'none':
+        return added, removed
+    return [line for line in added if is_regulatory(line)], [line for line in removed if is_regulatory(line)]
+
+
 def _diff_summary(label, added, removed):
     parts = [f'{label}: {len(added)} new and {len(removed)} removed text items detected.']
     if added:
@@ -270,7 +302,10 @@ def check_source(source):
     elif new_hash == source.content_hash:
         source.last_status = 'unchanged'
     else:
-        added, removed = diff_lines((source.snapshot_text or '').split('\n'), lines)
+        definition = _source_definition(source.id)
+        all_added, all_removed = diff_lines((source.snapshot_text or '').split('\n'), lines)
+        added, removed = relevant_changes(all_added, all_removed, definition)
+        link = definition.get('linkUrl') or source.url
         if added or removed:
             summary = _ai_summary(source.label, added, removed)
             update = RegulationUpdate.objects.create(
@@ -282,11 +317,27 @@ def check_source(source):
                 summary_mode='ai' if summary else 'diff',
                 added_text='\n'.join(added[:MAX_DIFF_LINES]),
                 removed_text='\n'.join(removed[:MAX_DIFF_LINES]),
-                source_url=_source_definition(source.id).get('linkUrl') or source.url,
+                source_url=link,
                 status='pending_review',
             )
             source.last_changed_at = now
             source.last_status = 'changed'
+        elif all_added or all_removed:
+            # Nothing is discarded: other page changes are kept as site news so a real update can never be lost.
+            update = RegulationUpdate.objects.create(
+                id=str(uuid.uuid4()),
+                source_id=source.id,
+                jurisdiction_code=source.jurisdiction_code,
+                title=f'Site update: {source.label}',
+                summary=_diff_summary(source.label, all_added, all_removed),
+                summary_mode='diff',
+                added_text='\n'.join(all_added[:MAX_DIFF_LINES]),
+                removed_text='\n'.join(all_removed[:MAX_DIFF_LINES]),
+                source_url=link,
+                status=SITE_NEWS_STATUS,
+            )
+            source.last_changed_at = now
+            source.last_status = 'news'
         else:
             source.last_status = 'unchanged'
 

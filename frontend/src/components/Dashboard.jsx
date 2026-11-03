@@ -16,6 +16,7 @@ import {
 } from '../utils/proMetrics';
 import { getRegionProfile } from '../utils/regionProfile';
 import LanguageCaption from './dashboard/LanguageCaption';
+import { updatesForRule } from '../utils/regulationMatch';
 import { useTheme } from '../hooks/useTheme';
 import { useNotifications, loadNotificationPref } from '../hooks/useNotifications';
 import WeeklyChart from './dashboard/WeeklyChart';
@@ -2272,7 +2273,7 @@ const Dashboard = ({ user, onLogout }) => {
         <div className="section-heading-row compact-row">
           <div>
             <h3>Ready for the Road?</h3>
-            <p className="section-help">Rollup for the selected jurisdiction across uploaded findings and reusable driver, vehicle, and route profiles.</p>
+            <p className="section-help">A quick check for this country, using your uploaded documents and your saved driver, vehicle and route details.</p>
           </div>
           <div className="compliance-profile-toolbar">
             <span className={clsx('status-pill', dispatchPolicy.blocked && 'danger')}>{dispatchPolicy.blocked ? 'Do not dispatch' : 'Check warnings'}</span>
@@ -2294,7 +2295,7 @@ const Dashboard = ({ user, onLogout }) => {
           <div>
             <h3>Regulation Watch</h3>
             <p className="section-help">
-              RigHand checks official sources automatically. Detected changes are flagged here for review and do not change your rules until approved.
+              RigHand checks official government sites every day. Changes about rules, permits, load limits, customs and tax show here and next to the matching rule below. They are marked "not yet checked" until the RigHand team has reviewed them.
             </p>
           </div>
           <span className="status-pill">
@@ -2304,7 +2305,7 @@ const Dashboard = ({ user, onLogout }) => {
           </span>
         </div>
         {(complianceSummary?.regulationMonitor?.updates || []).length === 0 ? (
-          <p className="admin-empty">No regulation changes detected for {selectedJurisdiction.label}.</p>
+          <p className="admin-empty">No rule changes found for {selectedJurisdiction.label}.</p>
         ) : (
           <div className="automation-alert-list compact-row">
             {complianceSummary.regulationMonitor.updates.map(update => (
@@ -2313,7 +2314,7 @@ const Dashboard = ({ user, onLogout }) => {
                 <p>{update.summary}</p>
                 {!isDemo && <LanguageCaption text={`${update.title}. ${update.summary}`} />}
                 <small>
-                  {new Date(update.detectedAt).toLocaleDateString('en-GB')} · {update.status === 'pending_review' ? 'Waiting for review' : 'Approved'}
+                  {new Date(update.detectedAt).toLocaleDateString('en-GB')} · {update.status === 'pending_review' ? 'Not yet checked by the RigHand team' : 'Checked'}
                   {update.summaryMode === 'ai' ? ' · AI summary' : ''}
                   {update.sourceUrl && (<> · <a href={update.sourceUrl} target="_blank" rel="noreferrer">Official source</a></>)}
                 </small>
@@ -2326,6 +2327,20 @@ const Dashboard = ({ user, onLogout }) => {
               </article>
             ))}
           </div>
+        )}
+        {(complianceSummary?.regulationMonitor?.siteNews || []).length > 0 && (
+          <details className="site-news">
+            <summary>Other news on the official sites ({complianceSummary.regulationMonitor.siteNews.length})</summary>
+            <ul>
+              {complianceSummary.regulationMonitor.siteNews.map(item => (
+                <li key={item.id}>
+                  <strong>{item.title.replace('Site update: ', '')}</strong> · {new Date(item.detectedAt).toLocaleDateString('en-GB')}
+                  <p>{item.summary}</p>
+                  {item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer">Open the official site</a>}
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </section>
 
@@ -2354,13 +2369,13 @@ const Dashboard = ({ user, onLogout }) => {
             <option value="vehicle">Vehicle</option>
             <option value="route">Route</option>
           </select>
-          <input name="title" value={complianceProfileForm.title} onChange={handleComplianceProfileChange} placeholder="Name, for example: My truck UAX 123A" />
+          <input name="title" value={complianceProfileForm.title} onChange={handleComplianceProfileChange} placeholder="Name, for example: My truck" />
           <input name="licenceExpiry" value={complianceProfileForm.licenceExpiry} onChange={handleComplianceProfileChange} placeholder="Licence expiry" />
           <input name="vehiclePlate" value={complianceProfileForm.vehiclePlate} onChange={handleComplianceProfileChange} placeholder="Vehicle plate" />
           <input name="inspectionExpiry" value={complianceProfileForm.inspectionExpiry} onChange={handleComplianceProfileChange} placeholder="Inspection expiry" />
           <input name="insuranceReference" value={complianceProfileForm.insuranceReference} onChange={handleComplianceProfileChange} placeholder="Insurance policy / insurer" />
-          <input name="comesaYellowCard" value={complianceProfileForm.comesaYellowCard} onChange={handleComplianceProfileChange} placeholder="COMESA Yellow Card / digital ref" />
-          <input name="axleLoadReference" value={complianceProfileForm.axleLoadReference} onChange={handleComplianceProfileChange} placeholder="Verified axle/load source + date" />
+          <input name="comesaYellowCard" value={complianceProfileForm.comesaYellowCard} onChange={handleComplianceProfileChange} placeholder="COMESA Yellow Card ref" />
+          <input name="axleLoadReference" value={complianceProfileForm.axleLoadReference} onChange={handleComplianceProfileChange} placeholder="Axle-load source and date" />
           <input name="routeCountries" value={complianceProfileForm.routeCountries} onChange={handleComplianceProfileChange} placeholder="Countries / corridor" />
           <input name="borderPosts" value={complianceProfileForm.borderPosts} onChange={handleComplianceProfileChange} placeholder="Border posts" />
           <input name="notes" value={complianceProfileForm.notes} onChange={handleComplianceProfileChange} placeholder="Notes" />
@@ -2462,6 +2477,16 @@ const Dashboard = ({ user, onLogout }) => {
                 </div>
                 <p>{rule.summary}</p>
                 {!isDemo && <LanguageCaption text={`${rule.title}. ${rule.summary}`} />}
+                {updatesForRule(complianceSummary?.regulationMonitor?.updates, rule).slice(0, 2).map(update => (
+                  <div key={update.id} className="rule-latest-update">
+                    <strong>
+                      Latest update found {new Date(update.detectedAt).toLocaleDateString('en-GB')}
+                      {update.status === 'pending_review' ? ' (not yet checked by the RigHand team)' : ' (checked)'}
+                    </strong>
+                    <p>{update.summary}</p>
+                    {update.sourceUrl && <a href={update.sourceUrl} target="_blank" rel="noreferrer">Read it on the official site</a>}
+                  </div>
+                ))}
                 <div className="compliance-doc-tags">
                   {rule.requiredDocs.map(doc => <span key={doc}>{doc}</span>)}
                 </div>
