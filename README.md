@@ -11,7 +11,7 @@ Primary goals:
 - Offline-first operation with background sync
 - Trip tracking: manual odometer, live GPS, or OBD-II dongle (Android)
 - Country/region-based transport compliance for Uganda, Kenya, Rwanda, EAC cross-border routes, and the EU region
-- **Subscription tiers** — Free, Compliance Pro ($34.99/mo), Fleet Lite ($89/mo) with payment-triggered unlock
+- **30-day free trial**, then Compliance Pro ($34.99/mo) or Fleet Lite ($89/mo) via Stripe, with payment-triggered unlock
 - Admin tools to edit all data and set starting income (Pro)
 - Tax-ready exports (Schedule C, IFTA, PDF, CSV) (Pro)
 - Native Android app via Capacitor (web + tablet/phone)
@@ -32,36 +32,25 @@ Production uses **one Railway service** (`Righand`) at `righand-production.up.ra
 
 ### 3.0 Subscription Tiers
 
-| Tier | Price | Unlocks |
+| Plan | Price | Unlocks |
 |------|-------|---------|
-| **Free** | $0 | Home, Money Log (add/history/receipts), basic profit summary, trip miles, weekly chart |
-| **Compliance Pro** | $34.99/mo | Tax & IFTA reports, PDF/CSV export, HOS-lite, maintenance reminders, document/load packets, Admin panel, custom categories |
+| **30-day free trial** | $0 for 30 days | Full Compliance Pro access. No card required to start |
+| **Compliance Pro** | $34.99/mo | Home, Loads, Compliance, Money Log, Tax & IFTA reports, PDF/CSV export, HOS-lite, maintenance reminders, document/load packets, Admin panel, custom categories |
 | **Fleet Lite** | $89/mo | Everything in Compliance Pro + 1 billing owner, up to 5 driver/dispatcher seats, dispatcher view, live GPS sharing |
 
+There is no permanent free plan. When the trial ends, the app is locked (`403` with `trialExpired: true`) until the account subscribes; the user can still sign in, see their status and pay. Accounts listed in `RIGHAND_COMPLIMENTARY_EMAILS` and seats on a paid fleet keep access.
+
 **How unlock works:**
-1. New users start on **Free** (`GET /api/subscriptions/me` creates a `free` row).
-2. After **Google Play** payment, the app calls `POST /api/subscriptions/verify-purchase` with the store `productId` and `googleOrderId`.
-3. Backend sets `tier` to `pro` or `fleet`, logs the purchase, and emits a webhook to dbops-api.
-4. **Fleet payment** also auto-creates a fleet (`Tenant` + owner membership) — no manual `setup_fleet.py` required.
-5. UI refreshes and locked tabs unlock.
+1. New accounts start their 30-day trial (`GET /api/subscriptions/me` creates a subscription row with internal tier `free`, which means "in trial").
+2. The user subscribes through **Stripe Checkout** (`POST /api/subscriptions/stripe-checkout`).
+3. Stripe sends `checkout.session.completed` to `POST /api/billing/webhook`; the backend verifies the `Stripe-Signature` header before acting.
+4. Backend sets `tier` to `pro` or `fleet`, logs the purchase, and emits an event to dbops-api (if `DBOPS_WEBHOOK_URL` is set).
+5. **Fleet payment** also auto-creates a fleet (`Tenant` + owner membership) — no manual `setup_fleet.py` required.
+6. UI refreshes and locked tabs unlock.
 
-**Google Play product IDs** (configure in Railway **Righand** service env):
+**Stripe configuration** (Railway **Righand** service env): `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_PRO`, `STRIPE_PRICE_ID_FLEET`.
 
-```
-GOOGLE_PRODUCT_PRO=righand_pro_monthly
-GOOGLE_PRODUCT_FLEET=righand_fleet_monthly
-```
-
-**Android billing callback** (after Play purchase succeeds):
-
-```javascript
-window.RigHandBilling?.onPurchase({
-  orderId: purchase.orderId,
-  productId: purchase.productId,
-});
-```
-
-**Backend enforcement:** Pro-only API routes return `403` with `PRO_REQUIRED` if tier is `free`. UI shows upgrade screens on locked tabs (Tax & IFTA, HOS, Admin, Dispatch).
+**Backend enforcement:** Pro-only API routes return `403` with `PRO_REQUIRED` unless the account is on `pro`/`fleet` or still in its trial. UI shows upgrade screens on locked tabs.
 
 **Demo mode** never receives paid tiers — use a real account to test subscriptions.
 
@@ -69,10 +58,10 @@ window.RigHandBilling?.onPurchase({
 
 | Tab | Tier | Description |
 |-----|------|-------------|
-| **Home** | Free | Driver cockpit, Quiet Watch automation alerts, fuel range, maintenance, net profit, weekly chart, trip tracker |
-| **Loads** | Free | Load contract packets, rate/deadhead/fuel/toll scoring, trip packet text export, SMS share, log as income |
-| **Compliance** | Free | Select Uganda, Kenya, Rwanda, EAC, or EU; upload transport documents; manage driver/vehicle/route profiles; review dispatch readiness |
-| **Money Log** | Free | New Entry, History (search/filter/sort), Receipt gallery |
+| **Home** | All plans | Driver cockpit, Quiet Watch automation alerts, fuel range, maintenance, net profit, weekly chart, trip tracker |
+| **Loads** | All plans | Load contract packets, rate/deadhead/fuel/toll scoring, trip packet text export, SMS share, log as income |
+| **Compliance** | All plans | Select Uganda, Kenya, Rwanda, EAC, or EU; upload transport documents; manage driver/vehicle/route profiles; review dispatch readiness |
+| **Money Log** | All plans | New Entry, History (search/filter/sort), Receipt gallery |
 | **Tax & IFTA** | Compliance Pro | PDF/CSV export, Schedule C quarterly, IFTA fuel by state |
 | **HOS** | Pro | Manual duty status with 11/14-hour countdown clocks (compliance assistant, not a certified ELD) |
 | **Dispatch** | Fleet Lite | Multi-driver P&amp;L and GPS view (paid Fleet or manual admin setup) |
@@ -161,7 +150,7 @@ Multi-driver P&amp;L and live GPS for carriers with 1 billing owner plus up to 5
 
 | Method | When to use |
 |--------|-------------|
-| **Paid unlock** | User subscribes to Fleet Lite ($89/mo) in Google Play → `verify-purchase` auto-creates fleet |
+| **Paid unlock** | User subscribes to Fleet Lite ($89/mo) through Stripe Checkout → the verified webhook auto-creates the fleet |
 | **Manual setup** | You (admin) run `setup_fleet.py` against production Postgres for legacy/support accounts |
 
 **Requirements:**
@@ -379,12 +368,13 @@ Local-only settings (starting income, active trip, trip history) use browser `lo
 - GET `/health`
 
 ### Subscriptions — `/api/subscriptions`
-- GET `/me` (JWT) — tier (`free` | `pro` | `fleet`), subscriber ID (e.g. `RH-00142`), Play product IDs
+- GET `/me` (JWT) — tier (`free` = in trial or trial ended | `pro` | `fleet`), trial status and days left, subscriber ID (e.g. `RH-00142`)
 - GET `/events` (JWT) — purchase event history for current user
-- POST `/verify-purchase` (JWT) — **primary unlock path** after Google Play payment
+- POST `/stripe-checkout` (JWT) — **primary unlock path**: returns a Stripe Checkout URL; the tier is set by the verified Stripe webhook
+- POST `/verify-purchase` (JWT) — Google Play receipt verification (not used in production; no Play billing is configured)
 - POST `/activate` (JWT) — manual upgrade to `pro` or `fleet` (testing/support)
 - POST `/renew` (JWT) — record rebill/renewal
-- POST `/cancel` (JWT) — downgrade to free
+- POST `/cancel` (JWT) — cancel the paid plan
 - POST `/update-used` (JWT) — increment free-tier update counter
 
 **Verify purchase body:**
@@ -541,7 +531,7 @@ Use this flow for a first real run, from launch through daily operation:
    - Use **Tax & IFTA** on Compliance Pro for PDF/CSV exports, Schedule C quarterly summaries, and IFTA fuel summaries. Exports include the selected currency code.
 
 8. **Use paid and fleet workflows when unlocked**
-   - Free users can use core logging, trip tracking, loads, and compliance basics.
+   - During the 30-day free trial every Compliance Pro feature is available; after it ends, the app requires a subscription.
    - Compliance Pro unlocks Tax & IFTA, HOS, Admin, custom categories, and exports.
    - Fleet Lite unlocks dispatcher view and live GPS sharing for 1 billing owner plus up to 5 driver/dispatcher seats. Drivers start sharing from **Dispatch/Fleet**, and owners refresh the dispatcher view to see current P&L and map links.
 
@@ -639,11 +629,11 @@ RigHand/
 After deployment, verify:
 1. Backend `/health` returns status healthy
 2. Frontend loads login screen
-3. Demo mode opens dashboard (Free tier — Pro tabs locked)
+3. Demo mode opens dashboard (Pro tabs locked)
 4. Real account login works (`REACT_APP_API_URL` must include `/api`)
 5. **+ Add Income** creates and saves a load payment
-6. **Tax & IFTA / Admin / HOS** show upgrade screen on Free tier
-7. **Dev: simulate payment** or `POST /verify-purchase` unlocks Pro tabs
+6. A new account shows the trial banner with days remaining; an account past 30 days sees the trial-ended screen
+7. **Dev: simulate payment** (local only) or a Stripe test-mode checkout unlocks Pro tabs
 8. **Trip Miles** — Manual, GPS, and OBD modes work (Android for OBD)
 9. **Compliance** — select Uganda/Kenya/Rwanda/EAC/EU and confirm checklist cards update
 10. **Currency localization** — Uganda shows UGX, Kenya shows KES, Rwanda shows RWF, EU shows EUR, and PDF/CSV exports include the selected currency
@@ -736,7 +726,7 @@ npm run cap:android   # open Android Studio
 In Android Studio: **Build → Generate Signed Bundle / APK → Android App Bundle (AAB)**.  
 Output: `android/app/release/app-release.aab`
 
-Create subscription products in Google Play Console matching backend env vars (`GOOGLE_PRODUCT_PRO`, `GOOGLE_PRODUCT_FLEET`). Wire Play Billing to call `window.RigHandBilling.onPurchase(...)` after a successful purchase.
+Paid plans are sold through Stripe, not Google Play Billing. Google Play's payments policy may require Play Billing for in-app digital subscriptions in the Android app, so review it before publishing a build that links to Stripe Checkout.
 
 ## 13. Purchase Tracking Dashboard (dbops-api)
 
@@ -744,8 +734,8 @@ RigHand emits purchase and milestone events to a separate **dbops-api** service 
 
 ### Flow
 
-1. Driver pays in Google Play (Pro or Fleet product)
-2. App calls `POST /api/subscriptions/verify-purchase` with order ID + product ID
+1. Driver pays through Stripe Checkout (Pro or Fleet)
+2. Stripe calls `POST /api/billing/webhook`; RigHand verifies the signature
 3. RigHand sets tier, unlocks features (and auto-creates fleet for Fleet tier)
 4. RigHand POSTs event to dbops-api webhook
 5. dbops-api logs to `righand_events.jsonl`
@@ -789,5 +779,5 @@ Proprietary. All rights reserved.
 
 Production web app live on Railway. Android debug APK builds locally with Capacitor.
 
-**Latest:** subscription tiers (Free / Pro / Fleet) with payment-triggered unlock, Pro API enforcement, upgrade UI, fleet auto-provisioning on Fleet purchase, admin CLI tools (`setup_fleet.py`, `reset_password.py`), purchase tracking via dbops-api, trip tracking (Manual / GPS / OBD), tabbed dashboard, reports, HOS clocks, fleet GPS sharing, themes, voice entry, jurisdiction-aware currency display in dashboards/exports, configurable cross-border compliance evidence fields, and regional transport compliance for Uganda, Kenya, Rwanda, EAC cross-border routes, and the EU region.
+**Latest:** 30-day free trial then paid plans (Pro / Fleet) via Stripe with payment-triggered unlock, Pro API enforcement, upgrade UI, fleet auto-provisioning on Fleet purchase, admin CLI tools (`setup_fleet.py`, `reset_password.py`), purchase tracking via dbops-api, trip tracking (Manual / GPS / OBD), tabbed dashboard, reports, HOS clocks, fleet GPS sharing, themes, voice entry, jurisdiction-aware currency display in dashboards/exports, configurable cross-border compliance evidence fields, and regional transport compliance for Uganda, Kenya, Rwanda, EAC cross-border routes, and the EU region.
 
