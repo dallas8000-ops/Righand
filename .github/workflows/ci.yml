@@ -46,3 +46,9 @@ jobs:
       - name: Backend tests
         working-directory: backend
         run: python manage.py test api
+
+      - name: dbops-api tests
+        working-directory: dbops-api
+        run: |
+          pip install -r requirements.txt
+          python -m unittest -v test_righand_webhook

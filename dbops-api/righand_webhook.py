@@ -4,6 +4,9 @@ Receives purchase/milestone events from RigHand AI and stores them for a persona
 Endpoint: POST /api/webhooks/righand
 Header: X-Webhook-Secret: <shared secret>
 
+Both secrets (DBOPS_WEBHOOK_SECRET, ADMIN_SECRET) are required. If either is
+unset, its endpoints refuse every request (fail closed) instead of accepting all.
+
 Register in your Flask app:
     from righand_webhook import righand_webhook_bp
     app.register_blueprint(righand_webhook_bp)
@@ -11,25 +14,45 @@ Register in your Flask app:
 
 from flask import Blueprint, request, jsonify
 from datetime import datetime, timezone
+import hmac
 import os
 import json
 
 righand_webhook_bp = Blueprint('righand_webhook', __name__)
 
-WEBHOOK_SECRET = os.environ.get('DBOPS_WEBHOOK_SECRET', '')
+
+def _secret_matches(supplied: str, expected: str) -> bool:
+    """Constant-time compare that fails closed when the expected secret is unset."""
+    if not expected:
+        return False
+    return hmac.compare_digest(supplied.encode('utf-8'), expected.encode('utf-8'))
+
+
+def _webhook_authorized() -> bool:
+    return _secret_matches(
+        request.headers.get('X-Webhook-Secret', ''),
+        os.environ.get('DBOPS_WEBHOOK_SECRET', ''),
+    )
+
+
+def _admin_authorized() -> bool:
+    return _secret_matches(
+        request.headers.get('X-Admin-Secret', ''),
+        os.environ.get('ADMIN_SECRET', ''),
+    )
 
 
 @righand_webhook_bp.route('/api/webhooks/righand', methods=['POST'])
 def receive_righand_event():
     """Receives purchase/milestone events from RigHand AI."""
-    if WEBHOOK_SECRET:
-        incoming = request.headers.get('X-Webhook-Secret', '')
-        if incoming != WEBHOOK_SECRET:
-            return jsonify({'error': 'unauthorized'}), 401
+    if not _webhook_authorized():
+        return jsonify({'error': 'unauthorized'}), 401
 
-    payload = request.get_json() or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({'error': 'JSON object body required'}), 400
     event = payload.get('event', 'unknown')
-    data = payload.get('data', {})
+    data = payload.get('data') if isinstance(payload.get('data'), dict) else {}
     timestamp = payload.get('timestamp', datetime.now(timezone.utc).isoformat())
 
     log_entry = {
@@ -66,8 +89,7 @@ def _send_owner_notification(data: dict):
 @righand_webhook_bp.route('/api/webhooks/righand/events', methods=['GET'])
 def list_events():
     """Returns logged RigHand events for the personal dashboard."""
-    secret = request.headers.get('X-Admin-Secret', '')
-    if secret != os.environ.get('ADMIN_SECRET', ''):
+    if not _admin_authorized():
         return jsonify({'error': 'unauthorized'}), 401
 
     log_path = os.environ.get('RIGHAND_LOG_PATH', 'righand_events.jsonl')
@@ -91,8 +113,7 @@ def list_events():
 @righand_webhook_bp.route('/api/webhooks/righand/summary', methods=['GET'])
 def events_summary():
     """Aggregated stats for the dashboard."""
-    secret = request.headers.get('X-Admin-Secret', '')
-    if secret != os.environ.get('ADMIN_SECRET', ''):
+    if not _admin_authorized():
         return jsonify({'error': 'unauthorized'}), 401
 
     log_path = os.environ.get('RIGHAND_LOG_PATH', 'righand_events.jsonl')
