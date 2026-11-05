@@ -58,7 +58,7 @@ const PrivacyPolicy = ({ onBack }) => (
       <p>We do not sell your data. We share it only with the services needed to run RigHand:</p>
       <ul>
         <li><strong>Railway</strong>: hosts our servers and database.</li>
-        <li><strong>Stripe and Google Play</strong>: process paid-plan payments. They handle your card details; we never see or store your card number.</li>
+        <li><strong>Stripe</strong>: processes paid-plan payments. Stripe handles your card details; we never see or store your card number.</li>
         <li><strong>Sentry</strong>: receives technical error reports (for example, browser or device type and the error that occurred) so we can fix problems.</li>
         <li><strong>OpenAI</strong>: receives the text being translated when you use translated captions.</li>
         <li><strong>Your fleet</strong>: if you join a fleet, its owner and dispatchers can see your name, duty status, shared location and the trip and profit figures shown in the dispatch view.</li>
