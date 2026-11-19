@@ -205,7 +205,7 @@ def emit_for_event(event_type: str, user: User, sub: Subscription, amount: float
     if event_type in ('purchase', 'upgrade', 'renew') and sub.tier == 'fleet':
         webhook_event = 'purchase_fleet' if event_type == 'purchase' else 'renewal_fleet'
     elif event_type == 'cancel' and sub.tier == 'free':
-        webhook_event = 'cancel_fleet' if amount >= 99 else 'cancel_pro'
+        webhook_event = 'cancel_fleet' if amount >= TIER_PRICES['fleet'] else 'cancel_pro'
 
     if webhook_event:
         emit_righand_event(webhook_event, subscriber_payload(user, sub, amount))
@@ -295,6 +295,70 @@ def apply_stripe_checkout_completed(session: dict) -> Subscription:
         google_order_id=session_id,
         google_product_id=price_id or f'stripe_{tier}',
     )
+
+
+# Stripe statuses after which the customer is no longer paying.
+STRIPE_ENDED_STATUSES = {'canceled', 'unpaid', 'incomplete_expired'}
+
+
+def _stripe_client():
+    secret_key = os.environ.get('STRIPE_SECRET_KEY', '').strip()
+    if not secret_key:
+        return None
+    import stripe
+    stripe.api_key = secret_key
+    return stripe
+
+
+def _live_stripe_subscriptions(user_id: str) -> list:
+    """Stripe subscriptions for this user that are still billing (metadata set at checkout)."""
+    stripe = _stripe_client()
+    if stripe is None:
+        return []
+    result = stripe.Subscription.search(query=f"metadata['user_id']:'{user_id}'", limit=100)
+    return [s for s in result.data if s.get('status') not in STRIPE_ENDED_STATUSES]
+
+
+def apply_stripe_subscription_ended(stripe_sub: dict):
+    """Downgrade to free when Stripe reports the subscription is over.
+
+    Covers cancellations made in the Stripe Customer Portal or dashboard and
+    cards that keep failing until Stripe gives up. Without this the account
+    stays on a paid tier forever after the money stops.
+    """
+    metadata = stripe_sub.get('metadata') or {}
+    user_id = metadata.get('user_id') or metadata.get('userId')
+    if not user_id:
+        return None
+    sub = Subscription.objects.filter(user_id=user_id).first()
+    if not sub or sub.tier not in ('pro', 'fleet'):
+        return sub
+
+    # A user who cancelled and re-subscribed still has a live subscription:
+    # the old one ending must not lock them out.
+    ended_id = stripe_sub.get('id')
+    if any(s.get('id') != ended_id for s in _live_stripe_subscriptions(user_id)):
+        return sub
+
+    prev_amount = TIER_PRICES.get(sub.tier, 0)
+    log_purchase_event(sub, 'cancel', 'free', 0.0, ended_id, 'stripe_subscription')
+    sub.tier = 'free'
+    sub.save()
+    user = User.objects.filter(pk=user_id).first()
+    if user:
+        emit_for_event('cancel', user, sub, prev_amount)
+    return sub
+
+
+def cancel_stripe_subscriptions_for_user(user_id: str) -> int:
+    """Stop Stripe billing for this user. Raises on Stripe API errors."""
+    stripe = _stripe_client()
+    if stripe is None:
+        return 0
+    live = _live_stripe_subscriptions(user_id)
+    for stripe_sub in live:
+        stripe.Subscription.cancel(stripe_sub['id'])
+    return len(live)
 
 
 def check_milestones():
