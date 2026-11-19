@@ -17,6 +17,8 @@ from api.utils import parse_json
 from subscription_service import (
     TIER_PRICES,
     apply_stripe_checkout_completed,
+    apply_stripe_subscription_ended,
+    cancel_stripe_subscriptions_for_user,
     apply_purchase_by_product,
     apply_tier_upgrade,
     catalog_product_ids,
@@ -29,6 +31,7 @@ from subscription_service import (
     log_purchase_event,
     resolve_product,
     utcnow,
+    STRIPE_ENDED_STATUSES,
 )
 
 FLUTTERWAVE_API = 'https://api.flutterwave.com/v3'
@@ -243,6 +246,18 @@ def stripe_webhook(request):
             return JsonResponse({'error': str(exc), 'eventType': event_type}, status=400)
         return JsonResponse({'received': True, 'eventType': event_type, **sub.to_dict()})
 
+    if event_type == 'customer.subscription.deleted' or (
+        event_type == 'customer.subscription.updated'
+        and event['data']['object'].get('status') in STRIPE_ENDED_STATUSES
+    ):
+        try:
+            sub = apply_stripe_subscription_ended(event['data']['object'])
+        except Exception as exc:
+            # 500 so Stripe retries: a missed cancellation means unpaid access.
+            return JsonResponse({'error': f'Downgrade failed: {exc}', 'eventType': event_type}, status=500)
+        payload = sub.to_dict() if sub else {}
+        return JsonResponse({'received': True, 'eventType': event_type, **payload})
+
     return JsonResponse({'received': True, 'eventType': event_type})
 
 
@@ -279,6 +294,13 @@ def cancel_subscription(request):
 
     if not sub or sub.tier not in ('pro', 'fleet'):
         return JsonResponse({'error': 'No active paid subscription'}, status=404)
+
+    # Stop the card being charged before removing access; otherwise the user is
+    # downgraded here while Stripe keeps billing them every month.
+    try:
+        cancel_stripe_subscriptions_for_user(user_id)
+    except Exception as exc:
+        return JsonResponse({'error': f'Could not cancel billing with Stripe: {exc}'}, status=502)
 
     from subscription_service import emit_for_event
 
